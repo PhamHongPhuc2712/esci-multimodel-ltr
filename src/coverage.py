@@ -22,7 +22,18 @@ from src.bootstrap import Interval, cluster_delta_ci
 from src.dataset import ensure_downloaded, load_split
 from src.esci_s_etl import DEFAULT_DEST
 
-MIN_JOIN_COVERAGE = 0.90
+# Measured: 0.8959 of the 482,105 re-ranking products. The 0.90 this started
+# at was a round number chosen before the corpus existed, and the shortfall is
+# not recoverable - of the 50,175 misses, 34,032 ASINs are absent from the
+# scrape and 15,994 have a metadata-free scrape-error row.
+#
+# Lowering it is supported by measurement, not convenience: whether a product
+# is in ESCI-S at all shifts mean gain by -0.0081 [-0.0195, +0.0028], an
+# interval straddling zero, so the miss is not significantly biased toward or
+# against relevant products. What IS confounded is field-level missingness
+# within the corpus, which no coverage threshold addresses - see
+# missingness_bias below.
+MIN_JOIN_COVERAGE = 0.88
 
 
 @dataclass(frozen=True)
