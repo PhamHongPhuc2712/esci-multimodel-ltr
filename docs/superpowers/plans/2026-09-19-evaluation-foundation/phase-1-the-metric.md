@@ -230,7 +230,7 @@ git commit -m "Add project scaffolding and ESCI label gain tables"
 
 Iterating over `qrels` rather than `run` is the design decision that makes Review Focus items 1 and 3 impossible to get wrong by accident: a query the run never scored is a hard error, and a query the run scored partially is still divided by the full ideal.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_metrics.py`:
 
@@ -363,7 +363,7 @@ def test_mean_of_empty_qrels_raises():
         mean_ndcg({}, {})
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_metrics.py -v
@@ -371,7 +371,7 @@ python -m pytest tests/test_metrics.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.metrics'`.
 
-- [ ] **Step 3: Write `src/metrics.py`**
+- [x] **Step 3: Write `src/metrics.py`**
 
 ```python
 """Full-list NDCG for ESCI Task 1.
@@ -434,7 +434,7 @@ def mean_ndcg(run: Run, qrels: Qrels) -> float:
     return sum(per_query.values()) / len(per_query)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_metrics.py -v
@@ -442,7 +442,7 @@ python -m pytest tests/test_metrics.py -v
 
 Expected: PASS, 14 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/metrics.py tests/test_metrics.py
