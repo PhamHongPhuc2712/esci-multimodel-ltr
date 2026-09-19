@@ -70,7 +70,9 @@ mapping it is 0.7141 — a 3.3-point difference, larger than most method gains.
 bucket and return HTTP 400. `src/esci_images.py:normalize_url` strips it (0% → 100%
 resolution; a no-op on clean URLs). Always go through `image_url()`, which also
 handles the fact that **products store the URL in `image` but books store it in
-`img`** — books are ~7% of the corpus and reading only `image` drops them silently.
+`img`** — reading only `image` drops every book silently. Books are 7.4% of
+all-locale records but **5.74% of the `us` non-error corpus** (measured: 61,999 of
+1,080,262), so quote the locale with the number.
 Books likewise use `desc`/`attr` where products use `description`/`attrs`.
 
 **Real image coverage is ~75%**, not the headline 91.5%: 91.5% of ASINs in ESCI-S
@@ -85,6 +87,20 @@ and test (84.6%) and roughly label-balanced, so the both-splits premise holds.
 Best Sellers Rank 46.2%, `attrs` 57.9%, `info` 53.3%. LightGBM handles the NaNs
 natively — keep sparse features with missingness indicators, but the behavioural
 ablation rests on the dense ones.
+
+**Those sparse percentages count the *product* key only.** Once the book
+spellings are unified into the same column, the shares rise: `attrs`∪`attr` is
+63.4% (product 57.7 + book 5.7) and the image URL is 86.3% (product 82.1 + book
+4.2). A corpus reproducing 57.9% / 84.7% is one that dropped every book. Verified
+against all 1,080,262 `us` non-error rows.
+
+**`info` is product-only — 0 of 61,999 `us` books carry one.** Best Sellers Rank
+lives in `info`, so for books it is *structurally* absent, not missing at random.
+Averaging over that NaN treats a page-layout difference as a behavioural signal.
+
+**Field-presence bands do not detect a dropped-books pass.** Losing every book
+moves the image URL share by 0.8 points and `attrs` by 2.2 — both inside any
+sane tolerance. Assert the book share directly; `src/esci_s_etl.py` does.
 
 **The GitHub `sample.json.gz` in shuttie/esci-s has no `image` field at all.** It is
 stale against the real 3.4 GB file. Never validate the image pipeline against it.

@@ -89,7 +89,7 @@ def _main() -> int:
                     if url := image_url(rec):
                         urls.append(url)
         except zstandard.ZstdError:
-            pass  # expected when the input is a truncated prefix
+            pass  # a damaged frame; a prefix simply ends early without raising
 
     if not urls:
         print("no image URLs found")

@@ -30,7 +30,7 @@ ones this phase's code can get wrong:
 
 - **One streaming pass.** Single-frame zstd: no random access, no resumable ranged decompression. Filter, normalise and write in the same pass.
 - **A truncated stream is a corrupt corpus, not a short one — and zstandard will not tell you.** `stream_reader.read()` returns short and then returns `b""`; it never raises. Check `decompressobj().eof` and the frame's declared `content_size`.
-- **Asserted field presence over `us` non-error records** (tolerance ±0.02): `template` 1.000, `ratings` 0.977, `stars` 0.974, `category` 0.954, image URL 0.847, `attrs` 0.579, `info` 0.533, Best Sellers Rank 0.462, `price` 0.291.
+- **Asserted field presence over all 1,080,262 `us` non-error rows** (tolerance ±0.02): `template` 1.000, `ratings` 0.977, `stars` 0.974, `category` 0.954, image URL 0.863, `attrs`∪`attr` 0.634, `info` 0.534, Best Sellers Rank 0.464, `price` 0.292 — plus a book share in [0.04, 0.09], which is the only one of these that actually catches a dropped-books pass.
 - **Join coverage is measured against this project's product set**, not ESCI-S's headline 91.5% over all 1,814,925 ESCI ASINs across every locale.
 - **Bootstrap over queries, not judgements.** Judgements are clustered within queries; ~20 per query.
 - **Do not commit datasets.** The corpus Parquet is not committed; the JSON reports under `docs/results/` are.
@@ -57,7 +57,7 @@ ones this phase's code can get wrong:
   - `src.esci_s_etl.check_corpus_invariants(stats: EtlStats) -> None`
   - `python -m src.esci_s_etl`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_esci_s_etl.py`:
 
@@ -225,17 +225,22 @@ def test_truncated_source_raises(tmp_path):
 
 
 def test_a_stream_reader_would_have_missed_this(tmp_path):
-    # Pins the library behaviour the check exists for, so that a future
+    # Pins the library behaviour the eof check exists for, so that a future
     # zstandard release which starts raising does not make the guard above
     # look redundant and get deleted.
+    #
+    # The point is the silence, not the byte count: how much comes back
+    # depends on where the cut falls relative to a zstd block boundary. For
+    # this small fixture it is 0 bytes; for a 34,219-byte frame it was
+    # 3,670,016 of 7,420,000. Either way nothing is raised.
     source = _source(tmp_path, _mixed_records(), truncate=True)
+    complete = len(b"".join(json.dumps(r).encode() + b"\n" for r in _mixed_records()))
     got = 0
     with source.open("rb") as handle:
         reader = zstandard.ZstdDecompressor().stream_reader(handle)
         while chunk := reader.read(1 << 20):
             got += len(chunk)
-    assert got > 0  # it returned data
-    # ...and never raised, which is the whole problem.
+    assert got < complete  # short, and no exception on the way here
 
 
 def test_the_fixtures_declare_a_content_size(tmp_path):
@@ -283,42 +288,53 @@ def test_a_final_record_without_a_trailing_newline_is_kept(tmp_path):
 
 # --- invariants -------------------------------------------------------------
 
-def test_invariants_accept_the_documented_presence():
-    stats = EtlStats(rows_written=1000, products=940, books=60)
+def _measured_stats(**overrides) -> EtlStats:
+    """A stats object matching what the real 1,080,262-row pass produced."""
+    stats = EtlStats(rows_written=1000, products=943, books=57)
     stats.present.update(
         {
             "template": 1000,
             "ratings": 977,
             "stars": 974,
             "category": 954,
-            "image_url": 847,
-            "attrs_json": 579,
-            "info_json": 533,
-            "bsr_rank": 462,
-            "price": 291,
+            "image_url": 863,
+            "attrs_json": 634,
+            "info_json": 534,
+            "bsr_rank": 464,
+            "price": 292,
         }
     )
-    check_corpus_invariants(stats)
+    for key, value in overrides.items():
+        setattr(stats, key, value)
+    return stats
+
+
+def test_invariants_accept_the_documented_presence():
+    check_corpus_invariants(_measured_stats())
 
 
 def test_invariants_reject_a_corpus_that_lost_its_books():
-    # The signature of reading only record["image"]/["description"]: dense
-    # fields hold up, but the image and description coverage sag.
-    stats = EtlStats(rows_written=1000, products=1000, books=0)
-    stats.present.update(
-        {
-            "template": 1000,
-            "ratings": 977,
-            "stars": 974,
-            "category": 954,
-            "image_url": 600,
-            "attrs_json": 579,
-            "info_json": 533,
-            "bsr_rank": 462,
-            "price": 291,
-        }
-    )
+    # Measured: dropping every book moves image_url by only 0.8 points and
+    # attrs_json by 2.2, so the presence bands do NOT reliably catch this.
+    # The book-share assertion is what does.
+    stats = _measured_stats(books=0, products=1000)
+    with pytest.raises(CorpusInvariantError, match="books are"):
+        check_corpus_invariants(stats)
+
+
+def test_invariants_reject_a_field_that_sags():
+    stats = _measured_stats()
+    stats.present["image_url"] = 600
     with pytest.raises(CorpusInvariantError, match="image_url"):
+        check_corpus_invariants(stats)
+
+
+def test_invariants_reject_a_corpus_matching_the_product_only_figures():
+    # CLAUDE.md's attrs 0.579 / image 0.847 count the product key alone. A
+    # corpus that reproduced them would be one that unified nothing.
+    stats = _measured_stats()
+    stats.present["attrs_json"] = 579
+    with pytest.raises(CorpusInvariantError, match="attrs_json"):
         check_corpus_invariants(stats)
 
 
@@ -343,7 +359,7 @@ def test_real_corpus_satisfies_every_invariant():
         assert abs(present - expected) <= PRESENCE_TOLERANCE, (column, present)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_esci_s_etl.py -v
@@ -351,7 +367,7 @@ python -m pytest tests/test_esci_s_etl.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.esci_s_etl'`.
 
-- [ ] **Step 3: Write `src/esci_s_etl.py`**
+- [x] **Step 3: Write `src/esci_s_etl.py`**
 
 ```python
 """The one streaming pass over ESCI-S.
@@ -415,20 +431,35 @@ SCHEMA = pa.schema(
     ]
 )
 
-# Measured over `us` non-error records on a 500,356-record prefix of the real
-# file; reproduces CLAUDE.md's documented values to within 0.3 points.
+# Measured over all 1,080,262 `us` non-error rows of the real file.
+#
+# Two of these deliberately differ from the figures in CLAUDE.md, and the gap
+# is the books. CLAUDE.md counts the *product* key only; this corpus unifies
+# the book spelling into the same column, so the share is higher:
+#
+#   attrs_json  product `attrs` 0.5771 + book `attr` 0.0571 = 0.6342  (vs 0.579)
+#   image_url   product `image` 0.8213 + book `img`  0.0418 = 0.8630  (vs 0.847)
+#
+# A corpus that matched CLAUDE.md on these two would be one that had dropped
+# every book.
 EXPECTED_PRESENCE: dict[str, float] = {
     "template": 1.000,
     "ratings": 0.977,
     "stars": 0.974,
     "category": 0.954,
-    "image_url": 0.847,
-    "attrs_json": 0.579,
-    "info_json": 0.533,
-    "bsr_rank": 0.462,
-    "price": 0.291,
+    "image_url": 0.863,
+    "attrs_json": 0.634,
+    "info_json": 0.534,
+    "bsr_rank": 0.464,
+    "price": 0.292,
 }
 PRESENCE_TOLERANCE = 0.02
+
+# Books are 5.74% of `us` non-error rows. The presence bands above turn out
+# NOT to catch a pass that drops them - losing every book moves image_url by
+# only 0.8 points, well inside the tolerance - so the share is asserted
+# directly. This is the corpus-level guard for Review Focus item 1.
+EXPECTED_BOOK_SHARE = (0.04, 0.09)
 
 
 class TruncatedSourceError(RuntimeError):
@@ -614,6 +645,16 @@ def check_corpus_invariants(stats: EtlStats) -> None:
             "source is the real 3.4 GB file rather than the stale "
             "sample.json.gz from the GitHub repo, which has no image field"
         )
+    low, high = EXPECTED_BOOK_SHARE
+    book_share = stats.books / stats.rows_written
+    if not low <= book_share <= high:
+        raise CorpusInvariantError(
+            f"books are {book_share:.4f} of the corpus, expected between "
+            f"{low} and {high}. Zero means the pass is filtering on "
+            "product-only keys and has dropped every book; the field-presence "
+            "bands below will not catch that on their own."
+        )
+
     observed = stats.presence()
     for name, expected in EXPECTED_PRESENCE.items():
         seen = observed[name]
@@ -658,7 +699,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_esci_s_etl.py -v
@@ -666,7 +707,7 @@ python -m pytest tests/test_esci_s_etl.py -v
 
 Expected: PASS, 15 tests; the `data`-marked corpus test is deselected.
 
-- [ ] **Step 5: Download the source and run the real pass**
+- [x] **Step 5: Download the source and run the real pass**
 
 The file is 3.4 GB of single-frame zstd. Download to a `.part` and rename only
 on success — an interrupted download leaves a prefix that decompresses fine up
@@ -699,7 +740,7 @@ Work through, in order:
 4. Is the source the real 3.4 GB file, and not `sample.json.gz` from the GitHub
    repo? That sample has no `image` field at all.
 
-- [ ] **Step 6: Record the measured book share**
+- [x] **Step 6: Record the measured book share**
 
 `CLAUDE.md` says books are "~7% of the corpus". That figure is across all
 locales; measured on a `us`-only 500,356-record prefix it is 5.8%. Print the
@@ -715,7 +756,7 @@ print(types.value_counts(normalize=True).to_dict())
 "
 ```
 
-- [ ] **Step 7: Correct the stale comment in `src/esci_images.py`**
+- [x] **Step 7: Correct the stale comment in `src/esci_images.py`**
 
 That module catches `zstandard.ZstdError` around its read loop with the
 comment `# expected when the input is a truncated prefix`. Measured on
@@ -729,7 +770,7 @@ opposite two files away. Replace it:
             pass  # a damaged frame; a prefix simply ends early without raising
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/esci_s_etl.py tests/test_esci_s_etl.py src/esci_images.py CLAUDE.md
