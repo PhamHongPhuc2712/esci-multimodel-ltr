@@ -23,12 +23,21 @@ ranked. Recall is evaluated separately (Recall@k over the corpus) from ranking
 ## Commands
 
 ```bash
+# Environment (the venv has no pip; use uv, or python -m pip in a pip-bearing venv)
+uv venv --python 3.13 .venv && source .venv/bin/activate
+uv pip install -e ".[dev]"          # add ".[dev,baselines]" for the SBERT baseline
+
+# Tests. Bare pytest deselects the `data` and `slow` markers (pyproject addopts),
+# so it stays fast enough to run after every edit.
+python -m pytest                    # fast suite
+python -m pytest -m data            # needs the real ESCI parquet on disk
+python -m pytest -m slow            # minutes-long, e.g. the SBERT baseline
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
 
-There is no build step, test suite, or linter configured yet. When adding tests,
-record the invocation here.
+There is no linter configured yet.
 
 ## Data invariants
 

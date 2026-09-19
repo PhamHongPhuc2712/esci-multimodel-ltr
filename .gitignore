@@ -18,3 +18,6 @@ images/
 runs/
 models/
 *.log
+
+# Frozen split artifacts live in splits/ (not data/) precisely so they escape
+# the data/ rule above and can be committed. Keep them there.

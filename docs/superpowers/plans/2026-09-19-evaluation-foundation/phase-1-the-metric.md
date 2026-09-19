@@ -39,7 +39,7 @@ ones this phase's code can get wrong:
 - Consumes: nothing.
 - Produces: `src.labels.ESCI_GAINS: dict[str, float]`, `src.labels.ESCI_QRELS: dict[str, int]`, `src.labels.QREL_SCALE: int`, `src.labels.label_to_gain(label: str) -> float`, `src.labels.label_to_qrel(label: str) -> int`. Both functions raise `ValueError` on an unknown label.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_labels.py`:
 
@@ -90,7 +90,7 @@ def test_unknown_label_raises():
         label_to_qrel("X")
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_labels.py -v
@@ -98,7 +98,7 @@ python -m pytest tests/test_labels.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.labels'`.
 
-- [ ] **Step 3: Write `pyproject.toml`**
+- [x] **Step 3: Write `pyproject.toml`**
 
 ```toml
 [build-system]
@@ -141,7 +141,7 @@ markers = [
 
 The `addopts` line matters: the real parquet is ~1 GB and the SBERT baseline takes ~10 minutes on CPU. `pytest` with no arguments must stay fast enough to run after every edit, so the tests that need either are marked and deselected by default.
 
-- [ ] **Step 4: Write `src/labels.py`**
+- [x] **Step 4: Write `src/labels.py`**
 
 ```python
 """ESCI relevance labels and their gain values.
@@ -182,7 +182,7 @@ def label_to_qrel(label: str) -> int:
         raise ValueError(f"unknown ESCI label {label!r}; expected one of E, S, C, I") from None
 ```
 
-- [ ] **Step 5: Add the results directory to git and adjust `.gitignore`**
+- [x] **Step 5: Add the results directory to git and adjust `.gitignore`**
 
 `.gitignore` already blocks `data/`, `runs/`, `*.parquet` and `*.npy`, which is correct — raw data and run files are outputs. Append a short note so the next person does not "fix" it by un-ignoring `data/`:
 
@@ -194,7 +194,7 @@ cat >> .gitignore <<'EOF'
 EOF
 ```
 
-- [ ] **Step 6: Install and run the tests to verify they pass**
+- [x] **Step 6: Install and run the tests to verify they pass**
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -205,7 +205,7 @@ Expected: PASS, 6 tests.
 
 If `pytrec-eval-terrier` fails to build, it needs a C toolchain: `sudo apt-get install -y build-essential python3-dev` then retry. Do not skip it — Task 3 uses it as the correctness oracle and there is no substitute.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add pyproject.toml src/labels.py tests/test_labels.py .gitignore
