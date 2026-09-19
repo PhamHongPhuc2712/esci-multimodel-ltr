@@ -53,7 +53,7 @@ lines with real calls. That ordering is deliberate: it keeps the structural
 unification reviewable on its own, and the two tasks fail for different
 reasons.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_esci_s.py`:
 
@@ -244,7 +244,7 @@ def test_scrape_error_row_raises_rather_than_yielding_an_empty_row():
         normalise_record(error_row)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_esci_s.py -v
@@ -252,7 +252,7 @@ python -m pytest tests/test_esci_s.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.esci_s'`.
 
-- [ ] **Step 3: Write `src/esci_s.py`**
+- [x] **Step 3: Write `src/esci_s.py`**
 
 ```python
 """One ESCI-S record -> one flat typed row.
@@ -383,7 +383,7 @@ def normalise_record(
     }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_esci_s.py -v
@@ -391,7 +391,7 @@ python -m pytest tests/test_esci_s.py -v
 
 Expected: PASS, 19 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/esci_s.py tests/test_esci_s.py
