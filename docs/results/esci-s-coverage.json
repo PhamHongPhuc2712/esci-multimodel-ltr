@@ -1,0 +1,21 @@
+{
+  "corpus_rows": 1080262,
+  "scopes": [
+    {
+      "scope": "rerank",
+      "n_products": 482105,
+      "n_matched": 431930,
+      "coverage": 0.8959251615312017,
+      "n_with_image": 373776,
+      "image_coverage": 0.7752999865174599
+    },
+    {
+      "scope": "catalogue",
+      "n_products": 1215854,
+      "n_matched": 1080262,
+      "coverage": 0.8884800313195499,
+      "n_with_image": 932320,
+      "image_coverage": 0.7668025930744974
+    }
+  ]
+}

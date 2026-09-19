@@ -802,7 +802,7 @@ Two scopes, because the funnel needs both and they are different numbers:
 product in the ESCI products parquet (1,215,851), which is what Plan 4 recalls
 over. The gate is on the rerank scope.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_coverage.py`:
 
@@ -881,7 +881,7 @@ def test_real_join_coverage_clears_the_gate():
     assert rerank["coverage"] >= MIN_JOIN_COVERAGE
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_coverage.py -v
@@ -889,7 +889,7 @@ python -m pytest tests/test_coverage.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.coverage'`.
 
-- [ ] **Step 3: Write `src/coverage.py`**
+- [x] **Step 3: Write `src/coverage.py`**
 
 ```python
 """Join coverage and missingness bias for the ESCI-S enrichment corpus.
@@ -988,7 +988,7 @@ def join_coverage(
     )
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_coverage.py -v
@@ -996,7 +996,7 @@ python -m pytest tests/test_coverage.py -v
 
 Expected: PASS, 8 tests; the `data`-marked test is deselected.
 
-- [ ] **Step 5: Measure the real coverage and commit the record**
+- [x] **Step 5: Measure the real coverage and commit the record**
 
 ```bash
 python -c "
@@ -1025,7 +1025,7 @@ near 0.75 rather than 0.915.
 ETL ran over the full file (`records_read` ≈ 1.66M) and that the ASINs are being
 compared as strings on both sides before concluding that ESCI-S is too thin.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/coverage.py tests/test_coverage.py docs/results/esci-s-coverage.json
