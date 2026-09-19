@@ -42,6 +42,7 @@ python -m src.cli freeze-splits
 # Enrichment corpus (one streaming pass over the 3.4 GB ESCI-S zstd)
 python -m src.esci_s_etl                      # -> data/esci-s/corpus.parquet
 python -m src.coverage --split test           # join coverage + missingness bias
+python -m src.combine                         # -> data/combined/{products,judgements}.parquet
 
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
