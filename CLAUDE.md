@@ -137,6 +137,23 @@ behavioural ablation tolerates, so it was reclassified. The dense set is
 **The GitHub `sample.json.gz` in shuttie/esci-s has no `image` field at all.** It is
 stale against the real 3.4 GB file. Never validate the image pipeline against it.
 
+**The combined tables are two files, not one, on purpose.** `python -m src.combine`
+writes `data/combined/products.parquet` (1,215,854 `us` products, no labels) and
+`data/combined/judgements.parquet` (601,354 rows with `split` and the frozen
+`fold`; test rows carry `fold = -1`). Keeping labels out of the product table is
+what stops product-level target encoding being one groupby away — 34,756
+products appear in both splits. `combine_products` raises if a label column ever
+appears there. ESCI-S columns are prefixed `s_` because both datasets have a
+`title` and a `description`.
+
+**Use the coalesced `description` column, not either source.** ESCI has a
+description for 52.2% of judged products and ESCI-S fills a further 37.0%,
+taking the union to **89.2%**. The two are confounded with the label in
+*opposite* directions (+0.0198 and -0.0257 mean gain, both significant) and the
+coalesce largely cancels it: the combined column measures **-0.0065
+[-0.0178, +0.0040]**, not significant. `description_source` records which side
+supplied it.
+
 ## Evaluation discipline
 
 - **34,756 products appear in both train and test.** The official split is
@@ -146,6 +163,30 @@ stale against the real 3.4 GB file. Never validate the image pipeline against it
   (GroupKFold) and freeze it before tuning anything. Never split within a query group.
 - Always report against the random floor with bootstrap CIs over queries. A method
   that ties the baseline is a legitimate, reportable result.
+- **Field *presence* is itself a ranker, and only some of it is legitimate.**
+  Measured by scoring test judgements on presence patterns alone, fitted on
+  train (pattern-optimal, so a true ceiling):
+
+  | presence flags only | NDCG | lift over the 0.7467 floor |
+  |---|---|---|
+  | ESCI's own (`product_brand`, `product_color`, …) | 0.7519 | +0.0052 |
+  | ESCI-S's (`s_*`) | 0.7552 | **+0.0084** |
+  | both | 0.7633 | +0.0166 |
+  | *SBERT zero-shot, for scale* | *0.8294* | *+0.0827* |
+
+  **ESCI presence is legitimate** — a production ranker also knows whether a
+  product has a brand. **ESCI-S presence is an artefact**: "our 2022 scrape
+  failed on this page" is not available at serving time. So the ~+0.0084 must be
+  subtracted from any behavioural-feature result, not assumed away. Ablation 4
+  therefore needs three arms — text only, text + values + indicators, and
+  **indicators only** — and the honest contribution is arm 2 − arm 3.
+  The effects are super-additive (+0.0166 > +0.0052 + +0.0084), so the combined
+  bias cannot be bounded by adding the parts.
+- **Correlation size and ranking value are different questions.** `product_brand`
+  missingness carries the largest label correlation in the dataset (+0.0567
+  [+0.0382, +0.0755]) yet all four ESCI presence flags together buy only +0.0052
+  NDCG, because brand is present 94.9% of the time. Report the NDCG, not the
+  correlation. §4.2's planned brand-match and colour-match features inherit this.
 
 ## Scale
 

@@ -36,6 +36,15 @@ A written plan gets its own directory and is split into phase files when a singl
 
 Start at a plan's `README.md`.
 
+## Outside the plan series
+
+`src/combine.py` (`python -m src.combine`) joins Plan 1's ESCI loader and Plan
+2's ESCI-S corpus into `data/combined/{products,judgements}.parquet` — the
+tables Plans 4 and 5 read. It is not a plan deliverable; it was built when the
+two halves first existed and both were needed in one place. Its `description`
+coalesce takes description coverage from 52.2% to 89.2%, which is the single
+largest text gain the enrichment provides.
+
 ## Ablation ownership
 
 Every row of the spec's §6 table is owned by exactly one plan. No plan is
