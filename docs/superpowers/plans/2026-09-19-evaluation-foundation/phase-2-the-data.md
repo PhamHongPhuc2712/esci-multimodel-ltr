@@ -63,7 +63,7 @@ ones this phase's code can get wrong:
 `EsciSplit.judgements` columns: `example_id` (int64), `query_id` (int64), `query` (str), `product_id` (str), `esci_label` (str), `gain` (float64), `qrel` (int64).
 `EsciSplit.products` columns: `product_id`, `product_title`, `product_description`, `product_bullet_point`, `product_brand`, `product_color` — restricted to the `product_id` values appearing in `judgements`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_dataset.py`:
 
@@ -222,7 +222,7 @@ def test_products_overlap_between_splits_is_the_documented_size():
     assert len(train & test) == 34_756
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_dataset.py -v
@@ -230,7 +230,7 @@ python -m pytest tests/test_dataset.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.dataset'`.
 
-- [ ] **Step 3: Write `src/dataset.py`**
+- [x] **Step 3: Write `src/dataset.py`**
 
 ```python
 """Load the official Amazon ESCI Task 1 English data, and refuse the wrong file.
@@ -441,7 +441,7 @@ def load_split(split: str, data_dir_override: Path | None = None) -> EsciSplit:
     return EsciSplit(name=split, judgements=judgements, products=products)
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_dataset.py -v
@@ -449,7 +449,7 @@ python -m pytest tests/test_dataset.py -v
 
 Expected: PASS, 8 tests. The two `@pytest.mark.data` tests are deselected.
 
-- [ ] **Step 5: Download the real data and run the marked tests**
+- [x] **Step 5: Download the real data and run the marked tests**
 
 ```bash
 python -c "from src.dataset import ensure_downloaded; ensure_downloaded('examples'); ensure_downloaded('products')"
@@ -460,7 +460,7 @@ Expected: PASS, 3 tests (train, test, and the overlap check). ~1.08 GB downloade
 
 If `test_real_split_satisfies_every_invariant[test]` fails on the judgement count, read the error message before touching the expected numbers — the numbers in `EXPECTED_STATS` were verified empirically and are not the thing that is wrong.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/dataset.py tests/test_dataset.py
