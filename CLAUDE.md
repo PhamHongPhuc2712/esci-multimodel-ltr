@@ -32,6 +32,12 @@ uv pip install -e ".[dev]"          # add ".[dev,baselines]" for the SBERT basel
 python -m pytest                    # fast suite
 python -m pytest -m data            # needs the real ESCI parquet on disk
 python -m pytest -m slow            # minutes-long, e.g. the SBERT baseline
+python -m pytest -m "data and slow" -s   # the 100-trial random floor, printed
+
+# Evaluation. Every headline NDCG carries the measured floor beside it.
+python -m src.cli floor --split test
+python -m src.cli evaluate --run runs/<name>.trec --split test --tag <name>
+python -m src.cli freeze-splits
 
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine

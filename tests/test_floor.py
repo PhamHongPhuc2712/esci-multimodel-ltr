@@ -84,3 +84,11 @@ def test_real_test_split_floor_is_near_the_documented_measurement():
     # exponential gain, a wrong discount, or a degenerate uniform gain (1.0).
     # It is not a precision check on the fourth decimal.
     assert 0.730 < result.mean < 0.780
+
+
+def test_per_query_floor_averages_to_the_headline_floor():
+    qrels = {f"q{i}": {"a": 100, "b": 10, "c": 0} for i in range(30)}
+    result = random_floor(qrels, n_trials=10, seed=0)
+    assert set(result.per_query) == set(qrels)
+    mean_of_per_query = sum(result.per_query.values()) / len(result.per_query)
+    assert mean_of_per_query == pytest.approx(result.mean)

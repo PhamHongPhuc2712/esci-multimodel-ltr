@@ -25,6 +25,7 @@ class FloorResult:
     mean: float
     low: float
     high: float
+    per_query: dict[str, float]
     per_trial: tuple[float, ...]
     n_trials: int
     seed: int
@@ -57,10 +58,14 @@ def random_floor(
 
     rng = random.Random(seed)
     per_trial: list[float] = []
+    totals: dict[str, float] = {qid: 0.0 for qid in qrels}
     for _ in range(n_trials):
         scores = ndcg_per_query(random_run(qrels, rng), qrels)
+        for qid, score in scores.items():
+            totals[qid] += score
         per_trial.append(sum(scores.values()) / len(scores))
 
+    per_query = {qid: total / n_trials for qid, total in totals.items()}
     ordered = sorted(per_trial)
     low_index = int((alpha / 2) * (len(ordered) - 1))
     high_index = int((1 - alpha / 2) * (len(ordered) - 1))
@@ -68,6 +73,7 @@ def random_floor(
         mean=statistics.fmean(per_trial),
         low=ordered[low_index],
         high=ordered[high_index],
+        per_query=per_query,
         per_trial=tuple(per_trial),
         n_trials=n_trials,
         seed=seed,

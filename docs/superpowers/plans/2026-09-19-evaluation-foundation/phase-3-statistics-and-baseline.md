@@ -574,7 +574,7 @@ git commit -m "Freeze query-level validation folds carved from the train split"
 
 `lift_over_floor` is a **paired** delta: the run's per-query NDCG minus the random baseline's per-query mean NDCG, over the same queries. That is the number the spec means by "always report against the random floor" — a bare difference of two means hides whether the gain is uniform or comes from a handful of queries.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_report.py`:
 
@@ -670,7 +670,7 @@ def test_evaluating_a_run_that_skips_a_query_raises():
         evaluate_run(run, qrels, run_tag="t", split="test", n_floor_trials=5)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_report.py -v
@@ -678,7 +678,7 @@ python -m pytest tests/test_report.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.report'`.
 
-- [ ] **Step 3: Write `src/report.py`**
+- [x] **Step 3: Write `src/report.py`**
 
 ```python
 """Assemble an evaluation report: NDCG, its interval, and the floor it beats.
@@ -780,7 +780,7 @@ def write_report(report: EvaluationReport, path: Path) -> None:
     path.write_text(json.dumps(report.to_dict(), indent=2) + "\n", encoding="utf-8")
 ```
 
-- [ ] **Step 4: Add `per_query` to `FloorResult` in `src/floor.py`**
+- [x] **Step 4: Add `per_query` to `FloorResult` in `src/floor.py`**
 
 `evaluate_run` needs the floor's per-query scores to pair against. Change the dataclass and the loop in `src/floor.py`:
 
@@ -824,7 +824,7 @@ def test_per_query_floor_averages_to_the_headline_floor():
     assert mean_of_per_query == pytest.approx(result.mean)
 ```
 
-- [ ] **Step 5: Write `src/cli.py`**
+- [x] **Step 5: Write `src/cli.py`**
 
 ```python
 """Command line entry point: python -m src.cli {evaluate,floor,freeze-splits}."""
@@ -908,7 +908,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 6: Run the whole fast suite to verify it passes**
+- [x] **Step 6: Run the whole fast suite to verify it passes**
 
 ```bash
 python -m pytest -v
@@ -916,7 +916,7 @@ python -m pytest -v
 
 Expected: PASS. No failures, no errors. `tests/test_metrics_vs_pytrec.py` must not skip.
 
-- [ ] **Step 7: Record the commands in `CLAUDE.md`**
+- [x] **Step 7: Record the commands in `CLAUDE.md`**
 
 `CLAUDE.md` says "There is no build step, test suite, or linter configured yet. When adding tests, record the invocation here." Replace that Commands block with:
 
@@ -946,7 +946,7 @@ python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is 
 ```
 ````
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/report.py src/cli.py src/floor.py tests/test_report.py tests/test_floor.py CLAUDE.md
