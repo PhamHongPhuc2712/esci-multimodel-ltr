@@ -1,6 +1,14 @@
 import pytest
 
-from src.esci_s import CORPUS_COLUMNS, is_book, normalise_record
+from src.esci_s import (
+    CORPUS_COLUMNS,
+    is_book,
+    normalise_record,
+    parse_best_sellers_rank,
+    parse_price,
+    parse_ratings,
+    parse_stars,
+)
 
 
 def _product() -> dict:
@@ -182,3 +190,119 @@ def test_scrape_error_row_raises_rather_than_yielding_an_empty_row():
     }
     with pytest.raises(ValueError, match="scrape-error row"):
         normalise_record(error_row)
+
+
+# --- stars ------------------------------------------------------------------
+
+def test_parse_stars_reads_the_real_format():
+    assert parse_stars("4.7 out of 5 stars") == 4.7
+
+
+def test_parse_stars_handles_a_whole_number():
+    assert parse_stars("4.0 out of 5 stars") == 4.0
+    assert parse_stars("5 out of 5 stars") == 5.0
+
+
+def test_parse_stars_returns_none_for_absent_or_unrecognised():
+    assert parse_stars(None) is None
+    assert parse_stars("") is None
+    assert parse_stars("great product") is None
+
+
+# --- ratings ----------------------------------------------------------------
+
+def test_parse_ratings_strips_thousands_separators():
+    assert parse_ratings("1,116 ratings") == 1116
+
+
+def test_parse_ratings_handles_the_singular():
+    # 5,022 of 444,706 sampled ratings say "1 rating", not "1 ratings".
+    assert parse_ratings("1 rating") == 1
+
+
+def test_parse_ratings_returns_none_for_absent_or_unrecognised():
+    assert parse_ratings(None) is None
+    assert parse_ratings("no ratings yet") is None
+
+
+# --- Review Focus 3: multi-price strings ------------------------------------
+
+def test_parse_price_reads_a_plain_price():
+    assert parse_price("$9.99") == (9.99, False)
+
+
+def test_parse_price_strips_thousands_separators():
+    assert parse_price("$1,234.56") == (1234.56, False)
+
+
+def test_parse_price_takes_the_first_of_a_multi_price_string_and_says_so():
+    # 66 of 132,846 sampled prices carry several prices - sale or variant
+    # pairs, in no reliable order ("$19.99 $7.39" and "$15.28 $12.99" both
+    # occur). float(value.strip("$")) raises on every one of them, and a bare
+    # regex search would pick one silently. The flag is what lets Plan 5
+    # exclude them rather than quietly ranking on an arbitrary pick.
+    assert parse_price("$11.53 $12.99") == (11.53, True)
+    assert parse_price("$24.95 $29.99 $19.99 $19.99") == (24.95, True)
+
+
+def test_parse_price_returns_none_for_absent_or_unrecognised():
+    assert parse_price(None) == (None, False)
+    assert parse_price("see price in cart") == (None, False)
+
+
+# --- Best Sellers Rank ------------------------------------------------------
+
+def test_parse_bsr_reads_the_overall_rank_and_its_category():
+    info = {
+        "Best Sellers Rank": (
+            "#141,895 in Cell Phones & Accessories "
+            "( See Top 100 in Cell Phones & Accessories ) "
+            "#10,494 in Flip Cell Phone Cases"
+        )
+    }
+    assert parse_best_sellers_rank(info) == (141895, "Cell Phones & Accessories")
+
+
+def test_parse_bsr_is_not_confused_by_the_see_top_100_parenthetical():
+    # The parenthetical repeats "in <category>" without a leading '#', so a
+    # looser pattern would match it and report the wrong rank.
+    info = {
+        "Best Sellers Rank": (
+            "#1,206 in Industrial & Scientific "
+            "( See Top 100 in Industrial & Scientific ) "
+            "#3 in Material Transport Equipment"
+        )
+    }
+    rank, category = parse_best_sellers_rank(info)
+    assert rank == 1206
+    assert category == "Industrial & Scientific"
+
+
+def test_parse_bsr_returns_none_when_the_info_block_is_absent():
+    # This is the book case: 0 of 18,727 us books carry info at all.
+    assert parse_best_sellers_rank(None) == (None, None)
+    assert parse_best_sellers_rank({}) == (None, None)
+
+
+def test_parse_bsr_returns_none_when_info_has_no_rank_key():
+    assert parse_best_sellers_rank({"Manufacturer": "YUEPIN"}) == (None, None)
+
+
+# --- the parsers are wired into the row -------------------------------------
+
+def test_normalised_product_row_carries_parsed_values():
+    row = normalise_record(_product())
+    assert row["stars"] == 4.7
+    assert row["ratings"] == 54
+    assert row["price"] == 9.99
+    assert row["price_multi"] is False
+    assert row["bsr_rank"] == 496038
+    assert row["bsr_category"] == "Tools & Home Improvement"
+
+
+def test_normalised_book_row_has_no_rank_because_books_have_no_info():
+    row = normalise_record(_book())
+    assert row["stars"] == 4.6
+    assert row["ratings"] == 6090
+    assert row["bsr_rank"] is None
+    assert row["bsr_category"] is None

@@ -424,7 +424,7 @@ Validated against 500,356 real records before this plan was written: zero parse
 failures across 317,105 `stars`, 318,104 `ratings`, 150,714 Best Sellers Ranks
 and 94,813 prices.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_esci_s.py`:
 
@@ -553,7 +553,7 @@ def test_normalised_book_row_has_no_rank_because_books_have_no_info():
     assert row["bsr_category"] is None
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_esci_s.py -v
@@ -561,7 +561,7 @@ python -m pytest tests/test_esci_s.py -v
 
 Expected: FAIL — `ImportError: cannot import name 'parse_stars' from 'src.esci_s'`.
 
-- [ ] **Step 3: Add the parsers to `src/esci_s.py`**
+- [x] **Step 3: Add the parsers to `src/esci_s.py`**
 
 Add `import re` to the imports, then add these above `normalise_record`:
 
@@ -633,7 +633,7 @@ def parse_best_sellers_rank(
     return int(rank.replace(",", "")), category.strip()
 ```
 
-- [ ] **Step 4: Wire the parsers into `normalise_record`**
+- [x] **Step 4: Wire the parsers into `normalise_record`**
 
 Replace the six placeholder lines in the returned dict:
 
@@ -664,7 +664,7 @@ and use them in the dict:
         "bsr_category": bsr_category,
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_esci_s.py -v
@@ -672,7 +672,7 @@ python -m pytest tests/test_esci_s.py -v
 
 Expected: PASS, 35 tests (19 from Task 1 plus 16 here).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/esci_s.py tests/test_esci_s.py
@@ -685,8 +685,8 @@ git commit -m "Parse ESCI-S stars, ratings, price and Best Sellers Rank"
 
 Phase 2 does not start until all of these hold:
 
-- [ ] `python -m pytest tests/test_esci_s.py -v` passes — 35 tests, no skips.
-- [ ] `python -m pytest` still passes end to end, with Plan 1's suite untouched.
-- [ ] `normalise_record` is never called with a scrape-error row anywhere in the codebase; the ETL in Phase 2 filters before calling.
+- [x] `python -m pytest tests/test_esci_s.py -v` passes — 35 tests, no skips.
+- [x] `python -m pytest` still passes end to end, with Plan 1's suite untouched.
+- [x] `normalise_record` is never called with a scrape-error row anywhere in the codebase; the ETL in Phase 2 filters before calling.
 
 Next: [Phase 2 — The Corpus](phase-2-the-corpus.md).
