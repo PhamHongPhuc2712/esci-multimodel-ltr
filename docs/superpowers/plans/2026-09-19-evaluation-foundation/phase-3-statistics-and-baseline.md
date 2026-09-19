@@ -411,7 +411,7 @@ def test_committed_folds_still_match_the_real_train_split():
     assert committed.equals(recomputed.sort_values("query_id").reset_index(drop=True))
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_splits.py -v
@@ -419,7 +419,7 @@ python -m pytest tests/test_splits.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.splits'`.
 
-- [ ] **Step 3: Write `src/splits.py`**
+- [x] **Step 3: Write `src/splits.py`**
 
 ```python
 """The frozen validation split, carved from train by query_id.
@@ -522,7 +522,7 @@ def split_train_val(
     )
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_splits.py -v
@@ -530,7 +530,7 @@ python -m pytest tests/test_splits.py -v
 
 Expected: PASS, 12 tests; the real-data test is deselected.
 
-- [ ] **Step 5: Freeze the folds against the real train split and commit them**
+- [x] **Step 5: Freeze the folds against the real train split and commit them**
 
 ```bash
 python -c "
@@ -546,7 +546,7 @@ python -m pytest tests/test_splits.py -v -m data
 
 Expected: 20,888 queries, five fold sizes near 4,178 each, and the marked test passes.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/splits.py tests/test_splits.py splits/val_folds.csv splits/val_folds.sha256
