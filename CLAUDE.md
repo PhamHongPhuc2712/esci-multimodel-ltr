@@ -39,6 +39,10 @@ python -m src.cli floor --split test
 python -m src.cli evaluate --run runs/<name>.trec --split test --tag <name>
 python -m src.cli freeze-splits
 
+# Enrichment corpus (one streaming pass over the 3.4 GB ESCI-S zstd)
+python -m src.esci_s_etl                      # -> data/esci-s/corpus.parquet
+python -m src.coverage --split test           # join coverage + missingness bias
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
@@ -78,6 +82,17 @@ Books likewise use `desc`/`attr` where products use `description`/`attrs`.
 **Real image coverage is ~75%**, not the headline 91.5%: 91.5% of ASINs in ESCI-S
 × ~84.7% carrying a URL × ~97.5% resolving. Coverage is even across train (84.8%)
 and test (84.6%) and roughly label-balanced, so the both-splits premise holds.
+**Measured end to end: 0.7753** over the 482,105 re-ranking products, 0.7668 over
+the 1,215,854-product catalogue — both confirming ~75%, not 91.5%.
+
+**Measured ESCI-S join coverage is 89.59%** of the 482,105 Task 1 English
+re-ranking products (431,930 matched), and 88.85% of the catalogue. The 91.5%
+headline counts ASINs *present in the file*, error rows included; usable
+enrichment is lower. Of the 50,175 misses: 34,032 are absent from the scrape
+entirely, 15,994 have a `us` scrape-error row carrying no metadata, 276 appear
+only under `es`/`jp`. Counting the error rows as covered would give 92.91%,
+which is how the headline arises. The catalogue is **1,215,854** unique `us`
+products, not the 1,215,851 recorded elsewhere in this file.
 
 **Drop `type: "error"` rows** (~3.7% of ESCI-S) — scrape failures carrying only
 `asin`/`locale`/`error`/`template`.
@@ -101,6 +116,22 @@ Averaging over that NaN treats a page-layout difference as a behavioural signal.
 **Field-presence bands do not detect a dropped-books pass.** Losing every book
 moves the image URL share by 0.8 points and `attrs` by 2.2 — both inside any
 sane tolerance. Assert the book share directly; `src/esci_s_etl.py` does.
+
+**Enrichment missingness is mildly confounded with relevance, and it is not the
+join.** Whether a product is in ESCI-S *at all* shifts mean gain by only
+-0.0081 [-0.0195, +0.0028] — a cluster bootstrap over queries whose interval
+straddles zero, so the 10.4% join miss is not significantly more or less
+relevant. But *field-level* missingness within the corpus is confounded, and
+more strongly: restricted to in-corpus products, `ratings` shifts -0.0548,
+`category` -0.0501, `stars` -0.0220. The sign is consistent everywhere —
+products **missing** a field are slightly **more** relevant. Plan 5 must carry
+per-field missingness indicators and must not read Ablation 4 as clean without
+checking the model is not simply exploiting them.
+
+**`category` is a sparse field, not a dense one.** Over all test judgements its
+missingness shifts mean gain -0.0210 [-0.0305, -0.0117], past the 0.02 the
+behavioural ablation tolerates, so it was reclassified. The dense set is
+`stars`, `ratings`, `template`.
 
 **The GitHub `sample.json.gz` in shuttie/esci-s has no `image` field at all.** It is
 stale against the real 3.4 GB file. Never validate the image pipeline against it.

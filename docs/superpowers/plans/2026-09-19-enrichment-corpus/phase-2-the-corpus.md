@@ -1063,7 +1063,7 @@ relevance — a product with no price is a different kind of product — which i
 why they are reported rather than gated, and why `CLAUDE.md` says to keep them
 with missingness indicators.
 
-- [ ] **Step 1: Write the failing test for `cluster_delta_ci`**
+- [x] **Step 1: Write the failing test for `cluster_delta_ci`**
 
 Append to `tests/test_bootstrap.py`:
 
@@ -1119,7 +1119,7 @@ def test_cluster_delta_raises_when_one_group_is_empty():
         cluster_delta_ci(values, mask, np.array([0, 1]), n_resamples=10)
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 python -m pytest tests/test_bootstrap.py -v
@@ -1127,7 +1127,7 @@ python -m pytest tests/test_bootstrap.py -v
 
 Expected: FAIL — `ImportError: cannot import name 'cluster_delta_ci'`.
 
-- [ ] **Step 3: Add `cluster_delta_ci` to `src/bootstrap.py`**
+- [x] **Step 3: Add `cluster_delta_ci` to `src/bootstrap.py`**
 
 Append:
 
@@ -1184,7 +1184,7 @@ def cluster_delta_ci(
 Add `import pandas as pd` to the imports of `src/bootstrap.py` — `pd.factorize`
 turns arbitrary cluster labels into dense integer codes for `np.bincount`.
 
-- [ ] **Step 4: Run the bootstrap tests to verify they pass**
+- [x] **Step 4: Run the bootstrap tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_bootstrap.py -v
@@ -1192,19 +1192,25 @@ python -m pytest tests/test_bootstrap.py -v
 
 Expected: PASS, 16 tests (11 from Plan 1 plus 5 here).
 
-- [ ] **Step 5: Add the missingness report to `src/coverage.py`**
+- [x] **Step 5: Add the missingness report to `src/coverage.py`**
 
 Append to `src/coverage.py`, and add `from src.bootstrap import Interval,
 cluster_delta_ci` and `import numpy as np` to its imports:
 
 ```python
-# The behavioural ablation in Plan 5 rests on these four; they are gated.
-DENSE_FIELDS: tuple[str, ...] = ("stars", "ratings", "category", "template")
+# The behavioural ablation in Plan 5 rests on these; they are gated.
+#
+# `category` started here and was moved out when the real report measured its
+# missingness shifting mean gain by -0.0210 [-0.0305, -0.0117], past the 0.02
+# the ablation can tolerate. That is the response Task 5 Step 8 prescribes for
+# a dense field that fails: reclassify it, do not widen the threshold.
+DENSE_FIELDS: tuple[str, ...] = ("stars", "ratings", "template")
 
 # These are expected to correlate with relevance - a product with no price is
 # a different kind of product - so they are reported, not gated, and Plan 5
 # carries them with missingness indicators.
 SPARSE_FIELDS: tuple[str, ...] = (
+    "category",
     "price",
     "bsr_rank",
     "attrs_json",
@@ -1382,7 +1388,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 6: Write the missingness tests**
+- [x] **Step 6: Write the missingness tests**
 
 Append to `tests/test_coverage.py`:
 
@@ -1407,6 +1413,20 @@ def _judgements(n_queries: int = 60) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _label_independent_mask(n_queries: int = 60) -> np.ndarray:
+    """A missingness pattern genuinely independent of the gain.
+
+    `np.arange(len(judgements)) % 2 == 0` looks independent and is not:
+    judgements come four to a query in gain order, so index parity is position
+    parity, which keeps gains {1.0, 0.01} and drops {0.1, 0.0} - a delta of
+    0.455. Alternating the offset per query puts every gain level on both
+    sides in equal numbers, so the true delta is exactly zero.
+    """
+    return np.array(
+        [(q + j) % 2 == 0 for q in range(n_queries) for j in range(4)]
+    )
+
+
 def _enrichment(judgements: pd.DataFrame, present: np.ndarray) -> pd.DataFrame:
     return pd.DataFrame(
         {
@@ -1426,7 +1446,7 @@ def _enrichment(judgements: pd.DataFrame, present: np.ndarray) -> pd.DataFrame:
 
 def test_missingness_uncorrelated_with_the_label_reports_near_zero():
     judgements = _judgements()
-    present = (np.arange(len(judgements)) % 2 == 0)
+    present = _label_independent_mask()
     biases = missingness_bias(judgements, _enrichment(judgements, present), n_resamples=200)
     stars = next(b for b in biases if b.field == "stars")
     assert abs(stars.delta.point) < MAX_DENSE_GAIN_SHIFT
@@ -1445,7 +1465,7 @@ def test_missingness_aligned_with_the_label_is_caught():
 
 def test_dense_and_sparse_fields_are_labelled():
     judgements = _judgements()
-    present = (np.arange(len(judgements)) % 2 == 0)
+    present = _label_independent_mask()
     biases = missingness_bias(judgements, _enrichment(judgements, present), n_resamples=200)
     by_field = {b.field: b.dense for b in biases}
     assert by_field["stars"] is True
@@ -1478,12 +1498,14 @@ def test_real_dense_fields_are_not_confounded_with_the_label():
 
     payload = json.loads(Path("docs/results/esci-s-missingness.json").read_text())
     dense = [f for f in payload["fields"] if f["dense"]]
-    assert {f["field"] for f in dense} == {"stars", "ratings", "category", "template"}
+    # `category` is deliberately absent: the real report measured it at
+    # -0.0210 and Task 5 Step 8 reclassified it as sparse.
+    assert {f["field"] for f in dense} == {"stars", "ratings", "template"}
     for f in dense:
         assert abs(f["delta"]["point"]) < MAX_DENSE_GAIN_SHIFT, f
 ```
 
-- [ ] **Step 7: Run the fast tests to verify they pass**
+- [x] **Step 7: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_coverage.py tests/test_bootstrap.py -v
@@ -1492,7 +1514,7 @@ python -m pytest tests/test_coverage.py tests/test_bootstrap.py -v
 Expected: PASS, 13 coverage + 16 bootstrap tests; the two `data`-marked tests
 are deselected.
 
-- [ ] **Step 8: Run the real report**
+- [x] **Step 8: Run the real report**
 
 ```bash
 python -m src.coverage --split test
@@ -1508,7 +1530,7 @@ result, not a threshold to widen. Record the number, move that field out of
 behavioural ablation then carries it with a missingness indicator instead of
 resting on it.
 
-- [ ] **Step 9: Record the commands in `CLAUDE.md`**
+- [x] **Step 9: Record the commands in `CLAUDE.md`**
 
 Add to the Commands block, above the image-gate line:
 
@@ -1518,7 +1540,7 @@ python -m src.esci_s_etl                      # -> data/esci-s/corpus.parquet
 python -m src.coverage --split test           # join coverage + missingness bias
 ````
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/bootstrap.py src/coverage.py tests/test_bootstrap.py tests/test_coverage.py docs/results/esci-s-missingness.json CLAUDE.md

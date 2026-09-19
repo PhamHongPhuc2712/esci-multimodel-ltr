@@ -1,0 +1,116 @@
+{
+  "split": "test",
+  "seed": 0,
+  "n_resamples": 1000,
+  "max_dense_gain_shift": 0.02,
+  "fields": [
+    {
+      "field": "stars",
+      "dense": true,
+      "present_share": 0.8867590161859318,
+      "mean_gain_present": 0.4729096664080683,
+      "mean_gain_absent": 0.4834622861586314,
+      "delta": {
+        "point": -0.010552619750563097,
+        "low": -0.02159305074441199,
+        "high": -0.00012529453519524128
+      }
+    },
+    {
+      "field": "ratings",
+      "dense": true,
+      "present_share": 0.8900116124842461,
+      "mean_gain_present": 0.47248769447673705,
+      "mean_gain_absent": 0.4871888916687516,
+      "delta": {
+        "point": -0.01470119719201457,
+        "low": -0.025804676547222856,
+        "high": -0.004204177350786816
+      }
+    },
+    {
+      "field": "template",
+      "dense": true,
+      "present_share": 0.9038255155447686,
+      "mean_gain_present": 0.47332560008768404,
+      "mean_gain_absent": 0.4814260371959943,
+      "delta": {
+        "point": -0.008100437108310266,
+        "low": -0.01948648165089244,
+        "high": 0.00281933427148338
+      }
+    },
+    {
+      "field": "category",
+      "dense": false,
+      "present_share": 0.8679588995107347,
+      "mean_gain_present": 0.4713370828551319,
+      "mean_gain_absent": 0.4922970156718906,
+      "delta": {
+        "point": -0.02095993281675873,
+        "low": -0.0305453454745478,
+        "high": -0.011748882020316672
+      }
+    },
+    {
+      "field": "price",
+      "dense": false,
+      "present_share": 0.2741757062426734,
+      "mean_gain_present": 0.45766429804488334,
+      "mean_gain_absent": 0.48031490032832125,
+      "delta": {
+        "point": -0.022650602283437904,
+        "low": -0.030046036083586154,
+        "high": -0.014818390462116618
+      }
+    },
+    {
+      "field": "bsr_rank",
+      "dense": false,
+      "present_share": 0.4407680750243532,
+      "mean_gain_present": 0.4685940465487963,
+      "mean_gain_absent": 0.47844793481149067,
+      "delta": {
+        "point": -0.009853888262694399,
+        "low": -0.018667459790339205,
+        "high": -0.0003790719542218606
+      }
+    },
+    {
+      "field": "attrs_json",
+      "dense": false,
+      "present_share": 0.5917413773176813,
+      "mean_gain_present": 0.4630851004464286,
+      "mean_gain_absent": 0.4900767042773756,
+      "delta": {
+        "point": -0.02699160383094701,
+        "low": -0.034788703511529545,
+        "high": -0.017780889778737496
+      }
+    },
+    {
+      "field": "info_json",
+      "dense": false,
+      "present_share": 0.4892323102239393,
+      "mean_gain_present": 0.47182588251175556,
+      "mean_gain_absent": 0.4762873490146217,
+      "delta": {
+        "point": -0.004461466502866163,
+        "low": -0.013027942220747315,
+        "high": 0.005034986438823467
+      }
+    },
+    {
+      "field": "image_url",
+      "dense": false,
+      "present_share": 0.7898745741630481,
+      "mean_gain_present": 0.4697474237219641,
+      "mean_gain_absent": 0.4904837611314824,
+      "delta": {
+        "point": -0.0207363374095183,
+        "low": -0.0288277532790162,
+        "high": -0.012324083732244487
+      }
+    }
+  ]
+}
