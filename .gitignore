@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Data - never commit datasets, images, or embeddings
+data/
+images/
+*.parquet
+*.zst
+*.json.gz
+*.npy
+*.npz
+
+# Outputs
+runs/
+models/
+*.log
