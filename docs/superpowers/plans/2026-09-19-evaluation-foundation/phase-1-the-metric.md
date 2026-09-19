@@ -462,7 +462,7 @@ git commit -m "Add full-list NDCG with trec_eval-compatible tie and zero-ideal h
 
 This is a separate task from Task 2 because a reviewer could reasonably accept the implementation and reject the oracle, or the reverse. It uses randomly generated qrels and runs rather than hand-written cases, so it covers shapes nobody thought to write a case for.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_metrics_vs_pytrec.py`:
 
@@ -542,7 +542,7 @@ def test_matches_pytrec_eval_when_a_query_has_no_relevant_document():
     assert ndcg_per_query(run, qrels)["q"] == pytest.approx(oracle["q"]["ndcg"], abs=1e-9)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_metrics_vs_pytrec.py -v
@@ -552,7 +552,7 @@ Expected: FAIL. If `src/metrics.py` from Task 2 is correct these pass immediatel
 
 If instead the whole module skips with "install the dev extra", `pytrec-eval-terrier` is not installed. Install it (`pip install -e ".[dev]"`, and `sudo apt-get install -y build-essential python3-dev` first if the build fails). A skip here is a failed task, not a pass.
 
-- [ ] **Step 3: Reconcile any disagreement in `src/metrics.py`**
+- [x] **Step 3: Reconcile any disagreement in `src/metrics.py`**
 
 If a case fails, the likely causes, in order of likelihood:
 
@@ -562,7 +562,7 @@ If a case fails, the likely causes, in order of likelihood:
 
 Make the minimal change to `src/metrics.py` and re-run. Do not weaken the tolerance.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_metrics.py tests/test_metrics_vs_pytrec.py -v
@@ -570,7 +570,7 @@ python -m pytest tests/test_metrics.py tests/test_metrics_vs_pytrec.py -v
 
 Expected: PASS, 14 + 13 tests, no skips.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_metrics_vs_pytrec.py
@@ -582,8 +582,8 @@ git commit -m "Cross-check NDCG against pytrec_eval on randomised ESCI-shaped da
 
 Phase 2 does not start until all of these hold:
 
-- [ ] `python -m pytest tests/test_labels.py tests/test_metrics.py tests/test_metrics_vs_pytrec.py -v` passes — 6 + 14 + 13 tests.
-- [ ] `tests/test_metrics_vs_pytrec.py` **does not skip.** A skip means `pytrec-eval-terrier` is not installed, and that is a failed task, not a pass: there is no substitute oracle.
-- [ ] `python -m pytest` with no arguments is still fast enough to run after every edit (the `data` and `slow` markers are deselected by `addopts`).
+- [x] `python -m pytest tests/test_labels.py tests/test_metrics.py tests/test_metrics_vs_pytrec.py -v` passes — 6 + 14 + 13 tests.
+- [x] `tests/test_metrics_vs_pytrec.py` **does not skip.** A skip means `pytrec-eval-terrier` is not installed, and that is a failed task, not a pass: there is no substitute oracle.
+- [x] `python -m pytest` with no arguments is still fast enough to run after every edit (the `data` and `slow` markers are deselected by `addopts`).
 
 Next: [Phase 2 — The Data](phase-2-the-data.md).
