@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -71,3 +72,52 @@ def paired_delta_ci(
     replicates = deltas[draws].mean(axis=1)
     low, high = _percentiles(replicates, alpha)
     return Interval(point=float(deltas.mean()), low=low, high=high)
+
+
+def cluster_delta_ci(
+    values: np.ndarray,
+    mask: np.ndarray,
+    clusters: np.ndarray,
+    *,
+    n_resamples: int = 1000,
+    seed: int = 0,
+    alpha: float = 0.05,
+) -> Interval:
+    """Interval for mean(values[mask]) - mean(values[~mask]), by cluster.
+
+    Whole clusters are resampled, not rows. ESCI judgements come ~20 to a
+    query and a hard query is hard for all of them, so resampling rows would
+    claim 181,701 independent observations where there are 8,956.
+
+    Implemented by pre-aggregating each cluster's sum and count per group, so
+    a replicate is a sum over clusters rather than a pass over rows.
+    """
+    values = np.asarray(values, dtype=float)
+    mask = np.asarray(mask, dtype=bool)
+    codes, _ = pd.factorize(np.asarray(clusters))
+    n_clusters = codes.max() + 1 if len(codes) else 0
+    if not mask.any() or not (~mask).any():
+        raise ValueError(
+            "a missingness comparison needs both groups non-empty; this field "
+            "is either always present or always absent"
+        )
+
+    def totals(selected: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        sums = np.bincount(codes[selected], weights=values[selected], minlength=n_clusters)
+        counts = np.bincount(codes[selected], minlength=n_clusters)
+        return sums, counts
+
+    present_sum, present_n = totals(mask)
+    absent_sum, absent_n = totals(~mask)
+
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(0, n_clusters, size=(n_resamples, n_clusters))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        replicates = (
+            present_sum[draws].sum(axis=1) / present_n[draws].sum(axis=1)
+            - absent_sum[draws].sum(axis=1) / absent_n[draws].sum(axis=1)
+        )
+    replicates = replicates[np.isfinite(replicates)]
+    low, high = _percentiles(replicates, alpha)
+    point = float(values[mask].mean() - values[~mask].mean())
+    return Interval(point=point, low=low, high=high)

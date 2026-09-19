@@ -1,6 +1,7 @@
+import numpy as np
 import pytest
 
-from src.bootstrap import bootstrap_ci, paired_delta_ci
+from src.bootstrap import bootstrap_ci, cluster_delta_ci, paired_delta_ci
 
 
 def test_point_estimate_is_the_plain_mean():
@@ -82,3 +83,49 @@ def test_mismatched_query_sets_raise():
     b = {"q1": 0.5, "q3": 0.5}
     with pytest.raises(ValueError, match="same queries"):
         paired_delta_ci(a, b, n_resamples=10)
+
+
+def test_cluster_delta_is_the_difference_of_the_two_group_means():
+    values = np.array([1.0, 1.0, 0.0, 0.0])
+    mask = np.array([True, True, False, False])
+    clusters = np.array([0, 1, 2, 3])
+    assert cluster_delta_ci(values, mask, clusters, n_resamples=200).point == (
+        pytest.approx(1.0)
+    )
+
+
+def test_cluster_delta_of_identical_groups_straddles_zero():
+    rng = np.random.default_rng(0)
+    values = rng.normal(size=2000)
+    mask = np.arange(2000) % 2 == 0
+    clusters = np.arange(2000) // 4
+    interval = cluster_delta_ci(values, mask, clusters, n_resamples=400)
+    assert interval.low < 0 < interval.high
+
+
+def test_cluster_delta_resamples_clusters_not_rows():
+    # Every row in a cluster shares a value, so resampling rows would shrink
+    # the interval by pretending there are 2,000 independent observations
+    # when there are 100. Judgements are clustered ~20 to a query, so this is
+    # the difference between a real interval and a falsely confident one.
+    clusters = np.repeat(np.arange(100), 20)
+    values = np.repeat(np.random.default_rng(1).normal(size=100), 20)
+    mask = clusters % 2 == 0
+    interval = cluster_delta_ci(values, mask, clusters, n_resamples=400)
+    assert interval.high - interval.low > 0.1
+
+
+def test_cluster_delta_is_reproducible_for_a_given_seed():
+    values = np.arange(200, dtype=float)
+    mask = np.arange(200) % 2 == 0
+    clusters = np.arange(200) // 5
+    assert cluster_delta_ci(values, mask, clusters, seed=4) == cluster_delta_ci(
+        values, mask, clusters, seed=4
+    )
+
+
+def test_cluster_delta_raises_when_one_group_is_empty():
+    values = np.array([1.0, 2.0])
+    mask = np.array([True, True])
+    with pytest.raises(ValueError, match="both groups"):
+        cluster_delta_ci(values, mask, np.array([0, 1]), n_resamples=10)
