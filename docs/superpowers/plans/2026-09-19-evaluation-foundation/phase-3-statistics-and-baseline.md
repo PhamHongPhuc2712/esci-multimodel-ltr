@@ -58,7 +58,7 @@ ones this phase's code can get wrong:
 
 `paired_delta_ci` resamples query *ids* once per replicate and applies the same resample to both methods. Resampling the two independently would widen the interval by the between-query variance that the pairing is there to cancel, which is exactly the variance that makes a 2-point NDCG difference hard to call.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_bootstrap.py`:
 
@@ -149,7 +149,7 @@ def test_mismatched_query_sets_raise():
         paired_delta_ci(a, b, n_resamples=10)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_bootstrap.py -v
@@ -157,7 +157,7 @@ python -m pytest tests/test_bootstrap.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.bootstrap'`.
 
-- [ ] **Step 3: Write `src/bootstrap.py`**
+- [x] **Step 3: Write `src/bootstrap.py`**
 
 ```python
 """Bootstrap confidence intervals over queries.
@@ -235,7 +235,7 @@ def paired_delta_ci(
     return Interval(point=float(deltas.mean()), low=low, high=high)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_bootstrap.py -v
@@ -243,7 +243,7 @@ python -m pytest tests/test_bootstrap.py -v
 
 Expected: PASS, 11 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/bootstrap.py tests/test_bootstrap.py
