@@ -485,7 +485,7 @@ git commit -m "Load official ESCI Task 1 English splits with asserted invariants
 
 Ids are strings in every dict, because TREC files are text and `query_id` is an `int64` in the parquet. Converting at the boundary once means nothing downstream has to remember to.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_runs.py`:
 
@@ -583,7 +583,7 @@ def test_reading_a_malformed_run_line_raises_with_the_line_number(tmp_path):
         read_run(path)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_runs.py -v
@@ -591,7 +591,7 @@ python -m pytest tests/test_runs.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.runs'`.
 
-- [ ] **Step 3: Write `src/runs.py`**
+- [x] **Step 3: Write `src/runs.py`**
 
 ```python
 """TREC-format run and qrels I/O, and DataFrame -> nested-dict conversion.
@@ -702,7 +702,7 @@ def write_qrels(qrels: Qrels, path: Path) -> None:
                 fh.write(f"{qid} 0 {doc_id} {int(qrels[qid][doc_id])}\n")
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_runs.py -v
@@ -710,7 +710,7 @@ python -m pytest tests/test_runs.py -v
 
 Expected: PASS, 9 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/runs.py tests/test_runs.py
