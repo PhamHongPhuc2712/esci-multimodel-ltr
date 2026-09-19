@@ -95,12 +95,12 @@ The repo's established pattern is flat modules under `src/`, imported as `src.<n
 
 Plan 2 does not start until all of these hold:
 
-- [ ] `python -m pytest` passes with no failures and no skips in `tests/test_metrics_vs_pytrec.py`.
-- [ ] `python -m pytest -m data` passes for both splits.
-- [ ] The random floor, measured not quoted, is recorded in `docs/results/` and lands near 0.7467.
-- [ ] `docs/results/sbert-title-test.json` shows NDCG in `[0.820, 0.840]` with a lift interval strictly above zero.
-- [ ] `splits/val_folds.csv` and its `.sha256` are committed, covering all 20,888 train queries.
-- [ ] `CLAUDE.md`'s Commands section lists the test and evaluation invocations.
+- [x] `python -m pytest` passes with no failures and no skips in `tests/test_metrics_vs_pytrec.py`.
+- [x] `python -m pytest -m data` passes for both splits.
+- [x] The random floor, measured not quoted, is recorded in `docs/results/` and lands near 0.7467.
+- [x] `docs/results/sbert-title-test.json` shows NDCG in `[0.820, 0.840]` with a lift interval strictly above zero.
+- [x] `splits/val_folds.csv` and its `.sha256` are committed, covering all 20,888 train queries.
+- [x] `CLAUDE.md`'s Commands section lists the test and evaluation invocations.
 
 ---
 
