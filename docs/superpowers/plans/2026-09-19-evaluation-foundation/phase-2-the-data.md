@@ -733,7 +733,7 @@ git commit -m "Add TREC run and qrels I/O with exact score round-tripping"
 
 `random_run` assigns a distinct random score to every judged document, so the floor measures random *ordering* and never touches the tie-breaking path.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_floor.py`:
 
@@ -826,7 +826,7 @@ def test_real_test_split_floor_is_near_the_documented_measurement():
     assert 0.730 < result.mean < 0.780
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_floor.py -v
@@ -834,7 +834,7 @@ python -m pytest tests/test_floor.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.floor'`.
 
-- [ ] **Step 3: Write `src/floor.py`**
+- [x] **Step 3: Write `src/floor.py`**
 
 ```python
 """The random-ordering NDCG floor, computed rather than quoted.
@@ -913,7 +913,7 @@ def random_floor(
     )
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_floor.py -v
@@ -921,7 +921,7 @@ python -m pytest tests/test_floor.py -v
 
 Expected: PASS, 8 tests; the real-data test is deselected.
 
-- [ ] **Step 5: Measure the floor on the real test split and record it**
+- [x] **Step 5: Measure the floor on the real test split and record it**
 
 ```bash
 python -m pytest tests/test_floor.py -v -m "data and slow" -s
@@ -933,7 +933,7 @@ Record the measured value in the commit message so it is recoverable from histor
 
 **If the measured floor differs from 0.7467 by more than 0.005, that is a finding, not a nuisance.** Record it, and check in this order: the gain mapping in `src/labels.py` (a swap lands near 0.7141), the discount in `src/metrics.py`, and whether `load_split` filtered to `small_version == 1` and `product_locale == "us"`. If all three are right and the number still differs, report the measured value as this project's floor and note the discrepancy with CLAUDE.md in the commit message. Every later NDCG in the series is quoted against this number, so it must be the one this code actually produces.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/floor.py tests/test_floor.py
@@ -945,9 +945,9 @@ git commit -m "Compute the random-ordering NDCG floor from qrels"
 
 Phase 3 does not start until all of these hold:
 
-- [ ] `python -m pytest tests/test_dataset.py tests/test_runs.py tests/test_floor.py -v` passes — 8 + 9 + 8 tests.
-- [ ] `python -m pytest -m data -v` passes for both splits, including the 34,756-product train/test overlap check.
-- [ ] `python -m pytest -m "data and slow" -s` passes and prints a random floor near 0.7467, recorded in the Task 6 commit message so it is recoverable from history without re-running.
-- [ ] If the measured floor differs from 0.7467 by more than 0.005, that is a **finding**, investigated in the order Task 6 Step 5 lays out (gain mapping → discount → split filter) and written down — not a band to widen.
+- [x] `python -m pytest tests/test_dataset.py tests/test_runs.py tests/test_floor.py -v` passes — 8 + 9 + 8 tests.
+- [x] `python -m pytest -m data -v` passes for both splits, including the 34,756-product train/test overlap check.
+- [x] `python -m pytest -m "data and slow" -s` passes and prints a random floor near 0.7467, recorded in the Task 6 commit message so it is recoverable from history without re-running.
+- [x] If the measured floor differs from 0.7467 by more than 0.005, that is a **finding**, investigated in the order Task 6 Step 5 lays out (gain mapping → discount → split filter) and written down — not a band to widen.
 
 Next: [Phase 3 — Statistics and the Baseline](phase-3-statistics-and-baseline.md).
