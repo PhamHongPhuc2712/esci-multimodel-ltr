@@ -973,7 +973,7 @@ git commit -m "Add evaluation report, CLI and per-query random floor"
 
 This is the task that proves the harness. The spec's §5 table gives SBERT_text zero-shot at **0.8292** on the same split with the same metric. If this pipeline produces that number, the loader, the metric and the floor are all trustworthy. If it produces 0.75 or 0.91, one of them is wrong, and every later plan in the series is built on sand.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_baseline_sbert.py`:
 
@@ -1102,7 +1102,7 @@ def test_published_sbert_number_is_reproduced():
     assert payload["lift_over_floor"]["low"] > 0
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_baseline_sbert.py -v
@@ -1110,7 +1110,7 @@ python -m pytest tests/test_baseline_sbert.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.baseline_sbert'`.
 
-- [ ] **Step 3: Write `src/baseline_sbert.py`**
+- [x] **Step 3: Write `src/baseline_sbert.py`**
 
 ```python
 """Zero-shot SBERT re-ranking: the baseline that proves the harness.
@@ -1235,7 +1235,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_baseline_sbert.py -v
@@ -1243,7 +1243,7 @@ python -m pytest tests/test_baseline_sbert.py -v
 
 Expected: PASS, 8 tests; the reproduction test is deselected.
 
-- [ ] **Step 5: Run the real baseline and evaluate it**
+- [x] **Step 5: Run the real baseline and evaluate it**
 
 ```bash
 python -m pip install -e ".[baselines]"
@@ -1260,7 +1260,7 @@ If the NDCG is outside `[0.820, 0.840]`, **do not adjust the band.** Work throug
 3. Is the run scoring only judged candidates? This is a re-ranking task; retrieving over the corpus here would produce a different, much lower number.
 4. Try `--fields product_title,product_brand`. The cited paper does not state its field recipe, and brand is a plausible difference of a few tenths of a point.
 
-- [ ] **Step 6: Run the marked reproduction test**
+- [x] **Step 6: Run the marked reproduction test**
 
 ```bash
 python -m pytest tests/test_baseline_sbert.py -v -m "data and slow"
@@ -1268,7 +1268,7 @@ python -m pytest tests/test_baseline_sbert.py -v -m "data and slow"
 
 Expected: PASS. This reads the committed `docs/results/sbert-title-test.json`, so it is fast once the run above has been done.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/baseline_sbert.py tests/test_baseline_sbert.py docs/results/sbert-title-test.json
@@ -1281,11 +1281,11 @@ git commit -m "Reproduce the zero-shot SBERT baseline on the test split"
 This is the Plan Gate — Plan 2 of the series does not start until all of these
 hold. The canonical copy lives in [`README.md`](README.md#plan-gate).
 
-- [ ] `python -m pytest` passes with no failures and no skips in `tests/test_metrics_vs_pytrec.py`.
-- [ ] `python -m pytest -m data` passes for both splits.
-- [ ] The random floor, measured not quoted, is recorded in `docs/results/` and lands near 0.7467.
-- [ ] `docs/results/sbert-title-test.json` shows NDCG in `[0.820, 0.840]` with a lift interval strictly above zero.
-- [ ] `splits/val_folds.csv` and its `.sha256` are committed, covering all 20,888 train queries.
-- [ ] `CLAUDE.md`'s Commands section lists the test and evaluation invocations.
+- [x] `python -m pytest` passes with no failures and no skips in `tests/test_metrics_vs_pytrec.py`.
+- [x] `python -m pytest -m data` passes for both splits.
+- [x] The random floor, measured not quoted, is recorded in `docs/results/` and lands near 0.7467.
+- [x] `docs/results/sbert-title-test.json` shows NDCG in `[0.820, 0.840]` with a lift interval strictly above zero.
+- [x] `splits/val_folds.csv` and its `.sha256` are committed, covering all 20,888 train queries.
+- [x] `CLAUDE.md`'s Commands section lists the test and evaluation invocations.
 
 Then: Plan 2 — Enrichment Corpus. See [`../README.md`](../README.md) for the series.
