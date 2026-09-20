@@ -480,7 +480,7 @@ against everything, which is a score rather than an absence; NaN propagates and
 is loud. The presence mask is returned alongside so callers never have to infer
 it.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_embedding_store.py`:
 
@@ -664,7 +664,7 @@ def test_the_default_dim_is_clips(tmp_path):
     assert open_store(tmp_path / "s").dim == EMBEDDING_DIM
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_embedding_store.py -v
@@ -672,7 +672,7 @@ python -m pytest tests/test_embedding_store.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.embedding_store'`.
 
-- [ ] **Step 3: Write `src/embedding_store.py`**
+- [x] **Step 3: Write `src/embedding_store.py`**
 
 ```python
 """An append-only vector store that survives being killed mid-write.
@@ -859,7 +859,7 @@ def open_store(directory: Path, dim: int = EMBEDDING_DIM) -> EmbeddingStore:
     return store
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_embedding_store.py -v
@@ -867,7 +867,7 @@ python -m pytest tests/test_embedding_store.py -v
 
 Expected: PASS, 19 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/embedding_store.py tests/test_embedding_store.py
@@ -880,8 +880,8 @@ git commit -m "Add a crash-consistent float16 embedding store keyed by image URL
 
 Phase 2 does not start until all of these hold:
 
-- [ ] `python -m pytest tests/test_clip_encoder.py tests/test_embedding_store.py -v` passes — 14 + 19 tests.
-- [ ] `python -m pytest -m slow tests/test_clip_encoder.py` passes: a real CLIP model produces unit-length 512-d vectors, and a red square scores higher against "a red square" than against "a blue square".
-- [ ] `python -m pytest` still passes end to end, with Plans 1 and 2 untouched.
+- [x] `python -m pytest tests/test_clip_encoder.py tests/test_embedding_store.py -v` passes — 14 + 19 tests.
+- [x] `python -m pytest -m slow tests/test_clip_encoder.py` passes: a real CLIP model produces unit-length 512-d vectors, and a red square scores higher against "a red square" than against "a blue square".
+- [x] `python -m pytest` still passes end to end, with Plans 1 and 2 untouched.
 
 Next: [Phase 2 — The Fetch](phase-2-the-fetch.md).
