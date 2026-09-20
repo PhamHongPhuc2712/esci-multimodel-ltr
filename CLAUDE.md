@@ -192,6 +192,18 @@ supplied it.
   **indicators only** — and the honest contribution is arm 2 − arm 3.
   The effects are super-additive (+0.0166 > +0.0052 + +0.0084), so the combined
   bias cannot be bounded by adding the parts.
+- **Retrieving from a judged-only pool is candidate-set leakage.** Recall@k is
+  measured over the full 1,215,854-product corpus. A channel whose index holds
+  only the 482,105 *judged* products is drawing from a pool that contains every
+  relevant product and none of the ~450K non-judged distractors, so its recall
+  is inflated and not comparable to a channel searching the whole corpus. This
+  is easy to do by accident: `src/embed_images.py --scope rerank` builds
+  exactly such a store, and it is the sensible default for Plans 5–7, which
+  re-rank a given candidate list. Recall work must use `--scope catalogue`.
+  Measured on 200 validation queries, the rerank-scope image channel reported
+  R@100 = 0.2370 — that number is an artefact of its pool, not a retrieval
+  result.
+
 - **Correlation size and ranking value are different questions.** `product_brand`
   missingness carries the largest label correlation in the dataset (+0.0567
   [+0.0382, +0.0755]) yet all four ESCI presence flags together buy only +0.0052
