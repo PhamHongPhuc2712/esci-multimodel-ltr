@@ -48,6 +48,32 @@ def test_a_rewrite_that_keeps_the_model_number_is_accepted():
     assert validate_rewrite("sony wh-1000xm4", rewritten) == rewritten
 
 
+def test_an_identifier_respaced_by_the_rewrite_is_still_accepted():
+    # Measured: "sony a7iii" -> "Sony Alpha a7 III mirrorless camera". The
+    # model number survived; only its spacing moved. Comparing raw text would
+    # reject a good rewrite, so both sides are flattened before the check.
+    rewritten = "Sony Alpha a7 III mirrorless camera"
+    assert validate_rewrite("sony a7iii", rewritten) == rewritten
+
+
+def test_flattening_does_not_let_a_dropped_identifier_through():
+    # The guard that matters: flattening compares content, not punctuation, and
+    # must still catch a rewrite that loses the model number entirely.
+    assert (
+        validate_rewrite("sony wh-1000xm4", "sony wireless headphones")
+        == "sony wh-1000xm4"
+    )
+
+
+def test_an_empty_completion_falls_back():
+    # A reasoning model whose token budget is consumed by reasoning returns an
+    # empty string rather than raising. That must read as "no rewrite", not as
+    # an empty query that matches the whole corpus.
+    assert validate_rewrite("automotive battery block", "") == (
+        "automotive battery block"
+    )
+
+
 def test_a_runaway_expansion_is_rejected():
     # An LLM that starts listing everything it can think of turns a query into
     # a bag of words that matches the whole corpus.

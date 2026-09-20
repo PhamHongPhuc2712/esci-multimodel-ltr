@@ -302,7 +302,7 @@ git commit -m "Add reciprocal rank fusion that does not vote on absent documents
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
 - Produces:
-  - `src.query_rewrite.DEFAULT_CACHE: Path` (`data/rewrites.json`), `DEFAULT_MODEL: str`, `PROMPT: str`, `MAX_EXPANSION: int` (4)
+  - `src.query_rewrite.DEFAULT_CACHE: Path` (`data/rewrites.json`), `DEFAULT_MODEL: str` (`gpt-5.6-luna`), `MAX_COMPLETION_TOKENS: int` (1000), `PROMPT: str`, `MAX_EXPANSION: int` (4)
   - `src.query_rewrite.validate_rewrite(raw, rewritten) -> str`
   - `src.query_rewrite.RewriteCache` with `.get(query)`, `.set(query, rewrite)`, `.save()`, `.__len__()`
   - `src.query_rewrite.rewrite_queries(queries, *, call, cache=None, progress=None) -> dict[str, str]`
@@ -327,7 +327,7 @@ In `pyproject.toml`, extend the `retrieval` extra added in Phase 1:
 retrieval = [
     "bm25s>=0.3",
     "PyStemmer>=2.2",
-    "anthropic>=0.40",
+    "openai>=1.40",
 ]
 ```
 
@@ -527,7 +527,15 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 DEFAULT_CACHE = Path("data/rewrites.json")
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "gpt-5.6-luna"
+
+# gpt-5.6-luna is a reasoning model: it spends completion tokens thinking before
+# it emits anything. Measured on this prompt, reasoning alone takes 52-162
+# tokens, so the 100 that sufficed for a non-reasoning model left *zero* for the
+# answer - the call returned an empty string or failed outright with "Could not
+# finish the message because max_tokens ... was reached". Billing is on tokens
+# actually generated (76-181 here), so a generous cap costs nothing.
+MAX_COMPLETION_TOKENS = 1000
 
 # A rewrite may add context but must not become a bag of words that matches the
 # whole corpus: cap it at MAX_EXPANSION times the raw token count.
@@ -546,6 +554,7 @@ _REFUSAL = re.compile(
     r"^\s*(i'?m sorry|i cannot|i can'?t|as an ai|unfortunately[, ])", re.I
 )
 _ALPHANUMERIC = re.compile(r"\b(?=[a-z]*\d)[a-z0-9][a-z0-9-]{2,}\b", re.I)
+_FLATTEN = re.compile(r"[^a-z0-9]+")
 
 
 def validate_rewrite(raw: str, rewritten: str) -> str:
@@ -583,10 +592,14 @@ def validate_rewrite(raw: str, rewritten: str) -> str:
         return raw
 
     # Identifiers - model numbers, sizes, SKUs - are usually the whole query.
-    # A rewrite that drops one is about a different product.
-    lowered = candidate.lower()
+    # A rewrite that drops one is about a different product. Compared with
+    # separators stripped from both sides, so "a7iii" still matches a rewrite
+    # that respaced it to "a7 III": the guard is about the identifier
+    # surviving, not about how it was punctuated. A rewrite that genuinely
+    # drops it - "sony wh-1000xm4" -> "sony wireless headphones" - still fails.
+    flattened = _FLATTEN.sub("", candidate.lower())
     for token in _ALPHANUMERIC.findall(raw.lower()):
-        if token not in lowered:
+        if _FLATTEN.sub("", token) not in flattened:
             return raw
 
     return candidate
@@ -669,6 +682,9 @@ def _main() -> int:
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--max-completion-tokens", type=int, default=MAX_COMPLETION_TOKENS
+    )
     args = parser.parse_args()
 
     folds = (
@@ -682,19 +698,19 @@ def _main() -> int:
     cache = RewriteCache(args.cache)
     print(f"{len(queries):,} queries, {len(cache):,} already cached")
 
-    import anthropic
+    import openai
 
-    client = anthropic.Anthropic()
+    client = openai.OpenAI()
 
     def call(query: str) -> str:
-        response = client.messages.create(
+        # `max_completion_tokens`, not `max_tokens`: the gpt-5.x models reject
+        # the older parameter name.
+        response = client.chat.completions.create(
             model=args.model,
-            max_tokens=100,
+            max_completion_tokens=args.max_completion_tokens,
             messages=[{"role": "user", "content": PROMPT.format(query=query)}],
         )
-        return "".join(
-            block.text for block in response.content if block.type == "text"
-        )
+        return response.choices[0].message.content or ""
 
     def report(done: int, total: int) -> None:
         print(f"\r  {done:,}/{total:,}", end="", flush=True)
@@ -721,7 +737,7 @@ if __name__ == "__main__":
 python -m pytest tests/test_query_rewrite.py -v
 ```
 
-Expected: PASS, 17 tests.
+Expected: PASS, 20 tests.
 
 - [ ] **Step 6: Rewrite the validation-fold queries**
 
@@ -730,7 +746,7 @@ Stage 0 is the only paid step. Rewrite **validation fold 0 only** — about
 full split.
 
 ```bash
-export ANTHROPIC_API_KEY=...        # or however the key reaches the process
+export OPENAI_API_KEY=...           # or however the key reaches the process
 python -m src.query_rewrite --split train --folds 0 --limit 50   # check the output first
 python -m src.query_rewrite --split train --folds 0
 ```
@@ -742,6 +758,22 @@ Expected: the limited run prints a fallback rate; inspect
 rather than the validator catching a rare failure. Read the rejected rewrites
 before touching `validate_rewrite` — lowering the bar to make the number look
 better is exactly how Ablation 1 stops meaning anything.
+
+This happened on the first run, at **46.7%**, and neither cause was the
+validator being too strict:
+
+1. **The token budget starved the model.** Ported from a non-reasoning model,
+   `max_completion_tokens=100` was entirely consumed by reasoning, so the call
+   returned `""` or failed with a 400. Raising it to 1000 fixed it; billing is
+   on tokens generated, so the cap costs nothing.
+2. **The identifier check compared punctuation.** `"sony a7iii"` rewritten to
+   `"Sony Alpha a7 III"` keeps the model number and only respaces it, but a
+   raw substring test rejected it. Both sides are now flattened first.
+
+After both, a 40-query random sample rewrote **40/40** with zero rejections and
+zero API errors. Note also that the CLI's "fell back to the raw query" count
+includes rewrites the *model* returned unchanged, which is not a rejection —
+read the two apart before reacting to the number.
 
 - [ ] **Step 7: Commit**
 

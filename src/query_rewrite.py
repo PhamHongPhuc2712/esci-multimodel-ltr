@@ -25,7 +25,15 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 DEFAULT_CACHE = Path("data/rewrites.json")
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "gpt-5.6-luna"
+
+# gpt-5.6-luna is a reasoning model: it spends completion tokens thinking before
+# it emits anything. Measured on this prompt, reasoning alone takes 52-162
+# tokens, so the 100 that sufficed for a non-reasoning model left *zero* for the
+# answer - the call returned an empty string or failed outright with "Could not
+# finish the message because max_tokens ... was reached". Billing is on tokens
+# actually generated (76-181 here), so a generous cap costs nothing.
+MAX_COMPLETION_TOKENS = 1000
 
 # A rewrite may add context but must not become a bag of words that matches the
 # whole corpus: cap it at MAX_EXPANSION times the raw token count.
@@ -44,6 +52,7 @@ _REFUSAL = re.compile(
     r"^\s*(i'?m sorry|i cannot|i can'?t|as an ai|unfortunately[, ])", re.I
 )
 _ALPHANUMERIC = re.compile(r"\b(?=[a-z]*\d)[a-z0-9][a-z0-9-]{2,}\b", re.I)
+_FLATTEN = re.compile(r"[^a-z0-9]+")
 
 
 def validate_rewrite(raw: str, rewritten: str) -> str:
@@ -81,10 +90,14 @@ def validate_rewrite(raw: str, rewritten: str) -> str:
         return raw
 
     # Identifiers - model numbers, sizes, SKUs - are usually the whole query.
-    # A rewrite that drops one is about a different product.
-    lowered = candidate.lower()
+    # A rewrite that drops one is about a different product. Compared with
+    # separators stripped from both sides, so "a7iii" still matches a rewrite
+    # that respaced it to "a7 III": the guard is about the identifier
+    # surviving, not about how it was punctuated. A rewrite that genuinely
+    # drops it - "sony wh-1000xm4" -> "sony wireless headphones" - still fails.
+    flattened = _FLATTEN.sub("", candidate.lower())
     for token in _ALPHANUMERIC.findall(raw.lower()):
-        if token not in lowered:
+        if _FLATTEN.sub("", token) not in flattened:
             return raw
 
     return candidate
@@ -167,6 +180,9 @@ def _main() -> int:
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--max-completion-tokens", type=int, default=MAX_COMPLETION_TOKENS
+    )
     args = parser.parse_args()
 
     folds = (
@@ -180,19 +196,19 @@ def _main() -> int:
     cache = RewriteCache(args.cache)
     print(f"{len(queries):,} queries, {len(cache):,} already cached")
 
-    import anthropic
+    import openai
 
-    client = anthropic.Anthropic()
+    client = openai.OpenAI()
 
     def call(query: str) -> str:
-        response = client.messages.create(
+        # `max_completion_tokens`, not `max_tokens`: the gpt-5.x models reject
+        # the older parameter name.
+        response = client.chat.completions.create(
             model=args.model,
-            max_tokens=100,
+            max_completion_tokens=args.max_completion_tokens,
             messages=[{"role": "user", "content": PROMPT.format(query=query)}],
         )
-        return "".join(
-            block.text for block in response.content if block.type == "text"
-        )
+        return response.choices[0].message.content or ""
 
     def report(done: int, total: int) -> None:
         print(f"\r  {done:,}/{total:,}", end="", flush=True)
