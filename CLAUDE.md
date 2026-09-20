@@ -50,6 +50,9 @@ python -m src.image_report --scope rerank     # coverage + semantic gate
 
 # Retrieval channels (build once; every consumer memory-maps the result)
 python -m src.bm25_index                      # -> data/bm25/, ~5 min, 18 GB peak
+python -m src.dense_embed                     # -> data/embeddings/dense/, ~27 min GPU
+python -m src.embed_images --scope catalogue  # recall needs the full corpus, ~3.6 h
+python -m src.recall_report --split train --folds 0   # Ablations 1 and 2
 
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine

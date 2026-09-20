@@ -59,7 +59,7 @@ The dense store is keyed by **`product_id`**, unlike Plan 3's image store
 which is keyed by URL. `EmbeddingStore` takes any string key, which is why one
 store class serves both.
 
-- [ ] **Step 1: Write the failing test for vector search**
+- [x] **Step 1: Write the failing test for vector search**
 
 Create `tests/test_vector_search.py`:
 
@@ -173,7 +173,7 @@ def test_a_query_of_the_wrong_width_raises(tmp_path):
         top_k(np.ones((1, 5), dtype=np.float32), store, k=1)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_vector_search.py -v
@@ -181,7 +181,7 @@ python -m pytest tests/test_vector_search.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.vector_search'`.
 
-- [ ] **Step 3: Write `src/vector_search.py`**
+- [x] **Step 3: Write `src/vector_search.py`**
 
 ```python
 """Top-k cosine search over an EmbeddingStore, without materialising the scores.
@@ -296,7 +296,7 @@ def top_k(
     return all_keys, np.vstack(all_scores)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_vector_search.py -v
@@ -304,7 +304,7 @@ python -m pytest tests/test_vector_search.py -v
 
 Expected: PASS, 11 tests.
 
-- [ ] **Step 5: Write the failing test for the dense channel**
+- [x] **Step 5: Write the failing test for the dense channel**
 
 Create `tests/test_dense_embed.py`:
 
@@ -440,7 +440,7 @@ def test_the_real_dense_store_covers_the_corpus():
     assert np.allclose(np.linalg.norm(sample, axis=1), 1.0, atol=1e-3)
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_dense_embed.py -v
@@ -448,7 +448,7 @@ python -m pytest tests/test_dense_embed.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.dense_embed'`.
 
-- [ ] **Step 7: Write `src/dense_embed.py`**
+- [x] **Step 7: Write `src/dense_embed.py`**
 
 ```python
 """The dense-text retrieval channel: SBERT over the full product corpus.
@@ -634,7 +634,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 8: Run the fast tests, then the real embed**
+- [x] **Step 8: Run the fast tests, then the real embed**
 
 ```bash
 python -m pytest tests/test_dense_embed.py -v
@@ -650,7 +650,7 @@ Expected: 10 fast tests pass; the smoke run reports roughly 821 docs/s on
 **If it reports `cpu`**, stop — a CPU run is hours, not minutes. `--device cuda`
 will fail loudly rather than fall back.
 
-- [ ] **Step 9: Record the command in `CLAUDE.md`**
+- [x] **Step 9: Record the command in `CLAUDE.md`**
 
 Add under the retrieval-channels comment added in Phase 1:
 
@@ -658,7 +658,7 @@ Add under the retrieval-channels comment added in Phase 1:
 python -m src.dense_embed                     # -> data/embeddings/dense/, ~25 min GPU
 ````
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/vector_search.py src/dense_embed.py tests/test_vector_search.py \
@@ -691,7 +691,7 @@ truncates the expanded product list to `k` — without the oversample, a query
 whose top hits are all shared images returns fewer than `k` products and its
 recall is understated for a reason that has nothing to do with retrieval.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_image_channel.py`:
 
@@ -861,7 +861,7 @@ def test_the_real_image_channel_reaches_the_measured_coverage():
     assert channel.coverage(n_products=1_215_854) > 0.75
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_image_channel.py -v
@@ -869,7 +869,7 @@ python -m pytest tests/test_image_channel.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.image_channel'`.
 
-- [ ] **Step 3: Write `src/image_channel.py`**
+- [x] **Step 3: Write `src/image_channel.py`**
 
 ```python
 """The image retrieval channel: a text query against CLIP image embeddings.
@@ -996,7 +996,7 @@ def open_channel(
     )
 ```
 
-- [ ] **Step 4: Run the fast tests to verify they pass**
+- [x] **Step 4: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_image_channel.py -v
