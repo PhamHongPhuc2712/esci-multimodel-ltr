@@ -58,7 +58,7 @@ because 1 of 8,956 test queries hits it under the E definition. Reporting
 `n_skipped` is what stops two runs with different denominators being compared
 as if they were the same measurement.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_recall.py`:
 
@@ -214,7 +214,7 @@ def test_per_query_scores_are_keyed_for_the_bootstrap():
     assert result.per_query[1] == pytest.approx(1.0)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_recall.py -v
@@ -222,7 +222,7 @@ python -m pytest tests/test_recall.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.recall'`.
 
-- [ ] **Step 3: Write `src/recall.py`**
+- [x] **Step 3: Write `src/recall.py`**
 
 ```python
 """Recall@k over the full corpus, and the relevant sets it is measured against.
@@ -384,7 +384,7 @@ def load_queries(
     )
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_recall.py -v
@@ -392,7 +392,7 @@ python -m pytest tests/test_recall.py -v
 
 Expected: PASS, 17 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/recall.py tests/test_recall.py
