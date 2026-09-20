@@ -1004,7 +1004,7 @@ python -m pytest tests/test_image_channel.py -v
 
 Expected: PASS, 11 tests; the `data`-marked one is deselected.
 
-- [ ] **Step 5: Extend the image store to the full catalogue**
+- [x] **Step 5: Extend the image store to the full catalogue**
 
 Recall is measured over all 1,215,854 products, so the channel needs the
 catalogue scope. Plan 3's store is append-only and keyed by URL, so this
@@ -1025,7 +1025,7 @@ near **0.7668** and a passing semantic gate; the marked test passes.
 half-finished write by truncating, so a concurrent open can corrupt an
 in-progress run. Wait for it to exit.
 
-- [ ] **Step 6: Record the command in `CLAUDE.md`**
+- [x] **Step 6: Record the command in `CLAUDE.md`**
 
 Add under the retrieval-channels comment:
 
@@ -1033,7 +1033,7 @@ Add under the retrieval-channels comment:
 python -m src.embed_images --scope catalogue  # recall needs the full corpus, ~3.6 h
 ````
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/image_channel.py tests/test_image_channel.py CLAUDE.md
@@ -1046,11 +1046,11 @@ git commit -m "Add the CLIP image retrieval channel with URL-to-product expansio
 
 Phase 3 does not start until all of these hold:
 
-- [ ] `python -m pytest tests/test_vector_search.py tests/test_dense_embed.py tests/test_image_channel.py -v` passes — 11 + 10 + 11 tests.
-- [ ] `python -m pytest` still passes end to end, with Plans 1–3 and Phase 1 untouched.
-- [ ] `data/embeddings/dense/` holds 1,215,854 vectors, about 0.93 GB.
-- [ ] `data/embeddings/catalogue/` holds roughly 886,900 vectors, about 0.91 GB, and `python -m src.image_report --scope catalogue` passes its semantic gate.
-- [ ] Each channel answers a 100-query batch at k=1000 without exceeding 2 GB of RSS.
-- [ ] A dense Recall@100 measured on the validation folds is reported beside BM25's. Either may win; a channel that ties is a reportable result.
+- [x] `python -m pytest tests/test_vector_search.py tests/test_dense_embed.py tests/test_image_channel.py -v` passes — 11 + 10 + 11 tests.
+- [x] `python -m pytest` still passes end to end, with Plans 1–3 and Phase 1 untouched.
+- [x] `data/embeddings/dense/` holds 1,215,854 vectors, about 0.93 GB.
+- [x] `data/embeddings/catalogue/` holds roughly 886,900 vectors, about 0.91 GB, and `python -m src.image_report --scope catalogue` passes its semantic gate.
+- [x] Each channel answers a 100-query batch at k=1000 without exceeding 2 GB of RSS.
+- [x] A dense Recall@100 measured on the validation folds is reported beside BM25's. Either may win; a channel that ties is a reportable result.
 
 Next: [Phase 3 — Fusion and the Ablations](phase-3-fusion-and-the-ablations.md).

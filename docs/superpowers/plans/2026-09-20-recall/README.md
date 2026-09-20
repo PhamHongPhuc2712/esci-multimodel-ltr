@@ -195,12 +195,12 @@ drift apart.
 
 Plan 5 does not start until all of these hold:
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the index round-trip on the real corpus.
-- [ ] `data/bm25/` memory-maps in under 2 GB of RSS and answers under 100 ms per query amortised over a batch.
-- [ ] Every channel reports Recall@{10,50,100,500,1000} on the frozen validation folds, and the fused run beats the **BM25 R@100 baseline of 0.5018** or reports honestly that it ties, with a paired bootstrap CI.
-- [ ] `docs/results/recall.json` records per-channel and fused Recall@k, the query-coverage denominator, and the storage overrun against §9's <1 GB.
-- [ ] Ablation 1 (raw vs. rewritten query) and Ablation 2 (dense-only vs. +BM25 vs. +image) are both reported with bootstrap CIs.
-- [ ] `CLAUDE.md`'s Commands section lists the index build, the corpus embed and the recall report.
+- [x] `python -m pytest` passes with no failures and no new skips.
+- [x] `python -m pytest -m data` passes, including the index round-trip on the real corpus.
+- [x] `data/bm25/` memory-maps in under 2 GB of RSS and answers under 100 ms per query amortised over a batch.
+- [x] Every channel reports Recall@{10,50,100,500,1000} on the frozen validation folds, and the fused run beats the **BM25 R@100 baseline of 0.5018** or reports honestly that it ties, with a paired bootstrap CI.
+- [x] `docs/results/recall.json` records per-channel and fused Recall@k, the query-coverage denominator, and the storage overrun against §9's <1 GB.
+- [x] Ablation 1 (raw vs. rewritten query) and Ablation 2 (dense-only vs. +BM25 vs. +image) are both reported with bootstrap CIs.
+- [x] `CLAUDE.md`'s Commands section lists the index build, the corpus embed and the recall report.
 
 Then: Plan 5 — Coarse Rank. See [`../README.md`](../README.md) for the series.

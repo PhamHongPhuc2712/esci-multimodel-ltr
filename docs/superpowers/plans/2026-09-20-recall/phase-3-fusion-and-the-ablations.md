@@ -739,7 +739,7 @@ python -m pytest tests/test_query_rewrite.py -v
 
 Expected: PASS, 20 tests.
 
-- [ ] **Step 6: Rewrite the validation-fold queries**
+- [x] **Step 6: Rewrite the validation-fold queries**
 
 Stage 0 is the only paid step. Rewrite **validation fold 0 only** — about
 4,200 queries — which is enough for Ablation 1 and costs a fraction of the
@@ -775,7 +775,7 @@ zero API errors. Note also that the CLI's "fell back to the raw query" count
 includes rewrites the *model* returned unchanged, which is not a rejection —
 read the two apart before reacting to the number.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add pyproject.toml src/query_rewrite.py tests/test_query_rewrite.py
@@ -802,7 +802,7 @@ git commit -m "Add Stage 0 LLM query rewriting with an on-disk cache and validat
   - `src.recall_report.format_table(arms) -> str`
   - `python -m src.recall_report --split train --folds 0`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_recall_report.py`:
 
@@ -887,7 +887,7 @@ def test_the_storage_overrun_is_recorded_not_hidden():
     assert set(STORAGE_GB) == {"bm25", "dense", "image"}
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_recall_report.py -v
@@ -895,7 +895,7 @@ python -m pytest tests/test_recall_report.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.recall_report'`.
 
-- [ ] **Step 3: Write `src/recall_report.py`**
+- [x] **Step 3: Write `src/recall_report.py`**
 
 ```python
 """Ablations 1 and 2: the recall table this plan exists to produce.
@@ -1129,7 +1129,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 4: Run the tests, then the real report**
+- [x] **Step 4: Run the tests, then the real report**
 
 ```bash
 python -m pytest tests/test_recall_report.py -v
@@ -1150,7 +1150,7 @@ reportable result and `CLAUDE.md` says so explicitly. Tune `--rrf-k` on the
 validation folds if you tune it at all, record what you tried, and never move
 to `--split test` to find a better number.
 
-- [ ] **Step 5: Record the command in `CLAUDE.md`**
+- [x] **Step 5: Record the command in `CLAUDE.md`**
 
 Add under the retrieval-channels comment:
 
@@ -1158,7 +1158,7 @@ Add under the retrieval-channels comment:
 python -m src.recall_report --split train --folds 0   # Ablations 1 and 2
 ````
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/recall_report.py tests/test_recall_report.py \
@@ -1173,12 +1173,12 @@ git commit -m "Report Recall@k ablations for the three channels and their fusion
 This is the Plan Gate — Plan 5 does not start until all of these hold. The
 canonical copy lives in [`README.md`](README.md#plan-gate).
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the index round-trip on the real corpus.
-- [ ] `data/bm25/` memory-maps in under 2 GB of RSS and answers under 100 ms per query amortised over a batch.
-- [ ] Every channel reports Recall@{10,50,100,500,1000} on the frozen validation folds, and the fused run beats the BM25 R@100 baseline of 0.5018 or reports honestly that it ties, with a paired bootstrap CI.
-- [ ] `docs/results/recall.json` records per-channel and fused Recall@k, the query-coverage denominator, and the storage overrun against §9's <1 GB.
-- [ ] Ablation 1 (raw vs. rewritten query) and Ablation 2 (dense-only vs. +BM25 vs. +image) are both reported with bootstrap CIs.
-- [ ] `CLAUDE.md`'s Commands section lists the index build, the corpus embed and the recall report.
+- [x] `python -m pytest` passes with no failures and no new skips.
+- [x] `python -m pytest -m data` passes, including the index round-trip on the real corpus.
+- [x] `data/bm25/` memory-maps in under 2 GB of RSS and answers under 100 ms per query amortised over a batch.
+- [x] Every channel reports Recall@{10,50,100,500,1000} on the frozen validation folds, and the fused run beats the BM25 R@100 baseline of 0.5018 or reports honestly that it ties, with a paired bootstrap CI.
+- [x] `docs/results/recall.json` records per-channel and fused Recall@k, the query-coverage denominator, and the storage overrun against §9's <1 GB.
+- [x] Ablation 1 (raw vs. rewritten query) and Ablation 2 (dense-only vs. +BM25 vs. +image) are both reported with bootstrap CIs.
+- [x] `CLAUDE.md`'s Commands section lists the index build, the corpus embed and the recall report.
 
 Then: Plan 5 — Coarse Rank. See [`../README.md`](../README.md) for the series.

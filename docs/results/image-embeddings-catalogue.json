@@ -1,0 +1,14 @@
+{
+  "scope": "catalogue",
+  "products": 1215854,
+  "with_url": 932320,
+  "embedded": 931991,
+  "url_coverage": 0.7668025930744974,
+  "embedding_coverage": 0.7665320013751651,
+  "semantic_gate": {
+    "pool": 600,
+    "top1": 0.8033333333333333,
+    "threshold": 0.6,
+    "seed": 0
+  }
+}
