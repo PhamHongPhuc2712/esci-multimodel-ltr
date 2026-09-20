@@ -399,7 +399,7 @@ git commit -m "Add concurrent image fetch with retry and decode validation"
 pipeline — dedup, chunking, skip-existing, failure accounting — is tested with
 no network, no GPU and no model.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_embed_images.py`:
 
@@ -582,7 +582,7 @@ def open_store_in_memory():
     return open_store(tempfile.mkdtemp(), dim=EMBEDDING_DIM)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_embed_images.py -v
@@ -590,7 +590,7 @@ python -m pytest tests/test_embed_images.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.embed_images'`.
 
-- [ ] **Step 3: Write `src/embed_images.py`**
+- [x] **Step 3: Write `src/embed_images.py`**
 
 ```python
 """Stream image URLs into CLIP vectors, never writing an image to disk.
@@ -806,7 +806,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_embed_images.py -v
@@ -814,7 +814,7 @@ python -m pytest tests/test_embed_images.py -v
 
 Expected: PASS, 11 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/embed_images.py tests/test_embed_images.py
