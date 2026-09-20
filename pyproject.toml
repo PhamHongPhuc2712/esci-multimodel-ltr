@@ -24,6 +24,10 @@ baselines = [
     "torch>=2.4",
     "pillow>=10",
 ]
+retrieval = [
+    "bm25s>=0.3",
+    "PyStemmer>=2.2",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
