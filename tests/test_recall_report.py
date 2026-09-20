@@ -75,4 +75,11 @@ def test_the_storage_overrun_is_recorded_not_hidden():
     # total 2.94 GB. The honest number is worth more than a flattering one.
     assert SPEC_BUDGET_GB == 1.0
     assert sum(STORAGE_GB.values()) > SPEC_BUDGET_GB
-    assert set(STORAGE_GB) == {"bm25", "dense", "image"}
+    assert set(STORAGE_GB) == {
+        "bm25",
+        "dense",
+        "image_catalogue",
+        # A separate store from image_catalogue, not an extension of it: the
+        # scopes write to different directories, so running both costs both.
+        "image_rerank",
+    }

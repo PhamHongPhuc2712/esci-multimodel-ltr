@@ -1,0 +1,354 @@
+{
+  "split": "train",
+  "folds": "0",
+  "relevance": "E",
+  "n_queries": 4130,
+  "retrieval_depth": 1000,
+  "rrf_k": 60,
+  "bm25_baseline_r100": 0.5018,
+  "arms": [
+    {
+      "name": "bm25",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.24061807633868096,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.41207929066368804,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.4890337008136076,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.6621179732464174,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7249196684637425,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "dense",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.20688095352966918,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.3805955012812772,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.4608466571482182,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.6461994703160969,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7163539509028279,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "image",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.08054137152442259,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.15410514787914456,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.1970557111337606,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.3206591106628772,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.38781970732012544,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "dense+bm25",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.2652863070103292,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.46704010678116187,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.5503512980772969,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.7239372224970451,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7809431331202303,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "dense+bm25+image",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.2656828664563354,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.4726230334790718,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.5551137216724819,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.7324813007066627,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7909954820961267,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "rewritten (dense+bm25+image)",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.2571147865740559,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.4745798520244618,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.5598804048938218,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.7444622098526689,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.8039918873231471,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "dense",
+      "baseline": "bm25",
+      "k": 100,
+      "delta": {
+        "point": -0.028187043665389367,
+        "low": -0.037143402364854035,
+        "high": -0.01835956547441396
+      },
+      "significant": true
+    },
+    {
+      "arm": "image",
+      "baseline": "bm25",
+      "k": 100,
+      "delta": {
+        "point": -0.29197798967984695,
+        "low": -0.30262689850713176,
+        "high": -0.2801660172929306
+      },
+      "significant": true
+    },
+    {
+      "arm": "dense+bm25",
+      "baseline": "bm25",
+      "k": 100,
+      "delta": {
+        "point": 0.06131759726368934,
+        "low": 0.05586989175379436,
+        "high": 0.06754156238350444
+      },
+      "significant": true
+    },
+    {
+      "arm": "dense+bm25+image",
+      "baseline": "bm25",
+      "k": 100,
+      "delta": {
+        "point": 0.06608002085887418,
+        "low": 0.05978387474510761,
+        "high": 0.07265526769121994
+      },
+      "significant": true
+    },
+    {
+      "arm": "rewritten (dense+bm25+image)",
+      "baseline": "bm25",
+      "k": 100,
+      "delta": {
+        "point": 0.07084670408021428,
+        "low": 0.06303501468856278,
+        "high": 0.07987921007502052
+      },
+      "significant": true
+    }
+  ],
+  "ablation_2_ladder": [
+    {
+      "arm": "dense+bm25",
+      "baseline": "dense",
+      "k": 100,
+      "delta": {
+        "point": 0.08950464092907871,
+        "low": 0.0830663239562132,
+        "high": 0.09578173100966549
+      },
+      "significant": true
+    },
+    {
+      "arm": "dense+bm25+image",
+      "baseline": "dense+bm25",
+      "k": 100,
+      "delta": {
+        "point": 0.004762423595184834,
+        "low": 0.0007519644650087565,
+        "high": 0.008822936525989108
+      },
+      "significant": true
+    }
+  ],
+  "recall_at_100_intervals": {
+    "bm25": {
+      "point": 0.4890337008136076,
+      "low": 0.4780427201160767,
+      "high": 0.4994928536990965
+    },
+    "dense": {
+      "point": 0.4608466571482182,
+      "low": 0.4505891724604951,
+      "high": 0.4715814442968123
+    },
+    "image": {
+      "point": 0.1970557111337606,
+      "low": 0.1892480631852002,
+      "high": 0.20553769103816708
+    },
+    "dense+bm25": {
+      "point": 0.550351298077297,
+      "low": 0.5398519903033888,
+      "high": 0.5608702872707026
+    },
+    "dense+bm25+image": {
+      "point": 0.5551137216724819,
+      "low": 0.544295777305418,
+      "high": 0.5658515776873344
+    },
+    "rewritten (dense+bm25+image)": {
+      "point": 0.5598804048938218,
+      "low": 0.5491389900853854,
+      "high": 0.5711930691685451
+    }
+  },
+  "ablation_1_rewrite": {
+    "arm": "rewritten (dense+bm25+image)",
+    "baseline": "dense+bm25+image",
+    "k": 100,
+    "delta": {
+      "point": 0.004766683221340096,
+      "low": -0.0007101702907645589,
+      "high": 0.010694981370672449
+    },
+    "significant": false
+  },
+  "storage_gb": {
+    "bm25": 1.15,
+    "dense": 0.95,
+    "image_catalogue": 0.98,
+    "image_rerank": 0.4,
+    "total": 3.48,
+    "spec_budget": 1.0,
+    "over_budget": 2.48
+  }
+}

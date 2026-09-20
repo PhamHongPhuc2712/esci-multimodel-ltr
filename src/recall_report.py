@@ -27,10 +27,20 @@ from src.recall import DEFAULT_KS, RecallResult, recall_table
 
 DEFAULT_OUT = Path("docs/results/recall.json")
 
-# Measured on 2026-09-20. PROJECT_SPEC.md §9 budgets "<1 GB" for embeddings;
-# the three channels together do not fit, and that is a reportable fact rather
-# than a reason to shrink a channel.
-STORAGE_GB = {"bm25": 1.10, "dense": 0.93, "image": 0.91}
+# Measured on disk after the real runs. PROJECT_SPEC.md §9 budgets "<1 GB" for
+# embeddings; the channels together do not fit, and that is a reportable fact
+# rather than a reason to shrink a channel.
+#
+# `image_rerank` is the separate store Plan 3 built. It is redundant once
+# `image_catalogue` exists - the catalogue URLs are a superset - but it is
+# counted here because it is what the project actually occupies. Deleting it
+# would recover 0.40 GB.
+STORAGE_GB = {
+    "bm25": 1.15,
+    "dense": 0.95,
+    "image_catalogue": 0.98,
+    "image_rerank": 0.40,
+}
 SPEC_BUDGET_GB = 1.0
 
 
@@ -191,13 +201,35 @@ def _main() -> int:
     comparisons = [
         compare(arm, baseline, k=100) for arm in arms if arm is not baseline
     ]
+
+    # Ablation 2 is a ladder - dense, then +BM25, then +image - so the claim
+    # each rung makes is about the rung below it, not about BM25. Comparing
+    # only against BM25 would credit the image channel with the whole fusion
+    # gain when its own marginal contribution is what the spec asks for.
+    by_name = {arm.name: arm for arm in arms}
+    ladder = [("dense+bm25", "dense"), ("dense+bm25+image", "dense+bm25")]
+    incremental = [
+        compare(by_name[step], by_name[prev], k=100)
+        for step, prev in ladder
+        if step in by_name and prev in by_name
+    ]
     intervals = {
         arm.name: _interval(bootstrap_ci(arm.table[100].per_query))
         for arm in arms
         if 100 in arm.table and arm.table[100].per_query
     }
     print()
+    print("  -- against the bm25 baseline --")
     for row in comparisons:
+        flag = "significant" if row["significant"] else "ties"
+        d = row["delta"]
+        print(
+            f"  {row['arm']} vs {row['baseline']} @100: "
+            f"{d['point']:+.4f} [{d['low']:+.4f}, {d['high']:+.4f}]  {flag}"
+        )
+
+    print("  -- Ablation 2 ladder: each rung against the one below --")
+    for row in incremental:
         flag = "significant" if row["significant"] else "ties"
         d = row["delta"]
         print(
@@ -215,6 +247,7 @@ def _main() -> int:
         "bm25_baseline_r100": 0.5018,
         "arms": [arm.to_dict() for arm in arms],
         "comparisons": comparisons,
+        "ablation_2_ladder": incremental,
         "recall_at_100_intervals": intervals,
         "ablation_1_rewrite": ablation1,
         "storage_gb": STORAGE_GB
