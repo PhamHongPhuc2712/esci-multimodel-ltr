@@ -27,6 +27,7 @@ baselines = [
 retrieval = [
     "bm25s>=0.3",
     "PyStemmer>=2.2",
+    "anthropic>=0.40",
 ]
 
 [tool.hatch.build.targets.wheel]

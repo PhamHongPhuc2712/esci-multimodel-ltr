@@ -51,7 +51,7 @@ are not the same — a worst-possible rank is still a vote.
 `k = 60` is the constant from the original Cormack et al. RRF paper and the
 usual default. It is a tunable, and Task 7 tunes it on the validation folds.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_rrf.py`:
 
@@ -173,7 +173,7 @@ def test_fuse_batches_of_nothing_returns_nothing():
     assert fuse_batches([]) == []
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_rrf.py -v
@@ -181,7 +181,7 @@ python -m pytest tests/test_rrf.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.rrf'`.
 
-- [ ] **Step 3: Write `src/rrf.py`**
+- [x] **Step 3: Write `src/rrf.py`**
 
 ```python
 """Reciprocal Rank Fusion over ranked lists.
@@ -275,7 +275,7 @@ def fuse_batches(
     ]
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_rrf.py -v
@@ -283,7 +283,7 @@ python -m pytest tests/test_rrf.py -v
 
 Expected: PASS, 17 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/rrf.py tests/test_rrf.py
@@ -319,7 +319,7 @@ rather than query understanding, and the raw-query arm wins for the wrong
 reason. `validate_rewrite` falls back to the raw query whenever the rewrite
 looks wrong, and the fallback rate is reported.
 
-- [ ] **Step 1: Add the API client dependency**
+- [x] **Step 1: Add the API client dependency**
 
 In `pyproject.toml`, extend the `retrieval` extra added in Phase 1:
 
@@ -337,7 +337,7 @@ Then install it:
 uv pip install -e ".[dev,baselines,retrieval]"
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `tests/test_query_rewrite.py`:
 
@@ -489,7 +489,7 @@ def test_the_result_covers_every_query_even_when_all_calls_fail():
     assert result == {"a": "a", "b": "b"}
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_query_rewrite.py -v
@@ -497,7 +497,7 @@ python -m pytest tests/test_query_rewrite.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.query_rewrite'`.
 
-- [ ] **Step 4: Write `src/query_rewrite.py`**
+- [x] **Step 4: Write `src/query_rewrite.py`**
 
 ```python
 """Stage 0: LLM query rewriting, cached and validated.
@@ -715,7 +715,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_query_rewrite.py -v
