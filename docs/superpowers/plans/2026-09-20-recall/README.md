@@ -60,9 +60,15 @@ the plan was written. Five of them change the design:
   characters; it is measured here rather than assumed.
 - **The corpus embed is cheap and the image embed is not.** SBERT runs at 821
   docs/s on the 3080 — **25 minutes** for all 1,215,854 products, 0.93 GB at
-  float16 and 384 dimensions. The CLIP image store already holds the 361,875
-  re-ranking vectors; extending it to the catalogue is **525,166 more URLs,
-  about 3.6 hours** at Plan 3's measured 2,463 img/min.
+  float16 and 384 dimensions. The catalogue image store costs **887,041 URLs,
+  about 6 hours** at Plan 3's measured 2,463 img/min.
+
+  > **Corrected during execution.** This first read "525,166 more URLs, about
+  > 3.6 hours", on Plan 3's claim that a later `catalogue` run re-fetches only
+  > the difference from `rerank`. It does not: `embed_images` opens
+  > `store_root / scope`, so the two scopes are separate stores and the
+  > catalogue run reported `0 already stored, 887,041 to fetch`. See the
+  > correction in [Plan 3's README](../2026-09-20-image-pipeline/README.md#scope-re-ranking-or-catalogue).
 - **Every judged product is in the corpus.** 100.0000% of both splits'
   judgements name a `product_id` present in `data/combined/products.parquet`,
   so Recall@k over the 1.2M corpus has a well-defined ceiling of 1.0 and a
@@ -91,8 +97,9 @@ do not fit:
 |---|---|---|
 | BM25 index (`data/bm25/`) | 1.10 GB | catalogue |
 | Dense text vectors, fp16 384-d | 0.93 GB | catalogue |
-| CLIP image vectors, fp16 512-d | 0.91 GB | catalogue (0.38 GB at `rerank` today) |
-| **total** | **2.94 GB** | |
+| CLIP image vectors, fp16 512-d | 0.91 GB | catalogue |
+| CLIP image vectors, fp16 512-d | 0.38 GB | `rerank` — a *separate* store, not shared with the above |
+| **total** | **3.32 GB** | |
 
 §9 was written before the channels were scoped. Do not shrink a channel to
 hit a number the spec set for a smaller design — record the overrun in
@@ -178,7 +185,7 @@ drift apart.
 | Plan 1 | `src.baseline_sbert.product_text` | Field joining that drops nulls rather than embedding the literal `"None"` |
 | Plan 3 | `src.embedding_store.open_store`, `.lookup` | Crash-consistent float16 storage with a presence mask, keyed by an arbitrary string — `product_id` here, image URL there |
 | Plan 3 | `src.clip_encoder.load_encoder`, `.encode_texts` | The image channel's query side is CLIP text into the same 512-d space |
-| Plan 3 | `src.embed_images` | `--scope catalogue` extends the image store; append-only, so it re-fetches only the difference |
+| Plan 3 | `src.embed_images` | `--scope catalogue` fills the catalogue image store. Note it is a *separate* store from `rerank`, not an extension of it — see the correction above |
 | Plan 2 | `data/combined/products.parquet` | One table, 1,215,854 products, coalesced `description` at 89.2% |
 
 ---

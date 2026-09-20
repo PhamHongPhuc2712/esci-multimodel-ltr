@@ -72,9 +72,22 @@ two downstream needs differ and the cost gap is large:
 | `catalogue` | 1,215,854 | **887,041** | 9.05 GB | 908 MB | ~4.3 h |
 
 **Default is `rerank`.** Plans 5–7 re-rank judged candidates only and need
-nothing more. Plan 4's full-corpus recall needs `catalogue`, and the store is
-append-only, so running `rerank` first and `catalogue` later re-fetches only
-the difference.
+nothing more. Plan 4's full-corpus recall needs `catalogue`.
+
+> **Correction (measured 2026-09-20, during Plan 4).** An earlier version of
+> this paragraph claimed that "the store is append-only, so running `rerank`
+> first and `catalogue` later re-fetches only the difference". **That is
+> false.** `embed_images` opens `store_root / scope`, so `rerank` and
+> `catalogue` are two *separate* stores; the catalogue run reported
+> `0 already stored, 887,041 to fetch` and re-fetched all 361,875 URLs the
+> rerank store already held. Running `rerank` first buys a later `catalogue`
+> run nothing, and the two stores together cost 1.29 GB rather than 0.91 GB.
+>
+> If both scopes are ever needed again, either run `catalogue` alone, or change
+> the store path to be scope-independent (one URL-keyed store, with `--scope`
+> selecting only which URLs to *fetch*). The store is keyed by URL, so that
+> change is sound — it is the directory layout, not the data model, that
+> splits them.
 
 Note 932,320 catalogue products share only 887,041 distinct URLs — 45,279
 products reuse another product's image. The re-ranking scope is the same story:
