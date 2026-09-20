@@ -23,7 +23,7 @@ interfaces are known.
 |---|---|---|---|---|
 | 1 | [**Evaluation Foundation**](2026-09-19-evaluation-foundation/) | ESCI loader with asserted invariants, full-list NDCG, computed random floor, bootstrap CIs, frozen validation folds, one reproduced published baseline | Zero-shot SBERT lands in `[0.820, 0.840]`; NDCG matches `pytrec_eval` exactly on the real test split | §2, §3.1, §8.1 |
 | 2 | [**Enrichment Corpus**](2026-09-19-enrichment-corpus/) | Single-pass streaming ETL of ESCI-S (3.4 GB zstd) to Parquet; join coverage and missingness-bias report | Join coverage ≥ 88% of the re-ranking products (measured 0.8959); dense-field missingness under 0.02 mean gain | §3.2, §8.2 |
-| 3 | **Image Pipeline** | Resolution gate re-run, bulk async fetch, in-flight CLIP embedding, embedding store | `python -m src.esci_images` ≥ 90%; end-to-end image coverage reported against the ~75% figure, not 91.5% | §3.3, §8.3 |
+| 3 | [**Image Pipeline**](2026-09-20-image-pipeline/) | Resolution gate re-run, bulk async fetch, in-flight CLIP embedding, embedding store | `python -m src.esci_images` ≥ 90%; end-to-end image coverage reported against the ~75% figure, not 91.5% | §3.3, §8.3 |
 | 4 | **Recall** | BM25 + dense + CLIP channels, RRF fusion, Recall@k harness, Stage 0 LLM query rewriting | Ablations 1 and 2 produce a table with bootstrap CIs | §4.0, §4.1, §8.4 |
 | 5 | **Coarse Rank** | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
 | 6 | **Fine Rank** | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
@@ -32,7 +32,8 @@ interfaces are known.
 A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. Two are written so far, both split that way:
 
 - [`2026-09-19-evaluation-foundation/`](2026-09-19-evaluation-foundation/) — Plan 1, an index plus three phases: the metric, the data, then statistics and the baseline. **Landed.** Its gate passed with zero-shot SBERT at NDCG 0.8294 against a published 0.8292, a measured random floor of 0.7467, and a lift of +0.0827 [+0.0802, +0.0855].
-- [`2026-09-19-enrichment-corpus/`](2026-09-19-enrichment-corpus/) — Plan 2, an index plus two phases: the record, then the corpus. Written against the real `esci.json.zst`, not its README: the field-presence figures, the book/product key split, the multi-price strings and zstandard's silence on truncation were all measured first.
+- [`2026-09-19-enrichment-corpus/`](2026-09-19-enrichment-corpus/) — Plan 2, an index plus two phases: the record, then the corpus. Written against the real `esci.json.zst`, not its README: the field-presence figures, the book/product key split, the multi-price strings and zstandard's silence on truncation were all measured first. **Landed.** 1,080,262-row corpus at 89.59% join coverage.
+- [`2026-09-20-image-pipeline/`](2026-09-20-image-pipeline/) — Plan 3, an index plus two phases: the embedder, then the fetch. Written against the live CDN and the real GPU: 300/300 and 600/600 URLs resolved, CLIP measured at 18,140 img/min against a 3,378–5,516 img/min fetch, float16 storage shown lossless for retrieval, and CLIP's image→title top-1 measured at 75.3% to set the gate.
 
 Start at a plan's `README.md`.
 
