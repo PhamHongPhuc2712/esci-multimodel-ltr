@@ -51,7 +51,7 @@ ones this phase's code can get wrong:
 and status handling are tested in milliseconds with no network and no waiting.
 `urlopen_opener` is the real one.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_image_fetch.py`:
 
@@ -208,7 +208,7 @@ def test_default_concurrency_is_the_measured_safe_value():
     assert DEFAULT_CONCURRENCY == 14
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_image_fetch.py -v
@@ -216,7 +216,7 @@ python -m pytest tests/test_image_fetch.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.image_fetch'`.
 
-- [ ] **Step 3: Write `src/image_fetch.py`**
+- [x] **Step 3: Write `src/image_fetch.py`**
 
 ```python
 """Concurrent image fetch with retry, backoff and decode validation.
@@ -361,7 +361,7 @@ def fetch_many(
         yield from pool.map(one, urls)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_image_fetch.py -v
@@ -369,7 +369,7 @@ python -m pytest tests/test_image_fetch.py -v
 
 Expected: PASS, 15 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/image_fetch.py tests/test_image_fetch.py
