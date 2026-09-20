@@ -56,7 +56,7 @@ and confines the 600 MB model download to one `slow`-marked test.
 Batch size 64 is not arbitrary: measured on the RTX 3080 at 302 img/s against
 225 at batch 32 and 284 at batch 256.
 
-- [ ] **Step 1: Add `pillow` to the baselines extra**
+- [x] **Step 1: Add `pillow` to the baselines extra**
 
 `src/image_fetch.py` in Phase 2 decodes WEBP and JPEG, and the encoder's real
 test needs an image. In `pyproject.toml`, extend the existing extra:
@@ -75,7 +75,7 @@ Then install it:
 uv pip install -e ".[dev,baselines]"
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `tests/test_clip_encoder.py`:
 
@@ -239,7 +239,7 @@ def test_real_clip_encodes_images_and_text_into_one_unit_space():
     assert similarity[1, 1] > similarity[1, 0]
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_clip_encoder.py -v
@@ -247,7 +247,7 @@ python -m pytest tests/test_clip_encoder.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.clip_encoder'`.
 
-- [ ] **Step 4: Write `src/clip_encoder.py`**
+- [x] **Step 4: Write `src/clip_encoder.py`**
 
 ```python
 """CLIP image and text embeddings in one shared 512-d space.
@@ -415,7 +415,7 @@ def load_encoder(
     )
 ```
 
-- [ ] **Step 5: Run the fast tests to verify they pass**
+- [x] **Step 5: Run the fast tests to verify they pass**
 
 ```bash
 python -m pytest tests/test_clip_encoder.py -v
@@ -423,7 +423,7 @@ python -m pytest tests/test_clip_encoder.py -v
 
 Expected: PASS, 14 tests; the `slow`-marked real-model test is deselected.
 
-- [ ] **Step 6: Run the real-model test**
+- [x] **Step 6: Run the real-model test**
 
 ```bash
 python -m pytest tests/test_clip_encoder.py -v -m slow
@@ -434,7 +434,7 @@ similarity assertions fail, the image and text embeddings are not in the same
 space — check that `projected` is returning `.pooler_output` (512-d) and not
 `.last_hidden_state` (768-d).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add pyproject.toml src/clip_encoder.py tests/test_clip_encoder.py
