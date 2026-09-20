@@ -23,7 +23,7 @@ number in Ablation 2 meaningless.
 
 | Phase | File | Tasks | Delivers | Network / GPU? |
 |---|---|---|---|---|
-| 1 | [**The Metric and the Lexical Channel**](phase-1-the-metric-and-the-lexical-channel.md) | 1–2 | Recall@k with its ground truth, BM25 channel | No (CPU, 14 GB peak once) |
+| 1 | [**The Metric and the Lexical Channel**](phase-1-the-metric-and-the-lexical-channel.md) | 1–2 | Recall@k with its ground truth, BM25 channel | No (CPU, 18 GB peak once) |
 | 2 | [**The Learned Channels**](phase-2-the-learned-channels.md) | 3–4 | Dense-text channel and its corpus embed, CLIP image channel | GPU + network |
 | 3 | [**Fusion and the Ablations**](phase-3-fusion-and-the-ablations.md) | 5–7 | RRF, Stage 0 query rewriting, Ablations 1 and 2 | API key for Task 6 |
 
@@ -39,9 +39,13 @@ the plan was written. Five of them change the design:
   1,748 chars) takes 151 s and indexing another 90 s, and the naive
   build-and-query-in-one-process path came within 5 GB of the OOM killer.
   Saving the index and reopening it with `mmap=True` costs **1.55 GB** and is
-  *faster* — 28 ms/query against 37. So the index is built once by a CLI,
-  saved to `data/bm25/`, and every consumer memory-maps it. Build peak with the
-  corpus strings freed before indexing is 14.0 GB; on disk it is 1.1 GB.
+  *faster* — 28 ms/query against 37, amortised over a batch. So the index is
+  built once by a CLI, saved to `data/bm25/`, and every consumer memory-maps
+  it. **The build still peaks at 18.0 GB** even with the corpus strings freed,
+  because the caller's DataFrame stays live throughout — measured end to end,
+  not in a probe — and takes about five minutes. On disk it is 1.1 GB.
+  Single-query latency against the mmapped index is 64–88 ms; the 28 ms figure
+  is per query within a batch, which is the real workload.
 - **A test query exists with no Exact product at all.** `query_id` 45928,
   `'glass water bottle hot and cold 32'`, has 15 judgements and every one is
   **S**. Under an E-only definition its recall is 0/0. Counting it as 0.0 would
@@ -185,7 +189,7 @@ Plan 5 does not start until all of these hold:
 
 - [ ] `python -m pytest` passes with no failures and no new skips.
 - [ ] `python -m pytest -m data` passes, including the index round-trip on the real corpus.
-- [ ] `data/bm25/` memory-maps in under 2 GB of RSS and answers a query in under 100 ms.
+- [ ] `data/bm25/` memory-maps in under 2 GB of RSS and answers under 100 ms per query amortised over a batch.
 - [ ] Every channel reports Recall@{10,50,100,500,1000} on the frozen validation folds, and the fused run beats the **BM25 R@100 baseline of 0.5018** or reports honestly that it ties, with a paired bootstrap CI.
 - [ ] `docs/results/recall.json` records per-channel and fused Recall@k, the query-coverage denominator, and the storage overrun against §9's <1 GB.
 - [ ] Ablation 1 (raw vs. rewritten query) and Ablation 2 (dense-only vs. +BM25 vs. +image) are both reported with bootstrap CIs.

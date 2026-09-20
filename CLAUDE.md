@@ -48,6 +48,9 @@ python -m src.combine                         # -> data/combined/{products,judge
 python -m src.embed_images --scope rerank     # -> data/embeddings/rerank/
 python -m src.image_report --scope rerank     # coverage + semantic gate
 
+# Retrieval channels (build once; every consumer memory-maps the result)
+python -m src.bm25_index                      # -> data/bm25/, ~5 min, 18 GB peak
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
