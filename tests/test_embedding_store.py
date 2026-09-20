@@ -1,8 +1,17 @@
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from src.clip_encoder import EMBEDDING_DIM
-from src.embedding_store import STORE_DTYPE, open_store
+from src.embedding_store import (
+    KEYS_NAME,
+    META_NAME,
+    STORE_DTYPE,
+    VECTORS_NAME,
+    open_store,
+)
 
 
 def _vectors(n: int, dim: int = 4, start: float = 0.0) -> np.ndarray:
@@ -175,3 +184,47 @@ def test_lookup_preserves_the_requested_order(tmp_path):
 
 def test_the_default_dim_is_clips(tmp_path):
     assert open_store(tmp_path / "s").dim == EMBEDDING_DIM
+
+
+# --- the real run -----------------------------------------------------------
+
+REAL_STORE = Path("data/embeddings/rerank")
+
+
+@pytest.mark.data
+def test_the_real_store_agrees_with_itself_and_round_trips():
+    """The plan gate: one float16 vector per fetched image, index in step.
+
+    Checked on the raw files first, deliberately. `open_store` *repairs* a
+    half-finished write by truncating to min(rows, keys), so opening the store
+    is what hides the very disagreement this asserts - and because the repair
+    writes, a store must have exactly one writer: do not run this while
+    `python -m src.embed_images` is going.
+    """
+    if not (REAL_STORE / VECTORS_NAME).exists():
+        pytest.skip(f"no store at {REAL_STORE}; run python -m src.embed_images")
+
+    dim = json.loads((REAL_STORE / META_NAME).read_text(encoding="utf-8"))["dim"]
+    row_bytes = dim * np.dtype(STORE_DTYPE).itemsize
+    size = (REAL_STORE / VECTORS_NAME).stat().st_size
+    n_keys = len(
+        (REAL_STORE / KEYS_NAME).read_text(encoding="utf-8").splitlines()
+    )
+    assert size % row_bytes == 0, "the vector file ends mid-row"
+    assert size // row_bytes == n_keys, "vector rows and keys disagree"
+
+    store = open_store(REAL_STORE, dim=dim)
+    assert len(store) == n_keys == len(store.keys())
+    assert len(store.known_keys()) == n_keys, "duplicate keys in the index"
+
+    # Vectors survived the float16 round trip as unit vectors. 1e-3 is
+    # float16's resolution near 1.0, not a fudge factor.
+    sample = np.asarray(store.vectors()[:256], dtype=np.float32)
+    assert np.allclose(np.linalg.norm(sample, axis=1), 1.0, atol=1e-3)
+
+    # A stored key returns its own row; an absent one is NaN, never zeros.
+    key = store.keys()[0]
+    matrix, present = store.lookup([key, "https://example.invalid/none.jpg"])
+    assert present.tolist() == [True, False]
+    assert np.allclose(matrix[0], sample[0], atol=1e-3)
+    assert np.isnan(matrix[1]).all()
