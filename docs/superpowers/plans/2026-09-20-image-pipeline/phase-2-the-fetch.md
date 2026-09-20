@@ -847,7 +847,7 @@ a 600-title pool; chance is 0.167%. The band is wide because it exists to
 catch catastrophic breakage — misaligned ids, unnormalised vectors, the wrong
 pooling output — not to police the third decimal.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_image_report.py`:
 
@@ -933,7 +933,7 @@ def test_coverage_serialises(tmp_path):
     assert record.to_dict()["embedding_coverage"] == pytest.approx(1.0)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 python -m pytest tests/test_image_report.py -v
@@ -941,7 +941,7 @@ python -m pytest tests/test_image_report.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'src.image_report'`.
 
-- [ ] **Step 3: Write `src/image_report.py`**
+- [x] **Step 3: Write `src/image_report.py`**
 
 ```python
 """Image coverage and the semantic gate.
@@ -1106,7 +1106,7 @@ if __name__ == "__main__":
     raise SystemExit(_main())
 ```
 
-- [ ] **Step 4: Run the fast tests, then the real pipeline**
+- [x] **Step 4: Run the fast tests, then the real pipeline**
 
 ```bash
 python -m pytest tests/test_image_report.py -v
@@ -1138,7 +1138,7 @@ the same concurrency, so a slow stretch is the CDN, not a bug. Do not raise
 3. Is the encoder reading `.pooler_output` (512-d) and not `.last_hidden_state` (768-d)?
 4. Is the title column the right one? `product_title` from ESCI, not `s_title`.
 
-- [ ] **Step 5: Record the commands in `CLAUDE.md`**
+- [x] **Step 5: Record the commands in `CLAUDE.md`**
 
 Add to the Commands block, above the image-gate line:
 
@@ -1148,7 +1148,7 @@ python -m src.embed_images --scope rerank     # -> data/embeddings/rerank/
 python -m src.image_report --scope rerank     # coverage + semantic gate
 ````
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/image_report.py tests/test_image_report.py docs/results/image-embeddings.json CLAUDE.md
@@ -1162,12 +1162,12 @@ git commit -m "Embed product images with CLIP and record coverage and the semant
 This is the Plan Gate — Plan 4 does not start until all of these hold. The
 canonical copy lives in [`README.md`](README.md#plan-gate).
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the store round-trip on the real run.
-- [ ] `python -m src.esci_images data/esci-s/esci.json.zst` exits zero.
-- [ ] `data/embeddings/rerank/` holds one float16 vector per successfully fetched image, and `len(store) == len(store.keys())` exactly.
-- [ ] `docs/results/image-embeddings.json` records end-to-end coverage against the measured ~77.5%, not 91.5%.
-- [ ] The semantic gate passes: top-1 ≥ 0.60 over a 600-candidate pool, against a measured 0.753.
-- [ ] `CLAUDE.md`'s Commands section lists the embedding invocation.
+- [x] `python -m pytest` passes with no failures and no new skips.
+- [x] `python -m pytest -m data` passes, including the store round-trip on the real run.
+- [x] `python -m src.esci_images data/esci-s/esci.json.zst` exits zero.
+- [x] `data/embeddings/rerank/` holds one float16 vector per successfully fetched image, and `len(store) == len(store.keys())` exactly.
+- [x] `docs/results/image-embeddings.json` records end-to-end coverage against the measured ~77.5%, not 91.5%.
+- [x] The semantic gate passes: top-1 ≥ 0.60 over a 600-candidate pool, against a measured 0.753.
+- [x] `CLAUDE.md`'s Commands section lists the embedding invocation.
 
 Then: Plan 4 — Recall. See [`../README.md`](../README.md) for the series.

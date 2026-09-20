@@ -44,6 +44,10 @@ python -m src.esci_s_etl                      # -> data/esci-s/corpus.parquet
 python -m src.coverage --split test           # join coverage + missingness bias
 python -m src.combine                         # -> data/combined/{products,judgements}.parquet
 
+# Image embeddings (network-bound; resumable, 1.8-7.3 h for the rerank scope)
+python -m src.embed_images --scope rerank     # -> data/embeddings/rerank/
+python -m src.image_report --scope rerank     # coverage + semantic gate
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```

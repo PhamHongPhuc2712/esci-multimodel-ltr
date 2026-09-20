@@ -1,0 +1,14 @@
+{
+  "scope": "rerank",
+  "products": 482105,
+  "with_url": 373776,
+  "embedded": 373639,
+  "url_coverage": 0.7752999865174599,
+  "embedding_coverage": 0.7750158160566681,
+  "semantic_gate": {
+    "pool": 600,
+    "top1": 0.76,
+    "threshold": 0.6,
+    "seed": 0
+  }
+}

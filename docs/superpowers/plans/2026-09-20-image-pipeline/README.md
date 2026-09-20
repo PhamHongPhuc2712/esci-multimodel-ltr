@@ -68,7 +68,7 @@ two downstream needs differ and the cost gap is large:
 
 | scope | products | distinct URLs | transfer | store (fp16) | fetch at 3,400/min |
 |---|---|---|---|---|---|
-| `rerank` | 482,105 | **373,776** | 3.81 GB | 383 MB | ~1.8 h |
+| `rerank` | 482,105 | **362,005** | 3.81 GB | 383 MB | ~1.8 h |
 | `catalogue` | 1,215,854 | **887,041** | 9.05 GB | 908 MB | ~4.3 h |
 
 **Default is `rerank`.** Plans 5–7 re-rank judged candidates only and need
@@ -77,7 +77,12 @@ append-only, so running `rerank` first and `catalogue` later re-fetches only
 the difference.
 
 Note 932,320 catalogue products share only 887,041 distinct URLs — 45,279
-products reuse another product's image. Fetch is keyed by URL, not by product.
+products reuse another product's image. The re-ranking scope is the same story:
+373,776 products carry a URL but only **362,005** are distinct, so 11,771 reuse
+another's image. (An earlier draft of the table above printed 373,776 in the
+distinct column; that is the products-with-a-URL count, `n_with_image` from
+`docs/results/esci-s-coverage.json`, not a URL count.) Fetch is keyed by URL,
+not by product.
 
 **Throughput varies a lot.** Three runs measured 5,516, 3,378 and 850
 images/minute at the same concurrency. Budget for the low end: a `rerank` pass
@@ -140,12 +145,12 @@ loads a real model.
 
 Plan 4 does not start until all of these hold:
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the store round-trip on the real run.
-- [ ] `python -m src.esci_images data/esci-s/esci.json.zst` exits zero — the resolution gate, re-run rather than trusted.
-- [ ] `data/embeddings/rerank/` holds one float16 vector per successfully fetched image, and its index row count equals the vector row count exactly.
-- [ ] `docs/results/image-embeddings.json` records end-to-end coverage against the measured ~77.5%, not 91.5%.
-- [ ] The semantic gate passes: top-1 image→title retrieval **≥ 0.60** over a 600-candidate pool, against a measured 0.753 and a 0.00167 chance rate.
-- [ ] `CLAUDE.md`'s Commands section lists the embedding invocation.
+- [x] `python -m pytest` passes with no failures and no new skips.
+- [x] `python -m pytest -m data` passes, including the store round-trip on the real run.
+- [x] `python -m src.esci_images data/esci-s/esci.json.zst` exits zero — the resolution gate, re-run rather than trusted.
+- [x] `data/embeddings/rerank/` holds one float16 vector per successfully fetched image, and its index row count equals the vector row count exactly.
+- [x] `docs/results/image-embeddings.json` records end-to-end coverage against the measured ~77.5%, not 91.5%.
+- [x] The semantic gate passes: top-1 image→title retrieval **≥ 0.60** over a 600-candidate pool, against a measured 0.753 and a 0.00167 chance rate.
+- [x] `CLAUDE.md`'s Commands section lists the embedding invocation.
 
 Then: Plan 4 — Recall. See [`../README.md`](../README.md) for the series.
