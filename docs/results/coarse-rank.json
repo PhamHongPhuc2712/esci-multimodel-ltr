@@ -1,0 +1,461 @@
+{
+  "split": "train",
+  "report_fold": 0,
+  "train_folds": [
+    2,
+    3,
+    4
+  ],
+  "early_stop_fold": 1,
+  "n_queries": 4130,
+  "n_judgements": 82751,
+  "floor": {
+    "mean": 0.743749290760818,
+    "low": 0.740674758377043,
+    "high": 0.7465897379380034,
+    "n_trials": 100
+  },
+  "esci_baseline_target": 0.8562,
+  "arms": [
+    {
+      "name": "text",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval"
+      ],
+      "n_features": 19,
+      "objective": "lambdarank",
+      "best_iteration": 130,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.844570784288991,
+        "low": 0.8397813656347383,
+        "high": 0.8493549633481795
+      },
+      "lift_over_floor": {
+        "point": 0.10082149352817298,
+        "low": 0.09687160620195798,
+        "high": 0.10498848982681894
+      }
+    },
+    {
+      "name": "text+image",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval",
+        "image"
+      ],
+      "n_features": 21,
+      "objective": "lambdarank",
+      "best_iteration": 185,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8505378277462731,
+        "low": 0.8458357571679521,
+        "high": 0.8551910928573225
+      },
+      "lift_over_floor": {
+        "point": 0.10678853698545503,
+        "low": 0.10274710407111609,
+        "high": 0.11060288319165983
+      }
+    },
+    {
+      "name": "text+behavioural",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval",
+        "behavioural",
+        "categorical",
+        "attrs",
+        "s_indicators"
+      ],
+      "n_features": 45,
+      "objective": "lambdarank",
+      "best_iteration": 174,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8471088165715522,
+        "low": 0.8422460886365254,
+        "high": 0.8517233396879456
+      },
+      "lift_over_floor": {
+        "point": 0.10335952581073414,
+        "low": 0.09910788128854842,
+        "high": 0.10728407419189116
+      }
+    },
+    {
+      "name": "indicators_only",
+      "groups": [
+        "s_indicators"
+      ],
+      "n_features": 9,
+      "objective": "lambdarank",
+      "best_iteration": 37,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.7563776166574024,
+        "low": 0.7512256277915396,
+        "high": 0.7618552595874246
+      },
+      "lift_over_floor": {
+        "point": 0.012628325896584369,
+        "low": 0.009502021983505641,
+        "high": 0.016024709150432317
+      }
+    },
+    {
+      "name": "text+indicators",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval",
+        "s_indicators"
+      ],
+      "n_features": 28,
+      "objective": "lambdarank",
+      "best_iteration": 99,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8443878265636403,
+        "low": 0.8394693659818897,
+        "high": 0.849387978244479
+      },
+      "lift_over_floor": {
+        "point": 0.1006385358028222,
+        "low": 0.09671024233277378,
+        "high": 0.10463675703997884
+      }
+    },
+    {
+      "name": "esci_presence_only",
+      "groups": [
+        "esci_indicators"
+      ],
+      "n_features": 4,
+      "objective": "lambdarank",
+      "best_iteration": 8,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.7545413287029638,
+        "low": 0.7496026033468467,
+        "high": 0.760005016315679
+      },
+      "lift_over_floor": {
+        "point": 0.010792037942145782,
+        "low": 0.007665273746574782,
+        "high": 0.014329644931854697
+      }
+    },
+    {
+      "name": "both_presence_only",
+      "groups": [
+        "esci_indicators",
+        "s_indicators"
+      ],
+      "n_features": 13,
+      "objective": "lambdarank",
+      "best_iteration": 61,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.7625103963830134,
+        "low": 0.7575506418431255,
+        "high": 0.7680013002592448
+      },
+      "lift_over_floor": {
+        "point": 0.018761105622195504,
+        "low": 0.015544371025246336,
+        "high": 0.022207317588529712
+      }
+    },
+    {
+      "name": "full",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval",
+        "image",
+        "behavioural",
+        "categorical",
+        "attrs",
+        "s_indicators"
+      ],
+      "n_features": 47,
+      "objective": "lambdarank",
+      "best_iteration": 208,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945205,
+        "high": 0.11184183460770253
+      }
+    },
+    {
+      "name": "full/pointwise_regression",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval",
+        "image",
+        "behavioural",
+        "categorical",
+        "attrs",
+        "s_indicators"
+      ],
+      "n_features": 47,
+      "objective": "pointwise_regression",
+      "best_iteration": 301,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8431033545272048,
+        "low": 0.8379562658079435,
+        "high": 0.8476603034085074
+      },
+      "lift_over_floor": {
+        "point": 0.09935406376638678,
+        "low": 0.09533294331431312,
+        "high": 0.10319308789664247
+      }
+    },
+    {
+      "name": "full/pointwise_class",
+      "groups": [
+        "text",
+        "esci_indicators",
+        "retrieval",
+        "image",
+        "behavioural",
+        "categorical",
+        "attrs",
+        "s_indicators"
+      ],
+      "n_features": 47,
+      "objective": "pointwise_class",
+      "best_iteration": 188,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8433014307722594,
+        "low": 0.8385071736981836,
+        "high": 0.847998467462153
+      },
+      "lift_over_floor": {
+        "point": 0.09955214001144144,
+        "low": 0.09568547106483298,
+        "high": 0.10338773686881246
+      }
+    },
+    {
+      "name": "learned_fusion",
+      "groups": [
+        "retrieval",
+        "image"
+      ],
+      "n_features": 3,
+      "objective": "lambdarank",
+      "best_iteration": 60,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8321248883869792,
+        "low": 0.8270213618020096,
+        "high": 0.8367921164064712
+      },
+      "lift_over_floor": {
+        "point": 0.0883755976261613,
+        "low": 0.08411530328642268,
+        "high": 0.09258444233175087
+      }
+    },
+    {
+      "name": "fixed_weight",
+      "groups": [
+        "retrieval",
+        "image"
+      ],
+      "n_features": 2,
+      "objective": "fixed_weight",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8344611123159794,
+        "low": 0.8292216735004336,
+        "high": 0.8391221666588766
+      },
+      "lift_over_floor": {
+        "point": 0.09071182155516143,
+        "low": 0.0865645591503215,
+        "high": 0.09476169280361997
+      }
+    }
+  ],
+  "ablations": {
+    "3_text_vs_image": {
+      "arm": "text+image",
+      "baseline": "text",
+      "delta": {
+        "point": 0.005967043457282033,
+        "low": 0.0038586115008026997,
+        "high": 0.008077649016093237
+      },
+      "significant": true
+    },
+    "4_behavioural": {
+      "naive_delta": {
+        "point": 0.002538032282561153,
+        "low": 0.0004512309571638379,
+        "high": 0.0044457209664704525
+      },
+      "artefact_lift": {
+        "point": 0.012628325896584369,
+        "low": 0.009502021983505641,
+        "high": 0.016024709150432317
+      },
+      "honest_delta": {
+        "point": -0.01009029361402322,
+        "low": -0.013841893468419915,
+        "high": -0.006350535674473407
+      },
+      "significant": true,
+      "caveat": "Subtracting the indicators-only arm assumes the presence effects are additive. CLAUDE.md measured them as super-additive (+0.0166 for both presence sets together against +0.0052 + +0.0084 apart), so this is a point estimate under that assumption, not a bound.",
+      "values_over_indicators": {
+        "point": 0.0027209900079119297,
+        "low": 0.0008084929366307608,
+        "high": 0.004609792313369376
+      },
+      "values_over_indicators_significant": true,
+      "additivity_check": {
+        "esci_presence_lift": 0.010792037942145782,
+        "s_presence_lift": 0.012628325896584369,
+        "both_presence_lift": 0.018761105622195504
+      }
+    },
+    "5_objective": [
+      {
+        "arm": "full/pointwise_regression",
+        "baseline": "full",
+        "delta": {
+          "point": -0.00876268577314928,
+          "low": -0.011171224238976936,
+          "high": -0.0062297262770094845
+        },
+        "significant": true
+      },
+      {
+        "arm": "full/pointwise_class",
+        "baseline": "full",
+        "delta": {
+          "point": -0.008564609528094623,
+          "low": -0.010886894536415939,
+          "high": -0.005909550306124523
+        },
+        "significant": true
+      }
+    ],
+    "7_learned_fusion": {
+      "arm": "learned_fusion",
+      "baseline": "fixed_weight",
+      "delta": {
+        "point": -0.0023362239290001152,
+        "low": -0.004002013479122091,
+        "high": -0.0007513814687386687
+      },
+      "significant": true,
+      "fixed_weight_w_text": 0.65,
+      "sweep": [
+        [
+          0.0,
+          0.8139545690062867
+        ],
+        [
+          0.05,
+          0.8170219262533838
+        ],
+        [
+          0.1,
+          0.8197813852973601
+        ],
+        [
+          0.15,
+          0.822469483337503
+        ],
+        [
+          0.2,
+          0.8251145761502212
+        ],
+        [
+          0.25,
+          0.8272530194915799
+        ],
+        [
+          0.3,
+          0.8299076786124718
+        ],
+        [
+          0.35,
+          0.8326371930223965
+        ],
+        [
+          0.4,
+          0.8349036228890845
+        ],
+        [
+          0.45,
+          0.8373636525914981
+        ],
+        [
+          0.5,
+          0.8386076573603861
+        ],
+        [
+          0.55,
+          0.839660667777561
+        ],
+        [
+          0.6,
+          0.8406802337931693
+        ],
+        [
+          0.65,
+          0.8411814247475704
+        ],
+        [
+          0.7,
+          0.8411120633636663
+        ],
+        [
+          0.75,
+          0.8402203055091964
+        ],
+        [
+          0.8,
+          0.839496594556504
+        ],
+        [
+          0.85,
+          0.8386700807550155
+        ],
+        [
+          0.9,
+          0.8370047815464429
+        ],
+        [
+          0.95,
+          0.8357548154632338
+        ],
+        [
+          1.0,
+          0.8339045670297801
+        ]
+      ]
+    }
+  },
+  "seed": 0
+}
