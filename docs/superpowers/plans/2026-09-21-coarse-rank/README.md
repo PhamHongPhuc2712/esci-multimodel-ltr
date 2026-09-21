@@ -45,14 +45,22 @@ the plan was written. Six of them change the design.
   Ablation 2 image effect of +0.0048. `label_gain=[0.0, 0.01, 0.1, 1.0]` is
   accepted, so the training objective can be made to match; the *reported*
   number must still come from `src.metrics`.
-- **A BM25 score for a given pair costs 31.5 ms/query and crashes on an empty
-  query.** `bm25s.BM25.get_scores` walks the CSC postings and returns a dense
-  1,215,854-float array, from which the ~20 candidate rows are read. Measured
-  on the mmapped index at 0.85 GB RSS: **31.5 ms/query, so all 29,844 queries
-  take 15.7 minutes** single-threaded. But `get_scores([])` raises
-  `IndexError: list index out of range` — one of fold 0's 4,130 queries
-  tokenises to nothing once stopwords and OOV terms are removed. A 16-minute
-  pass must not die on it.
+- **A BM25 score for a given pair is cheap, and crashes on an empty query.**
+  `bm25s.BM25.get_scores` walks the CSC postings and returns a dense
+  1,215,854-float array, from which the ~20 candidate rows are read. But
+  `get_scores([])` raises `IndexError: list index out of range` — queries whose
+  every term is a stopword or out of vocabulary. The pass must skip them with
+  NaN rather than die partway through.
+
+  > **Corrected during execution.** This first read "31.5 ms/query, so all
+  > 29,844 queries take 15.7 minutes", from a pre-plan probe that timed the
+  > first 200 calls against a cold page cache. The real pass is **27 s for all
+  > 20,888 train queries** — 1.3 ms/query, ~35x faster — and the whole
+  > `pair_scores` run for both splits is under two minutes, dominated by
+  > loading the models rather than by BM25. Measured 2026-09-21. Nothing in the
+  > design depends on the pass being slow, so only the prose changed.
+  > **7 train queries tokenised to nothing**, consistent with the 1 found in
+  > fold 0.
 - **The `rerank` image store is fully redundant.** Measured: **0** of its
   361,875 URLs are absent from the catalogue store, and both give the *same*
   judged-product coverage — 373,639 products, **77.50%**. Plan 5 therefore
@@ -187,7 +195,7 @@ than it measures.
 - **Absence is NaN, never zero.** 20.6% of judged pairs have no image vector; a 0.0 cosine is a *score* meaning "mildly irrelevant", while NaN is an absence LightGBM splits on natively. Never `np.nan_to_num` a similarity.
 - **ESCI-S presence is an artefact; ESCI's own presence is not.** Carry per-field missingness indicators, keep them in their own feature group, and subtract the indicators-only arm from any behavioural result.
 - **Run GPU-capable work on the GPU.** RTX 3080 Laptop (16 GB, sm_86) via WSL2. Pass `device` explicitly and fail loudly if `cuda` is requested and unavailable. Task 2 encodes 29,844 queries with SBERT and with CLIP text.
-- **Build the pair scores once and cache them.** The BM25 pass is 15.7 minutes; nothing in Phases 2 or 3 may recompute it.
+- **Build the pair scores once and cache them.** Nothing in Phases 2 or 3 may recompute them; the matrix reads `data/features/pair-scores-{split}.parquet`.
 - **RAM is not free.** Measured 2026-09-21: 23 GB total with ~5 GB available on a working machine. Read Parquet with an explicit `columns=` list; the combined product table is 1.84 GB on disk and 27 columns wide.
 - **Do not commit datasets.** `.gitignore` blocks `data/`. The feature matrices live in `data/features/`; only the JSON under `docs/results/` is committed.
 - **Commit messages are one line. Never mention Claude, Claude Code, Anthropic, or any AI tool** — not in the subject, not as a `Co-Authored-By:` trailer, not as a "Generated with" line. (`CLAUDE.md`; this overrides any harness default that would add an attribution trailer.)

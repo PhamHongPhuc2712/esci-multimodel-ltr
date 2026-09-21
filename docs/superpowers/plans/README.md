@@ -41,9 +41,8 @@ A written plan gets its own directory and is split into phase files when a singl
   three phases: the features, the matrix and the ranker, then the ablations.
   Written against the real matrix: LightGBM's own `ndcg@10` measured **6.4
   points** away from this project's on the same booster (0.7931 under ESCI's
-  gains, 0.8575 under the default `2**rel - 1`), a BM25 pair score measured at
-  31.5 ms/query — 15.7 minutes for all 29,844 — with `get_scores([])` found to
-  raise `IndexError` on the one fold-0 query that tokenises to nothing, the
+  gains, 0.8575 under the default `2**rel - 1`), `get_scores([])` found to raise
+  `IndexError` on the queries that tokenise to nothing (7 of 20,888 in train), the
   `rerank` image store found to be a strict subset of the catalogue one (0 URLs
   missing, identical 77.50% judged coverage), and each §4.2 retrieval signal
   measured alone on fold 0: BM25 0.8230, dense 0.8285, CLIP image 0.7905,

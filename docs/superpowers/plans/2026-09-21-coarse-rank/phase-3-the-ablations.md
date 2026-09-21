@@ -1159,7 +1159,7 @@ Add to the fenced command block in `CLAUDE.md`, after the retrieval-channel
 section:
 
 ```bash
-# Coarse rank (Plan 5). Pair scores are ~16 min, dominated by the BM25 pass.
+# Coarse rank (Plan 5). Pair scores are ~2 min a split, dominated by model loading.
 python -m src.pair_scores --split train        # -> data/features/pair-scores-train.parquet
 python -m src.pair_scores --split test
 python -m src.feature_matrix --split train     # -> data/features/train.parquet

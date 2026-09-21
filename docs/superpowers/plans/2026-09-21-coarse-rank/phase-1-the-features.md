@@ -764,8 +764,8 @@ judged pairs have no image vector.
 **Review Focus 3 lives in `bm25_pair_scores`.** `bm25s.BM25.get_scores([])`
 raises `IndexError: list index out of range` from `query_tokens_single[0]`, and
 one of fold 0's 4,130 queries tokenises to nothing once English stopwords and
-out-of-vocabulary terms are dropped. The pass is 15.7 minutes long; it must
-skip that query with NaN and count it, not die at minute nine.
+out-of-vocabulary terms are dropped. It must skip those queries with NaN and count them
+rather than abort the pass; 7 of the 20,888 train queries are affected.
 
 **The `Tokenized` -> token-strings conversion is not obvious.**
 `bm25_index.tokenize_texts` returns a `bm25s.tokenization.Tokenized` carrying
@@ -1024,10 +1024,10 @@ BM25, and a keyed lookup rather than a top-k for the two vector stores.
 Two failure modes are handled rather than assumed away:
 
   * **A query can tokenise to nothing.** After English stopword removal and
-    the index's vocabulary filter, one of fold 0's 4,130 queries has no tokens
-    left, and `bm25s.BM25.get_scores([])` raises IndexError from
-    `query_tokens_single[0]`. Those rows get NaN and the count is reported;
-    the 15.7-minute pass finishes.
+    the index's vocabulary filter, 7 of the 20,888 train queries have no tokens
+    left (1 of them in fold 0), and `bm25s.BM25.get_scores([])` raises
+    IndexError from `query_tokens_single[0]`. Those rows get NaN, the count is
+    reported, and the pass finishes.
   * **A product can have no vector.** 20.6% of judged pairs have no image
     embedding. `EmbeddingStore.lookup` returns NaN plus a presence mask, and
     that NaN is propagated: a 0.0 cosine is a score meaning "orthogonal to the
@@ -1304,14 +1304,14 @@ python -m src.pair_scores --split train
 python -m src.pair_scores --split test
 ```
 
-Expected, on the real corpus (about 16 minutes in total, the BM25 pass
-dominating):
+Expected, on the real corpus (**under two minutes per split**; the BM25 pass
+is 27 s for train, and model loading dominates the rest):
 
 - `train`: 419,653 pairs, 20,888 queries
 - `test`: 181,701 pairs, 8,956 queries
 - `dense_sim` covers 1.0000 of pairs
 - `clip_image_sim` covers ≈0.79 of pairs
-- a handful of queries reported as tokenising to nothing — fold 0 alone has one
+- 7 train queries / a handful of test queries reported as tokenising to nothing
 
 If `clip_image_sim` covers 1.0000, the NaN has been filled somewhere and
 Review Focus 5 has been violated. If it covers 0.0000, the store keys and the
