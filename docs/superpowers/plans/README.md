@@ -25,17 +25,31 @@ interfaces are known.
 | 2 | [**Enrichment Corpus**](2026-09-19-enrichment-corpus/) | Single-pass streaming ETL of ESCI-S (3.4 GB zstd) to Parquet; join coverage and missingness-bias report | Join coverage ≥ 88% of the re-ranking products (measured 0.8959); dense-field missingness under 0.02 mean gain | §3.2, §8.2 |
 | 3 | [**Image Pipeline**](2026-09-20-image-pipeline/) | Resolution gate re-run, bulk async fetch, in-flight CLIP embedding, embedding store **(landed)** | `python -m src.esci_images` ≥ 90%; end-to-end image coverage reported against the ~75% figure, not 91.5% | §3.3, §8.3 |
 | 4 | [**Recall**](2026-09-20-recall/) | BM25 + dense + CLIP channels, RRF fusion, Recall@k harness, Stage 0 LLM query rewriting **(landed)** | Ablations 1 and 2 produce a table with bootstrap CIs | §4.0, §4.1, §8.4 |
-| 5 | **Coarse Rank** | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
+| 5 | [**Coarse Rank**](2026-09-21-coarse-rank/) | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
 | 6 | **Fine Rank** | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
 | 7 | **Blend and Report** | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 
-A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. Four are written so far, all split that way:
+A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. Five are written so far, all split that way:
 
 - [`2026-09-19-evaluation-foundation/`](2026-09-19-evaluation-foundation/) — Plan 1, an index plus three phases: the metric, the data, then statistics and the baseline. **Landed.** Its gate passed with zero-shot SBERT at NDCG 0.8294 against a published 0.8292, a measured random floor of 0.7467, and a lift of +0.0827 [+0.0802, +0.0855].
 - [`2026-09-19-enrichment-corpus/`](2026-09-19-enrichment-corpus/) — Plan 2, an index plus two phases: the record, then the corpus. Written against the real `esci.json.zst`, not its README: the field-presence figures, the book/product key split, the multi-price strings and zstandard's silence on truncation were all measured first. **Landed.** 1,080,262-row corpus at 89.59% join coverage.
 - [`2026-09-20-image-pipeline/`](2026-09-20-image-pipeline/) — Plan 3, an index plus two phases: the embedder, then the fetch. Written against the live CDN and the real GPU: 300/300 and 600/600 URLs resolved, CLIP measured at 18,140 img/min against a 3,378–5,516 img/min fetch, float16 storage shown lossless for retrieval, and CLIP's image→title top-1 measured at 75.3% to set the gate. **Landed.** 361,875 vectors (382 MB) over 362,005 distinct URLs, 77.50% end-to-end image coverage against the ~77.5% target, semantic gate 76.0% against a 0.60 threshold.
 
 - [`2026-09-20-recall/`](2026-09-20-recall/) — Plan 4, an index plus three phases: the metric and the lexical channel, the learned channels, then fusion and the ablations. Written against the real corpus: the in-memory BM25 build measured at 18.3 GB peak against 23 GB of RAM (memory-mapped, 1.55 GB and faster), BM25 Recall@100 measured at 0.5018 to set the baseline, SBERT at 821 docs/s for a 25-minute corpus pass, and `query_id` 45928 found to have no Exact product at all. **Landed.** On validation fold 0 (4,130 queries, E-relevance, full 1.2M corpus): BM25 R@100 0.4890, dense 0.4608, image 0.1971, and RRF fusion 0.5551 — **+0.0661 [+0.0598, +0.0727]** over BM25. Ablation 2's ladder puts +BM25-over-dense at +0.0895 and **+image-over-(dense+bm25) at only +0.0048 [+0.0008, +0.0088]** — real but marginal. Ablation 1's LLM rewriting **ties**: +0.0048 [-0.0007, +0.0107], and it costs R@10 (0.2657 -> 0.2571).
+
+- [`2026-09-21-coarse-rank/`](2026-09-21-coarse-rank/) — Plan 5, an index plus
+  three phases: the features, the matrix and the ranker, then the ablations.
+  Written against the real matrix: LightGBM's own `ndcg@10` measured **6.4
+  points** away from this project's on the same booster (0.7931 under ESCI's
+  gains, 0.8575 under the default `2**rel - 1`), a BM25 pair score measured at
+  31.5 ms/query — 15.7 minutes for all 29,844 — with `get_scores([])` found to
+  raise `IndexError` on the one fold-0 query that tokenises to nothing, the
+  `rerank` image store found to be a strict subset of the catalogue one (0 URLs
+  missing, identical 77.50% judged coverage), and each §4.2 retrieval signal
+  measured alone on fold 0: BM25 0.8230, dense 0.8285, CLIP image 0.7905,
+  against a fold-0 floor of 0.7440. Ablation 7's control — one hand-tuned
+  global weight — measured **0.8347** at `w_text = 0.7`. **Written, not yet
+  executed.**
 
 Start at a plan's `README.md`.
 
