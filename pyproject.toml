@@ -29,6 +29,9 @@ retrieval = [
     "PyStemmer>=2.2",
     "openai>=1.40",
 ]
+ranking = [
+    "lightgbm>=4.5",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
