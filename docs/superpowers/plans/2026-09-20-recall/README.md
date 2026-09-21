@@ -95,11 +95,15 @@ do not fit:
 
 | artifact | size | scope |
 |---|---|---|
-| BM25 index (`data/bm25/`) | 1.10 GB | catalogue |
-| Dense text vectors, fp16 384-d | 0.93 GB | catalogue |
-| CLIP image vectors, fp16 512-d | 0.91 GB | catalogue |
-| CLIP image vectors, fp16 512-d | 0.38 GB | `rerank` — a *separate* store, not shared with the above |
-| **total** | **3.32 GB** | |
+| BM25 index (`data/bm25/`) | 1.15 GB | catalogue |
+| Dense text vectors, fp16 384-d | 0.95 GB | catalogue |
+| CLIP image vectors, fp16 512-d | 0.98 GB | catalogue |
+| CLIP image vectors, fp16 512-d | 0.40 GB | `rerank` — a *separate* store, not shared with the above |
+| **total** | **3.48 GB** | |
+
+Those are measured on disk after the runs, not estimated; `docs/results/recall.json`
+carries the same figures. The `rerank` image store is redundant once the catalogue
+one exists — its URLs are a subset — so deleting it recovers 0.40 GB.
 
 §9 was written before the channels were scoped. Do not shrink a channel to
 hit a number the spec set for a smaller design — record the overrun in

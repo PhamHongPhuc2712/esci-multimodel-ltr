@@ -51,7 +51,7 @@ python -m src.image_report --scope rerank     # coverage + semantic gate
 # Retrieval channels (build once; every consumer memory-maps the result)
 python -m src.bm25_index                      # -> data/bm25/, ~5 min, 18 GB peak
 python -m src.dense_embed                     # -> data/embeddings/dense/, ~27 min GPU
-python -m src.embed_images --scope catalogue  # recall needs the full corpus, ~3.6 h
+python -m src.embed_images --scope catalogue  # recall needs the full corpus, ~6 h
 python -m src.recall_report --split train --folds 0   # Ablations 1 and 2
 
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
@@ -212,8 +212,12 @@ supplied it.
 
 ## Scale
 
-482,105 unique products for re-ranking (~362K images, ~3.6 GB); 1,215,851 for
-full-corpus recall (~912K images, ~9.1 GB). Downloads: ESCI examples 48.9 MB +
+482,105 unique products for re-ranking (362,005 distinct image URLs, 3.8 GB of
+transfer); **1,215,854** for full-corpus recall (887,041 distinct URLs, 9.1 GB).
+Measured after the real runs: 361,875 and 886,730 vectors actually stored, at a
+0.035% fetch-failure rate. The two scopes write to *separate* stores
+(`data/embeddings/{rerank,catalogue}/`), so running both costs both — 0.38 GB
+plus 0.98 GB. Downloads: ESCI examples 48.9 MB +
 products 1.03 GB, ESCI-S 3.37 GB. ESCI-S is **single-frame zstd** — no random
 access, no resumable ranged decompression, so filter to `us`, drop error rows,
 normalise book fields, and write Parquet all in one streaming pass.
