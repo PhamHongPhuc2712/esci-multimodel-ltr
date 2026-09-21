@@ -54,6 +54,14 @@ python -m src.dense_embed                     # -> data/embeddings/dense/, ~27 m
 python -m src.embed_images --scope catalogue  # recall needs the full corpus, ~6 h
 python -m src.recall_report --split train --folds 0   # Ablations 1 and 2
 
+# Coarse rank (Plan 5). Pair scores are ~2 min a split, dominated by model loading.
+python -m src.pair_scores --split train       # -> data/features/pair-scores-train.parquet
+python -m src.pair_scores --split test
+python -m src.feature_matrix --split train    # -> data/features/train.parquet
+python -m src.feature_matrix --split test
+python -m src.rank_report                     # Ablations 3, 4, 5, 7 on fold 0
+python -m src.rank_report --split test --final --out docs/results/coarse-rank-test.json
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
@@ -95,6 +103,12 @@ Books likewise use `desc`/`attr` where products use `description`/`attrs`.
 and test (84.6%) and roughly label-balanced, so the both-splits premise holds.
 **Measured end to end: 0.7753** over the 482,105 re-ranking products, 0.7668 over
 the 1,215,854-product catalogue — both confirming ~75%, not 91.5%.
+
+**The `rerank` image store is redundant.** Measured 2026-09-21: 0 of its
+361,875 URLs are absent from `data/embeddings/catalogue/`, and both give the
+same judged-product coverage (373,639 products, 77.50%). Plan 5 reads the
+catalogue store only; deleting `data/embeddings/rerank/` recovers 0.40 GB
+without losing a vector.
 
 **Measured ESCI-S join coverage is 89.59%** of the 482,105 Task 1 English
 re-ranking products (431,930 matched), and 88.85% of the catalogue. The 91.5%
@@ -189,17 +203,48 @@ supplied it.
   failed on this page" is not available at serving time. So the ~+0.0084 must be
   subtracted from any behavioural-feature result, not assumed away. Ablation 4
   therefore needs three arms — text only, text + values + indicators, and
-  **indicators only** — and the honest contribution is arm 2 − arm 3.
-  The effects are super-additive (+0.0166 > +0.0052 + +0.0084), so the combined
-  bias cannot be bounded by adding the parts.
+  **indicators only**.
+
+  **Subtracting the indicators-only arm over-corrects; use a fourth arm
+  instead.** Plan 5 measured it both ways on the real matrix. Subtracting
+  (`(arm2 − arm1) − (arm3 − floor)`) gives **−0.0107** on test, which reads as
+  "the behavioural features are worse than useless" and is an artefact of the
+  subtraction: it assumes the +0.0155 that presence patterns buy *over the
+  floor* is still available on top of a text ranker, and it is not. Adding a
+  **`text + indicators`** arm settles it with no additivity assumption — it
+  differs from arm 2 only by the ESCI-S *value* columns. Measured on test:
+  `text` 0.8471 and `text + indicators` **0.8482**, so the presence flags buy
+  +0.0011 on top of text rather than +0.0155, and the honest behavioural
+  contribution is **arm 2 − (text + indicators) = +0.0036 [+0.0023, +0.0051]**.
+  Report that, not the subtraction.
+
+  The presence effects are **not additive in a fixed direction**: +0.0166 >
+  +0.0052 + +0.0084 on the original test measurement (super-additive), but
+  +0.0208 < +0.0110 + +0.0155 when re-measured with LightGBM on the same split
+  (sub-additive). Either way the combined bias cannot be bounded by adding the
+  parts, which is why the fourth arm exists.
+- **LightGBM's own NDCG is not this project's NDCG.** Its `lambdarank`
+  defaults to a `2**rel - 1` gain and its `eval_at` is a cutoff, while this
+  project reports full-list NDCG on the 1.0/0.1/0.01/0.0 mapping. Measured on
+  a matrix of the real shape, the **same booster** reports `ndcg@10` 0.7931
+  under `label_gain=[0.0, 0.01, 0.1, 1.0]` and 0.8575 under the default — a
+  6.4-point gap, larger than every effect in the ablation table. Pass
+  `label_gain` explicitly, and take every reported number from `src.metrics`.
+  `src/ranker.py` derives it from `src.labels` and refuses an override.
+- **LightGBM's `group` is sizes over consecutive rows, not query ids.** A
+  feature matrix sorted any other way trains on comparisons that straddle
+  queries, with nothing raised. `src.feature_matrix.group_sizes` counts runs
+  and refuses when the run count is not the distinct-query count; always go
+  through `sort_for_ranking` first.
 - **Retrieving from a judged-only pool is candidate-set leakage.** Recall@k is
   measured over the full 1,215,854-product corpus. A channel whose index holds
   only the 482,105 *judged* products is drawing from a pool that contains every
   relevant product and none of the ~450K non-judged distractors, so its recall
   is inflated and not comparable to a channel searching the whole corpus. This
   is easy to do by accident: `src/embed_images.py --scope rerank` builds
-  exactly such a store, and it is the sensible default for Plans 5–7, which
-  re-rank a given candidate list. Recall work must use `--scope catalogue`.
+  exactly such a store. Recall work must use `--scope catalogue` — and so
+  should everything else, since the rerank store turned out to be a strict
+  subset of it (see above), so there is no reason to keep both.
   Measured on 200 validation queries, the rerank-scope image channel reported
   R@100 = 0.2370 — that number is an artefact of its pool, not a retrieval
   result.
