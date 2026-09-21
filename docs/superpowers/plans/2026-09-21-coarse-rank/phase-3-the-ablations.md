@@ -438,6 +438,18 @@ number.
 `indicators_only` arm is missing from the results — the failure mode is not
 computing it wrong, it is quietly not computing it.
 
+> **Corrected during execution.** Three arms turned out not to be enough. The
+> subtraction gave **−0.0107** on test, which reads as "the behavioural
+> features are worse than useless" — an artefact of assuming the +0.0155 that
+> presence patterns buy *over the floor* is still available on top of a text
+> ranker. It is not: a fourth arm, **`text+indicators`**, scores 0.8482
+> against `text`'s 0.8471, so the flags buy +0.0011 there, not +0.0155.
+> `text+indicators` differs from arm 2 only by the ESCI-S *value* columns, so
+> `arm2 − (text+indicators)` isolates the values with **no additivity
+> assumption at all**: **+0.0036 [+0.0023, +0.0051]** on test. All four numbers
+> are reported; `values_over_indicators` is the one to quote. `CLAUDE.md`'s
+> Ablation 4 guidance was corrected to match.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `tests/test_rank_report.py`:

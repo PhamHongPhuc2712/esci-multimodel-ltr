@@ -42,13 +42,22 @@ A written plan gets its own directory and is split into phase files when a singl
   Written against the real matrix: LightGBM's own `ndcg@10` measured **6.4
   points** away from this project's on the same booster (0.7931 under ESCI's
   gains, 0.8575 under the default `2**rel - 1`), `get_scores([])` found to raise
-  `IndexError` on the queries that tokenise to nothing (7 of 20,888 in train), the
-  `rerank` image store found to be a strict subset of the catalogue one (0 URLs
-  missing, identical 77.50% judged coverage), and each §4.2 retrieval signal
-  measured alone on fold 0: BM25 0.8230, dense 0.8285, CLIP image 0.7905,
-  against a fold-0 floor of 0.7440. Ablation 7's control — one hand-tuned
-  global weight — measured **0.8347** at `w_text = 0.7`. **Written, not yet
-  executed.**
+  `IndexError` on the queries that tokenise to nothing (7 of 20,888 in train),
+  the `rerank` image store found to be a strict subset of the catalogue one
+  (0 URLs missing, identical 77.50% judged coverage), and each §4.2 retrieval
+  signal measured alone on fold 0: BM25 0.8230, dense 0.8285, CLIP image 0.7905.
+  **Landed.** 47 features in eight groups over 419,653 train and 181,701 test
+  judgements; headline **NDCG 0.8579 [0.8551, 0.8611]** on test against a
+  measured floor of 0.7468 — the CI contains the 0.8562 `ESCI_baseline` target,
+  so this *matches* it rather than significantly beating it. Ablation 3
+  **+0.0075 [+0.0059, +0.0090]** (images help). Ablation 4 needed a **fourth**
+  arm — subtracting the indicators-only arm over-corrects to −0.0107, while the
+  assumption-free `text+indicators` control puts the behavioural contribution at
+  **+0.0036 [+0.0023, +0.0051]**. Ablation 5: `lambdarank` beats pointwise
+  regression by **+0.0096** and 4-class pointwise by **+0.0085**. Ablation 7
+  **fails its hypothesis** — learned fusion over the same two signals loses to a
+  single hand-tuned global weight on fold 0 (−0.0023 [−0.0040, −0.0008]) and
+  ties on test (−0.0011 [−0.0023, +0.0000]).
 
 Start at a plan's `README.md`.
 

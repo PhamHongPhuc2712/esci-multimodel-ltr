@@ -253,18 +253,19 @@ Merging them would make every feature test wait on the index.
 
 ## Plan Gate
 
-Plan 6 does not start until all of these hold:
+**Passed 2026-09-21.** Headline **0.8579 [0.8551, 0.8611]** on test against a
+measured floor of 0.7468 and the `ESCI_baseline` target of 0.8562.
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the feature-matrix build on the real corpus.
-- [ ] `python -m src.feature_matrix --split train` and `--split test` assert 419,653 and 181,701 rows and write `data/features/{train,test}.parquet`.
-- [ ] Ablation 3 (text vs. text+image) is reported on fold 0 with a paired bootstrap CI.
-- [ ] Ablation 4 is reported with **three** arms, and the honest contribution arm 2 − arm 3 is stated alongside the naive arm 2 − arm 1.
-- [ ] Ablation 5 (`lambdarank` vs. two pointwise objectives) is reported with paired bootstrap CIs.
-- [ ] Ablation 7 beats, or honestly ties, the measured fixed-weight control of **0.8347** at `w_text = 0.7`.
-- [ ] Every reported NDCG carries the fold-0 random floor beside it, and no number in the table came from a LightGBM training log.
-- [ ] `docs/results/coarse-rank.json` records every arm, its interval, the floor, the feature groups it used and the round count.
-- [ ] Exactly one test-split number exists, produced after the configuration was frozen, reported against the 0.8562 `ESCI_baseline` target — beating it or tying it are both acceptable outcomes.
-- [ ] `CLAUDE.md`'s Commands section lists the pair-score pass, the matrix build and the rank report.
+- [x] `python -m pytest` passes with no failures and no new skips. — 485 passed.
+- [x] `python -m pytest -m data` passes, including the feature-matrix build on the real corpus. — 17 passed.
+- [x] `python -m src.feature_matrix --split train` and `--split test` assert 419,653 and 181,701 rows and write `data/features/{train,test}.parquet`.
+- [x] Ablation 3 (text vs. text+image) is reported on fold 0 with a paired bootstrap CI. — **+0.0060 [+0.0039, +0.0081]** on fold 0, **+0.0075 [+0.0059, +0.0090]** on test. Significant: images help.
+- [x] Ablation 4 is reported with **three** arms, and the honest contribution arm 2 − arm 3 is stated alongside the naive arm 2 − arm 1. — reported with **four**; see the correction in [Phase 3](phase-3-the-ablations.md#review-focus-4-ablation-4-arithmetic). The quotable figure is `values_over_indicators` = **+0.0036 [+0.0023, +0.0051]**.
+- [x] Ablation 5 (`lambdarank` vs. two pointwise objectives) is reported with paired bootstrap CIs. — `lambdarank` beats pointwise regression by **+0.0096** and the 4-class pointwise arm by **+0.0085** on test, both significant. The listwise loss earns its keep.
+- [x] Ablation 7 beats, or honestly ties, the measured fixed-weight control of **0.8347** at `w_text = 0.7`. — **it does not beat it.** Learned fusion over the same two signals scores 0.8321 against the control's 0.8345 on fold 0 (**−0.0023 [−0.0040, −0.0008]**, a significant *loss*) and 0.8377 against 0.8388 on test (**−0.0011 [−0.0023, +0.0000]**, a tie). Reported as measured.
+- [x] Every reported NDCG carries the fold-0 random floor beside it, and no number in the table came from a LightGBM training log.
+- [x] `docs/results/coarse-rank.json` records every arm, its interval, the floor, the feature groups it used and the round count.
+- [x] Exactly one test-split number exists, produced after the configuration was frozen, reported against the 0.8562 `ESCI_baseline` target. — 0.8579, whose 95% CI contains 0.8562, so this **matches** the target rather than significantly beating it.
+- [x] `CLAUDE.md`'s Commands section lists the pair-score pass, the matrix build and the rank report.
 
 Then: Plan 6 — Fine Rank. See [`../README.md`](../README.md) for the series.
