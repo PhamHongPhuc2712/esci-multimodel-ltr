@@ -37,7 +37,7 @@ ones this phase's code can get wrong:
 - Produces:
   - `src.stage2_scores.STAGE2_COLUMNS: tuple[str, ...]` = `("query_id", "product_id", "stage2_score", "in_sample")`
   - `src.stage2_scores.DEFAULT_DIR: Path` = `Path("data/features")`
-  - `src.stage2_scores.score_split(train, target, *, features=None, in_sample_folds=TRAIN_FOLDS, seed=0) -> pd.DataFrame`
+  - `src.stage2_scores.score_split(train, target, *, features=None, fit_folds=TRAIN_FOLDS, seed=0) -> pd.DataFrame`
   - `src.stage2_scores.load_stage2(split, directory=DEFAULT_DIR) -> pd.DataFrame`
   - `src.stage2_scores.require_out_of_sample(frame) -> pd.DataFrame`
   - CLI: `python -m src.stage2_scores --split {train,test}` writing `data/features/stage2-{split}.parquet`
@@ -50,9 +50,27 @@ re-ranking two different windows and the difference gets called a reranker
 effect.
 
 **The frozen configuration is Plan 5's, unchanged:** all 47 features,
-`lambdarank`, `label_gain` derived from `src.labels`, train on folds 2/3/4,
-early-stop on fold 1, seed 0. This module does not re-tune anything; if it did,
-Ablation 6 would be measuring a different Stage 2 from the one Plan 5 reported.
+`lambdarank`, `label_gain` derived from `src.labels`, early-stop on fold 1,
+seed 0. This module does not re-tune anything; if it did, Ablation 6 would be
+measuring a different Stage 2 from the one Plan 5 reported.
+
+**Corrected during execution: the gradient set differs by split, because Plan
+5's did.** This task was written asserting folds 2/3/4 for both splits, and
+`src/rank_report.py:309` does not do that — when `--split test` it sets
+`fit = train`, fitting *every* train fold while keeping fold 1 as the
+early-stop set, which is why every test arm in `docs/results/coarse-rank-test.json`
+records `best_iteration: 500` and `"train_folds": "all"`. Measured: fitting
+2/3/4 for both reproduces fold 0 at **0.8519** exactly and lands at **0.8559**
+on test, 0.0020 under Plan 5's 0.8579 and outside this phase's own 0.0005 gate.
+So `score_split` takes `fit_folds`, `_main` passes `None` for test and
+`TRAIN_FOLDS` for train, and each headline is reproduced by the model that
+produced it. Test is disjoint from every train fold, so the wider fit leaks
+nothing; fold 0 must keep the narrow one, since it is the reporting surface.
+
+`in_sample` is derived from the rows actually fitted rather than from a
+separate argument. A knob that can disagree with the gradient set defeats the
+purpose of the flag — it would have quietly marked only 2/3/4 on a run that
+fitted all five.
 
 **Folds 2/3/4 are scored in-sample and marked.** The model trained on them, so
 their scores are optimistic. Nothing in Plan 6 uses them — the cross-encoder
@@ -215,10 +233,18 @@ re-ranking two different windows while the difference gets reported as a
 reranker effect.
 
 The configuration here is Plan 5's, frozen and unchanged: all 47 features,
-`lambdarank`, `label_gain` derived from src.labels, train on folds 2/3/4,
-early-stop on fold 1. Nothing is re-tuned - if it were, Ablation 6 would be
-measuring a different Stage 2 from the one Plan 5 reported at 0.8519 on fold 0
-and 0.8579 on test.
+`lambdarank`, `label_gain` derived from src.labels, early-stop on fold 1.
+Nothing is re-tuned - if it were, Ablation 6 would be measuring a different
+Stage 2 from the one Plan 5 reported at 0.8519 on fold 0 and 0.8579 on test.
+
+**The fit set differs by split, because Plan 5's did.** src/rank_report.py
+trains on folds 2/3/4 when it reports fold 0, and on *every* train fold when it
+reports test (`fit = train`, with fold 1 still the early-stop set so the round
+count stays comparable). Fitting folds 2/3/4 for both reproduces fold 0 exactly
+and lands 0.0020 *below* Plan 5 on test, which would put Ablation 6 on a
+weaker Stage 2 than the one Plan 5 published. So --split test fits everything
+and --split train fits 2/3/4, matching each headline to the model that produced
+it. Test is disjoint from every train fold, so the wider fit leaks nothing.
 
 Folds 2/3/4 are scored too, and flagged `in_sample`. The model trained on them
 so their scores are optimistic; nothing in Plan 6 consumes them (the
@@ -260,26 +286,33 @@ def score_split(
     target: pd.DataFrame,
     *,
     features: Sequence[str] | None = None,
-    in_sample_folds: Sequence[int] = TRAIN_FOLDS,
+    fit_folds: Sequence[int] | None = TRAIN_FOLDS,
     seed: int = 0,
 ) -> pd.DataFrame:
     """Train the frozen Stage 2 configuration and score every row of `target`.
 
-    `train` is the full train matrix; the folds used for gradient and for
-    early stopping are taken from src.ranker, not from arguments, so this
-    cannot drift from what Plan 5 reported.
+    `train` is the full train matrix. `fit_folds` selects the gradient set -
+    TRAIN_FOLDS when fold 0 is the reporting surface, None for every fold when
+    the target is the disjoint test split, which is what Plan 5 did. The
+    early-stop fold is taken from src.ranker rather than from an argument, so
+    it cannot drift from what Plan 5 reported.
     """
     columns = list(features) if features is not None else list(ALL_FEATURES)
+    fit = train if fit_folds is None else folds(train, fit_folds)
     ranker = train_ranker(
-        folds(train, TRAIN_FOLDS),
+        fit,
         folds(train, [EARLY_STOP_FOLD]),
         columns,
         seed=seed,
     )
     scores = predict(ranker, target)
 
+    # Derived from the rows actually fitted, never from a separate argument: a
+    # knob that can disagree with the gradient set defeats the whole point of
+    # the flag.
+    fitted_folds = set(fit["fold"]) if "fold" in fit.columns else set()
     if "fold" in target.columns:
-        in_sample = target["fold"].isin(list(in_sample_folds)).to_numpy()
+        in_sample = target["fold"].isin(fitted_folds).to_numpy()
     else:
         in_sample = np.zeros(len(target), dtype=bool)
 
@@ -339,7 +372,13 @@ def _main() -> int:
     )
     print(f"scoring {len(target):,} rows of {args.split} with the frozen Stage 2 model")
 
-    scores = score_split(train, target, seed=args.seed)
+    # Plan 5's own per-split fit; see the module docstring.
+    scores = score_split(
+        train,
+        target,
+        fit_folds=None if args.split == "test" else TRAIN_FOLDS,
+        seed=args.seed,
+    )
 
     # Reproduce Plan 5's headline as a check that nothing drifted. Fold 0 for
     # the train split, the whole thing for test.
@@ -395,6 +434,11 @@ Expected: 419,653 rows (250,485 flagged in-sample) and 181,701 rows (0
 in-sample); fold-0 NDCG **0.8519** and test NDCG **0.8579**, both within
 0.0005 of what Plan 5 reported. A warning here means the frozen configuration
 has drifted and must be fixed before anything is built on it.
+
+**Measured on execution: both reproduce exactly**, once the test split is
+fitted on every train fold as above. The first run of this step fitted 2/3/4
+for both and the warning fired on test at 0.8559 — the drift check earning its
+keep on the first thing it was pointed at.
 
 - [ ] **Step 6: Write the data-marked test**
 
