@@ -11,6 +11,24 @@
     "n_trials": 100
   },
   "esci_baseline_target": 0.8562,
+  "config": {
+    "k": 10,
+    "backbone": "cross-encoder/ms-marco-MiniLM-L6-v2",
+    "losses": {
+      "stage2+ce": "LambdaLoss",
+      "stage2+ce_bce": "BinaryCrossEntropyLoss"
+    },
+    "epochs": 1,
+    "max_length": 192,
+    "train_folds": [
+      2,
+      3,
+      4
+    ],
+    "llm_model": "gpt-5.6-luna",
+    "llm_max_completion_tokens": 2000,
+    "llm_concurrency": 4
+  },
   "arms": [
     {
       "name": "stage2",
@@ -58,8 +76,8 @@
       },
       "cost": {
         "latency": {
-          "single_ms": 31.521556619554758,
-          "batched_ms": 11.225728939753026,
+          "single_ms": 30.08914950012695,
+          "batched_ms": 11.245330960373394,
           "n_queries": 50,
           "n_pairs": 499
         },
@@ -88,8 +106,8 @@
       },
       "cost": {
         "latency": {
-          "single_ms": 31.958293640054762,
-          "batched_ms": 11.516253220033832,
+          "single_ms": 36.34658437978942,
+          "batched_ms": 11.54139552032575,
           "n_queries": 50,
           "n_pairs": 499
         },
@@ -118,8 +136,8 @@
       },
       "cost": {
         "latency": {
-          "single_ms": 33.78749621973839,
-          "batched_ms": 11.229430100065656,
+          "single_ms": 27.290979519602843,
+          "batched_ms": 11.289900079718791,
           "n_queries": 50,
           "n_pairs": 499
         },
@@ -149,13 +167,13 @@
       "cost": {
         "latency": null,
         "usage": {
-          "prompt_tokens": 660,
-          "completion_tokens": 3596,
-          "reasoning_tokens": 3536,
-          "seconds": 23.414039134979248,
-          "call_seconds": 39.87627504396369,
-          "n_calls": 2,
-          "n_cached": 4128,
+          "prompt_tokens": 233,
+          "completion_tokens": 2000,
+          "reasoning_tokens": 2000,
+          "seconds": 23.36186933517456,
+          "call_seconds": 22.600030528003117,
+          "n_calls": 1,
+          "n_cached": 4129,
           "n_fallback": 1
         },
         "cost_usd": null
@@ -183,13 +201,13 @@
       "cost": {
         "latency": null,
         "usage": {
-          "prompt_tokens": 726,
-          "completion_tokens": 2770,
-          "reasoning_tokens": 2674,
-          "seconds": 21.463046312332153,
-          "call_seconds": 32.60151591099566,
-          "n_calls": 3,
-          "n_cached": 4127,
+          "prompt_tokens": 233,
+          "completion_tokens": 2000,
+          "reasoning_tokens": 2000,
+          "seconds": 20.976539373397827,
+          "call_seconds": 20.652862524992088,
+          "n_calls": 1,
+          "n_cached": 4129,
           "n_fallback": 1
         },
         "cost_usd": null
@@ -252,17 +270,17 @@
     "n_windows": 40,
     "concurrency": 4,
     "latency": {
-      "single_ms": 4938.071153100464,
-      "batched_ms": 1283.7908029556274,
+      "single_ms": 5166.143471673422,
+      "batched_ms": 1361.0630631446838,
       "n_queries": 40,
       "n_pairs": 40
     },
     "usage": {
       "prompt_tokens": 19515,
-      "completion_tokens": 15906,
-      "reasoning_tokens": 13989,
-      "seconds": 51.3516321182251,
-      "call_seconds": 197.52284612401854,
+      "completion_tokens": 16087,
+      "reasoning_tokens": 14170,
+      "seconds": 54.44252252578735,
+      "call_seconds": 206.64573886693688,
       "n_calls": 40,
       "n_cached": 0,
       "n_fallback": 0
