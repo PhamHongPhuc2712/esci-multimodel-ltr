@@ -1,0 +1,272 @@
+{
+  "split": "train",
+  "scope": "fold 0",
+  "k": 10,
+  "n_queries": 4130,
+  "n_judgements": 82751,
+  "floor": {
+    "mean": 0.743749290760818,
+    "low": 0.740674758377043,
+    "high": 0.7465897379380034,
+    "n_trials": 100
+  },
+  "esci_baseline_target": 0.8562,
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945205,
+        "high": 0.11184183460770253
+      },
+      "cost": {
+        "latency": null,
+        "usage": null,
+        "cost_usd": null
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8586628405345903,
+        "low": 0.8536051256564455,
+        "high": 0.8634481987115363
+      },
+      "lift_over_floor": {
+        "point": 0.11491354977377234,
+        "low": 0.11069610239524458,
+        "high": 0.11894968519517485
+      },
+      "cost": {
+        "latency": {
+          "single_ms": 31.521556619554758,
+          "batched_ms": 11.225728939753026,
+          "n_queries": 50,
+          "n_pairs": 499
+        },
+        "usage": null,
+        "cost_usd": null
+      }
+    },
+    {
+      "name": "stage2+ce_bce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8594051545402076,
+        "low": 0.8545434314509264,
+        "high": 0.8640041664921032
+      },
+      "lift_over_floor": {
+        "point": 0.11565586377938966,
+        "low": 0.11137433353246844,
+        "high": 0.11977476271643255
+      },
+      "cost": {
+        "latency": {
+          "single_ms": 31.958293640054762,
+          "batched_ms": 11.516253220033832,
+          "n_queries": 50,
+          "n_pairs": 499
+        },
+        "usage": null,
+        "cost_usd": null
+      }
+    },
+    {
+      "name": "stage2+ce_zeroshot",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.845736175350978,
+        "low": 0.840950147490224,
+        "high": 0.8506817268691257
+      },
+      "lift_over_floor": {
+        "point": 0.10198688459016003,
+        "low": 0.09787761657664819,
+        "high": 0.10623284074585389
+      },
+      "cost": {
+        "latency": {
+          "single_ms": 33.78749621973839,
+          "batched_ms": 11.229430100065656,
+          "n_queries": 50,
+          "n_pairs": 499
+        },
+        "usage": null,
+        "cost_usd": null
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8814224315239989,
+        "low": 0.8767520992505652,
+        "high": 0.8858538470712275
+      },
+      "lift_over_floor": {
+        "point": 0.13767314076318082,
+        "low": 0.1333709847325301,
+        "high": 0.1417409078465728
+      },
+      "cost": {
+        "latency": null,
+        "usage": {
+          "prompt_tokens": 660,
+          "completion_tokens": 3596,
+          "reasoning_tokens": 3536,
+          "seconds": 23.414039134979248,
+          "call_seconds": 39.87627504396369,
+          "n_calls": 2,
+          "n_cached": 4128,
+          "n_fallback": 1
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "name": "stage2+ce+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8808844037576226,
+        "low": 0.876365091442273,
+        "high": 0.8850257884750636
+      },
+      "lift_over_floor": {
+        "point": 0.13713511299680456,
+        "low": 0.13302257981718701,
+        "high": 0.14122954420245956
+      },
+      "cost": {
+        "latency": null,
+        "usage": {
+          "prompt_tokens": 726,
+          "completion_tokens": 2770,
+          "reasoning_tokens": 2674,
+          "seconds": 21.463046312332153,
+          "call_seconds": 32.60151591099566,
+          "n_calls": 3,
+          "n_cached": 4127,
+          "n_fallback": 1
+        },
+        "cost_usd": null
+      }
+    }
+  ],
+  "ablation_6": [
+    {
+      "arm": "stage2+ce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0067968002342362836,
+        "low": 0.003746473997611245,
+        "high": 0.009872226280145332
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.007539114239853589,
+        "low": 0.004448585237971325,
+        "high": 0.010715992903731715
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_zeroshot",
+      "baseline": "stage2",
+      "delta": {
+        "point": -0.006129864949376032,
+        "low": -0.009106518180116614,
+        "high": -0.002821709991382379
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02955639122364474,
+        "low": 0.026562658829945435,
+        "high": 0.032718611385769404
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.029018363457268492,
+        "low": 0.02588098694700466,
+        "high": 0.032230835774648504
+      },
+      "significant": true
+    }
+  ],
+  "llm_latency_probe": {
+    "n_windows": 40,
+    "concurrency": 4,
+    "latency": {
+      "single_ms": 4938.071153100464,
+      "batched_ms": 1283.7908029556274,
+      "n_queries": 40,
+      "n_pairs": 40
+    },
+    "usage": {
+      "prompt_tokens": 19515,
+      "completion_tokens": 15906,
+      "reasoning_tokens": 13989,
+      "seconds": 51.3516321182251,
+      "call_seconds": 197.52284612401854,
+      "n_calls": 40,
+      "n_cached": 0,
+      "n_fallback": 0
+    }
+  },
+  "seed": 0
+}

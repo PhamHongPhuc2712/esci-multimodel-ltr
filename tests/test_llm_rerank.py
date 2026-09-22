@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 
@@ -253,3 +254,42 @@ def test_a_checkpoint_write_is_atomic(tmp_path):
     cache.save()
     assert not list(tmp_path.glob("*.tmp"))
     assert RerankCache(path).get("k") == [1]
+
+
+# --- latency provenance: a cached pass must not look fast -------------------
+
+def test_call_seconds_counts_only_real_calls(tmp_path):
+    # `seconds` is wall clock for the whole pass, so on a warm cache it is
+    # replay time. A latency derived from it reported the LLM arm at 5.5
+    # ms/query when the real pass cost 1,180 ms/query.
+    cache = RerankCache(tmp_path / "c.json")
+    ws = [Window(query_id=str(i), window=("a", "b"), tail=()) for i in range(4)]
+    q = {str(i): f"query {i}" for i in range(4)}
+    d = {"a": "doc a", "b": "doc b"}
+
+    def call(prompt):
+        time.sleep(0.01)
+        return "[2] > [1]", 1, 1, 1
+
+    _, first = rerank_windows(ws, q, d, call=call, cache=cache, concurrency=1)
+    assert first.n_calls == 4
+    assert first.call_seconds >= 0.04          # four real calls of ~10 ms
+
+    _, second = rerank_windows(ws, q, d, call=call, cache=cache, concurrency=1)
+    assert second.n_cached == 4
+    assert second.n_calls == 0
+    assert second.call_seconds == 0.0          # nothing was actually called
+
+
+def test_token_totals_survive_concurrent_workers():
+    # `totals[k] += v` is read-modify-write; the GIL does not make it atomic,
+    # so workers can lose updates and undercount the bill.
+    ws = [Window(query_id=str(i), window=("a",), tail=()) for i in range(200)]
+    q = {str(i): f"query {i}" for i in range(200)}
+    d = {"a": "doc a"}
+    _, usage = rerank_windows(
+        ws, q, d, call=lambda p: ("[1]", 10, 20, 15), concurrency=8
+    )
+    assert usage.n_calls == 200
+    assert usage.prompt_tokens == 2000
+    assert usage.completion_tokens == 4000
