@@ -251,17 +251,44 @@ Writing the splice twice is how the two arms end up incomparable.
 
 ## Plan Gate
 
-Plan 7 does not start until all of these hold:
+**Passed 2026-09-22.** Headline **`stage2+llm` 0.8855 [0.8799, 0.8910]** on the
+frozen 2,000-query test sample against a floor of 0.7454 and Stage 2's 0.8576 —
+**+0.0278 [+0.0236, +0.0325]**. Ablation 6's real content is the trade-off: the
+LLM buys ~6.5x the cross-encoder's gain for ~150x its latency.
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the Stage 2 score round trip and the window splice on the real ordering.
-- [ ] `data/features/stage2-{train,test}.parquet` exist and reproduce Plan 5's fold-0 NDCG of 0.8519 to within 0.0005.
-- [ ] The fine-tuned cross-encoder **beats its own zero-shot arm** (0.8286–0.8445 measured), or the plan reports honestly that fine-tuning did not help.
-- [ ] Ablation 6 reports all three arms with NDCG + bootstrap CI, **single-query and batch-amortised latency**, and prompt/completion tokens per query.
-- [ ] Every arm's NDCG is scored on the same query set as the arms it is compared against, and the `n` is recorded beside it.
-- [ ] The LLM arm records how many queries fell back to the Stage 2 order for a malformed ranking.
-- [ ] `docs/results/fine-rank.json` records every arm, its interval, the floor, `K`, the backbone, the loss and the epoch count.
-- [ ] Exactly one test-split run exists, on the frozen 2,000-query sample, produced after the configuration was frozen.
-- [ ] `CLAUDE.md`'s Commands section lists the Stage 2 score dump, the fine-tune and the fine-rank report.
+- [x] `python -m pytest` passes with no failures and no new skips. — 594 passed (485 before this plan), 25 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including the Stage 2 score round trip and the window splice on the real ordering. — 24 passed in 4m40s (17 before this plan).
+- [x] `data/features/stage2-{train,test}.parquet` exist and reproduce Plan 5's fold-0 NDCG of 0.8519 to within 0.0005. — both reproduce **exactly** at 4 dp, once the test split is fitted on every train fold as `rank_report` does. See [Phase 1, Task 1](phase-1-the-window.md#task-1-persist-plan-5s-ordering).
+- [x] The fine-tuned cross-encoder **beats its own zero-shot arm** (0.8286–0.8445 measured), or the plan reports honestly that fine-tuning did not help. — it does: **0.8587/0.8594 against 0.8457** on fold 0 and **0.8619/0.8616 against 0.8517** on test. The zero-shot arm is a *significant loss* against Stage 2 on both, so the fine-tune is the arm, exactly as Phase 2 argued.
+- [x] Ablation 6 reports all three arms with NDCG + bootstrap CI, **single-query and batch-amortised latency**, and prompt/completion tokens per query. — and the first attempt got the latency wrong by **214x** by timing a cached replay; see [Phase 3, Task 6](phase-3-the-llm-and-the-ablation.md#task-6-ablation-6).
+- [x] Every arm's NDCG is scored on the same query set as the arms it is compared against, and the `n` is recorded beside it. — `check_same_queries` enforces it; all six arms carry `n_queries` 2,000 on test and 4,130 on fold 0.
+- [x] The LLM arm records how many queries fell back to the Stage 2 order for a malformed ranking. — `n_fallback` is in every `usage` block: **2 of 2,000** per arm on test, 6 of 4,130 on the uncached fold-0 pass.
+- [x] `docs/results/fine-rank.json` records every arm, its interval, the floor, `K`, the backbone, the loss and the epoch count. — in the `config` block. `fine-rank-test.json` predates that field and is deliberately not regenerated, because test is measured once; the frozen configuration is recorded in [Phase 3](phase-3-the-llm-and-the-ablation.md#the-frozen-configuration).
+- [x] Exactly one test-split run exists, on the frozen 2,000-query sample, produced after the configuration was frozen. — one run, behind `--final`, after the configuration table was committed.
+- [x] `CLAUDE.md`'s Commands section lists the Stage 2 score dump, the fine-tune and the fine-rank report. — all five commands, with their measured runtimes.
+
+### What Ablation 6 answers
+
+| arm | fold 0 | test (n=2,000) | latency single / batched |
+|---|---|---|---|
+| `stage2` | 0.8519 | 0.8576 | — |
+| `stage2+ce_zeroshot` | 0.8457 | 0.8517 | 32 ms / 11 ms |
+| `stage2+ce` | 0.8587 | 0.8619 | 22 ms / 11 ms |
+| `stage2+ce_bce` | 0.8594 | 0.8616 | 29 ms / 12 ms |
+| **`stage2+llm`** | **0.8814** | **0.8855** | **4,713 ms / 1,179 ms** |
+| `stage2+ce+llm` | 0.8809 | 0.8847 | 4,700 ms / 1,176 ms |
+
+Three results Plan 7 inherits:
+
+- **The LLM listwise reranker is the best ranker in the project so far**, at
+  +0.0278 over Stage 2 on test, and the only Stage 3 arm whose margin does not
+  shrink between fold 0 and test.
+- **The cascade is redundant.** `stage2+ce+llm` never separates from
+  `stage2+llm` on either split, so §4.4's blend should choose one reranker
+  rather than stack them.
+- **The two cross-encoder losses are indistinguishable**, and the `bce` arm's
+  gain over Stage 2 *ties* on test. Since `bce` trains 5.4x faster, the
+  listwise loss does not earn its keep at Stage 3 — reversing Plan 5's
+  Ablation 5, which found it worth +0.0085 to +0.0096 at the coarse stage.
 
 Then: Plan 7 — Blend and Report. See [`../README.md`](../README.md) for the series.

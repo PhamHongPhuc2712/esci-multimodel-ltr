@@ -68,6 +68,12 @@ python -m src.stage2_scores --split train     # -> data/features/stage2-train.pa
 python -m src.stage2_scores --split test      # -> data/features/stage2-test.parquet
 python -m src.cross_encoder --loss lambda      # 30.6 min on the 3080 -> models/cross-encoder/lambda/
 python -m src.cross_encoder --loss bce         # 5.7 min -> models/cross-encoder/bce/
+# The LLM arm is the second paid component after Stage 0. Cached and resumable;
+# the cache checkpoints every 200 windows, so an interruption costs minutes.
+python -m src.llm_rerank --split train --folds 0   # ~1.4 h at concurrency 4
+python -m src.fine_rank_report --llm-latency-probe 40    # Ablation 6 on fold 0
+python -m src.fine_rank_report --split test --final --llm-latency-probe 40 \
+    --out docs/results/fine-rank-test.json
 
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
@@ -267,6 +273,20 @@ supplied it.
   R@100 = 0.2370 — that number is an artefact of its pool, not a retrieval
   result.
 
+- **A cached LLM pass cannot be timed, and a report that tries publishes a
+  200x lie.** `Usage.seconds` is wall clock over the whole pass; on a warm
+  cache it is replay time. The first fold-0 Ablation 6 derived the LLM arm's
+  latency from it and published **5.5 ms/query** where the uncached pass had
+  measured **1,180 ms/query** — a 214x understatement in one of the three
+  columns Ablation 6 exists to report, and it flattered the slowest arm in the
+  project. `Usage.call_seconds` now accumulates time spent inside real calls,
+  `src.fine_rank_report.llm_latency` returns `None` unless at least 90% of
+  windows were actually called, and `--llm-latency-probe N` measures the
+  number on N uncached windows when the cache makes the arm's own pass
+  unmeasurable. Never read a latency off a run whose `n_cached` is non-trivial.
+- **`totals[key] += value` is not atomic under the GIL.** `rerank_windows`
+  accumulates tokens from four worker threads; read-modify-write can lose
+  updates and silently undercount the bill. It holds a lock now.
 - **Correlation size and ranking value are different questions.** `product_brand`
   missingness carries the largest label correlation in the dataset (+0.0567
   [+0.0382, +0.0755]) yet all four ESCI presence flags together buy only +0.0052

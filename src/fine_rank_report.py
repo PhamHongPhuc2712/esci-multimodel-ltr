@@ -128,6 +128,8 @@ def _main() -> int:
 
     from src.cross_encoder import (
         DEFAULT_BACKBONE,
+        DEFAULT_EPOCHS,
+        DEFAULT_MAX_LENGTH,
         DEFAULT_MODEL_DIR,
         text_maps,
         load_reranker,
@@ -138,12 +140,14 @@ def _main() -> int:
     from src.llm_rerank import (
         DEFAULT_CACHE,
         DEFAULT_CONCURRENCY,
+        DEFAULT_MODEL,
+        MAX_COMPLETION_TOKENS,
         RerankCache,
         openai_call,
         rerank_windows,
     )
     from src.metrics import ndcg_per_query
-    from src.ranker import REPORT_FOLD
+    from src.ranker import REPORT_FOLD, TRAIN_FOLDS
     from src.rerank_window import DEFAULT_K, Window, spliced_run, stage2_run, windows
     from src.stage2_scores import load_stage2
 
@@ -332,6 +336,19 @@ def _main() -> int:
         "floor": {"mean": floor.mean, "low": floor.low, "high": floor.high,
                   "n_trials": floor.n_trials},
         "esci_baseline_target": ESCI_BASELINE,
+        # The frozen configuration that produced every arm above, so a results
+        # file is readable without the plan beside it.
+        "config": {
+            "k": args.k,
+            "backbone": DEFAULT_BACKBONE,
+            "losses": {"stage2+ce": "LambdaLoss", "stage2+ce_bce": "BinaryCrossEntropyLoss"},
+            "epochs": DEFAULT_EPOCHS,
+            "max_length": DEFAULT_MAX_LENGTH,
+            "train_folds": list(TRAIN_FOLDS),
+            "llm_model": DEFAULT_MODEL,
+            "llm_max_completion_tokens": MAX_COMPLETION_TOKENS,
+            "llm_concurrency": DEFAULT_CONCURRENCY,
+        },
         "arms": [arm.to_dict() | {"cost": costs[arm.name].to_dict()} for arm in results],
         "ablation_6": comparisons,
         "llm_latency_probe": probe,

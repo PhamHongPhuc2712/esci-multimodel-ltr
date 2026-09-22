@@ -1208,6 +1208,47 @@ fine-tuned model did not load. If every arm equals `stage2`, the splice is
 returning the Stage 2 order — check `rerank` is returning orderings and that
 `spliced_run` is receiving them.
 
+**Measured 2026-09-22**, fold 0, 4,130 queries, floor 0.7437:
+
+| arm | NDCG | vs. `stage2` | |
+|---|---|---|---|
+| `stage2` | 0.8519 | — | |
+| `stage2+ce_zeroshot` | 0.8457 | −0.0061 [−0.0091, −0.0028] | significant **loss** |
+| `stage2+ce` (`LambdaLoss`) | 0.8587 | +0.0068 [+0.0037, +0.0099] | significant |
+| `stage2+ce_bce` | 0.8594 | +0.0075 [+0.0044, +0.0107] | significant |
+| **`stage2+llm`** | **0.8814** | **+0.0296 [+0.0266, +0.0327]** | significant |
+| `stage2+ce+llm` | 0.8809 | +0.0290 [+0.0259, +0.0322] | significant |
+
+**The LLM arm wins by roughly 4x the cross-encoder's margin**, and **the
+cascade is redundant rather than complementary** — 0.8809 against the LLM's
+own 0.8814, a difference no interval separates. That is a real answer for
+Plan 7's §4.4 blend: stacking these two rerankers buys nothing, so the blend
+should pick one.
+
+**A defect in this task's own code was found here and fixed.** The first run
+published the LLM arm at **5.5 ms/query**. `ArmCost` derived it from
+`usage.seconds`, which is wall clock for the whole pass — and 4,124 of 4,130
+windows were cache hits from Task 5's warm cache, so it timed the *replay*.
+The uncached pass had measured **1,180 ms/query**: a **214x** understatement,
+in one of the three columns Ablation 6 exists to report, flattering the
+slowest arm in the project. It was also backwards — the cascade made 4,128
+real calls and reported no latency at all, because only the `stage2+llm` arm
+was given a `Latency`.
+
+The fix has three parts. `Usage.call_seconds` accumulates time spent *inside*
+real calls, so a single-query latency survives a warm cache.
+`llm_latency(usage, n_windows)` returns `None` unless at least 90% of windows
+were actually called, and the console prints why. `--llm-latency-probe N`
+measures the number on N uncached windows, which is the only honest source
+once fold 0 is cached. Measured by probe on 40 uncached windows: **5,166 ms
+per call, 1,361 ms/query at concurrency 4** — agreeing with the uncached
+fold-0 pass (1,180 ms/query) and the pilot (4.3 s sequential).
+
+A second, latent bug surfaced while fixing it: `totals[key] += value` in
+`rerank_windows` runs in four worker threads and read-modify-write is not
+atomic under the GIL, so token totals could silently undercount. It holds a
+lock now, pinned by a 200-window concurrency-8 test.
+
 - [ ] **Step 6: Write the data-marked test**
 
 Append to `tests/test_fine_rank_report.py`:
@@ -1277,12 +1318,50 @@ Reply with the identifiers in descending relevance, like [3] > [1] > [2], coveri
 Write down `K`, the backbone, the loss, the epoch count and the prompt before
 running. Nothing changes after this command.
 
-Run: `python -m src.fine_rank_report --split test --final --out docs/results/fine-rank-test.json`
+Run: `python -m src.fine_rank_report --split test --final --llm-latency-probe 40 --out docs/results/fine-rank-test.json`
 
 Expected: the 2,000-query frozen sample, roughly 45 minutes of LLM time at
 concurrency 4 plus the cascade's second pass, a floor near 0.7468 and every arm
 scored on the same 2,000 queries. **An arm that ties or loses is reported as
 measured** — Plan 5's Ablation 7 lost to its control and was published as a loss.
+
+**Measured once, 2026-09-22.** 2,000 queries, 40,151 judgements, floor 0.7454.
+Both LLM arms made 2,000 real calls each (0 cached, 39.3 and 39.2 min), so
+their latency is measured rather than probed:
+
+| arm | NDCG | vs. `stage2` | | latency (single / batched) |
+|---|---|---|---|---|
+| `stage2` | 0.8576 | — | | — |
+| `stage2+ce_zeroshot` | 0.8517 | −0.0059 [−0.0097, −0.0019] | significant **loss** | 32 ms / 11 ms |
+| `stage2+ce` (`LambdaLoss`) | 0.8619 | +0.0043 [+0.0002, +0.0086] | significant | 22 ms / 11 ms |
+| `stage2+ce_bce` | 0.8616 | +0.0040 [−0.0001, +0.0086] | **ties** | 29 ms / 12 ms |
+| **`stage2+llm`** | **0.8855 [0.8799, 0.8910]** | **+0.0278 [+0.0236, +0.0325]** | significant | **4,713 ms / 1,179 ms** |
+| `stage2+ce+llm` | 0.8847 | +0.0271 [+0.0227, +0.0317] | significant | 4,700 ms / 1,176 ms |
+
+Cost: **453 prompt + 381 completion tokens per query** for each LLM arm,
+`cost_usd` null because no rates were passed. Fallbacks: **2 of 2,000** (0.1%)
+per arm — better even than the 8/8 pilot suggested, and far better than
+`PROJECT_SPEC.md` §7.4's warning about ill-formed listwise output.
+
+Three things the test split settles that fold 0 did not:
+
+1. **The two losses are indistinguishable.** `LambdaLoss` leads on test
+   (0.8619 against 0.8616) and trailed on fold 0 (0.8587 against 0.8594); the
+   `bce` arm's own gain over Stage 2 **ties** on test. Phase 2 was right not to
+   declare a winner. Since `bce` trains 5.4x faster for the same result, it is
+   the better default if this were a cost decision.
+2. **The cross-encoder's margin shrinks on test** (+0.0068 → +0.0043) while the
+   **LLM's holds** (+0.0296 → +0.0278). The LLM arm is the robust one.
+3. **The latency gap is the headline, not the NDCG gap.** The LLM buys ~6.5x
+   the cross-encoder's quality gain for **~150x** the per-query latency and a
+   token bill the cross-encoder does not have. Ablation 6's answer is a
+   trade-off, not a winner.
+
+`docs/results/fine-rank-test.json` is deliberately **not** regenerated: the
+plan measures test once, and a re-run would both violate that and replace a
+genuine 2,000-window latency measurement with a 40-window probe, since the
+cache is now warm. It therefore predates the `config` block that the fold-0
+file carries; the frozen configuration is recorded above instead.
 
 - [ ] **Step 8: Update `CLAUDE.md`'s Commands section**
 

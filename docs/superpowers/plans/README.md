@@ -71,13 +71,21 @@ A written plan gets its own directory and is split into phase files when a singl
   arm returned **8/8** well-formed permutations on `gpt-5.6-luna`, with **88% of
   completion tokens spent on reasoning** — 386 prompt + 387 completion per
   top-10 window against 1,015 + 1,716 for the full list, which is why the window
-  exists. **Phases 1 and 2 landed 2026-09-22**; Phase 3 is written, not yet
-  executed. Phase 2's fine-tune is the arm, as predicted: zero-shot
-  `ms-marco-MiniLM-L6-v2` scores **0.8457** on fold 0 against Stage 2's 0.8519,
-  while the fine-tuned arms reach **0.8587** (`LambdaLoss`) and **0.8594**
-  (`BinaryCrossEntropyLoss`) — **+0.0130** for the fine-tune. The listwise loss
-  the phase made default does *not* win at Stage 3, reversing Plan 5's
-  Ablation 5 by a small margin, and `bce` trains 5.4x faster. Phase 1 persisted Plan 5's ordering to
+  exists. **Landed 2026-09-22.** Headline **`stage2+llm` 0.8855 [0.8799,
+  0.8910]** on a frozen 2,000-query test sample against Stage 2's 0.8576 and a
+  floor of 0.7454 — **+0.0278 [+0.0236, +0.0325]**, the best ranker in the
+  project so far. The fine-tune is the arm, as predicted: zero-shot
+  `ms-marco-MiniLM-L6-v2` is a significant *loss* against Stage 2 on both
+  splits, while the fine-tuned arms gain +0.0043 (`LambdaLoss`) and +0.0040
+  (`BinaryCrossEntropyLoss`, which **ties**) on test. Ablation 6's real content
+  is a trade-off, not a winner: the LLM buys ~6.5x the cross-encoder's gain for
+  **~150x** its latency (4,713 ms against 22 ms single-query) plus 453 + 381
+  tokens a query. Two negatives Plan 7 inherits — **the cascade is redundant**
+  (`stage2+ce+llm` never separates from `stage2+llm`), and **the listwise loss
+  does not earn its keep at Stage 3**, reversing Plan 5's Ablation 5, while
+  `bce` trains 5.4x faster. Malformed permutations: **2 in 2,000**. One defect
+  was caught and fixed in this plan's own code — the first Ablation 6 timed a
+  cached replay and published the LLM arm at 5.5 ms/query against a real 1,180. Phase 1 persisted Plan 5's ordering to
   `data/features/stage2-{train,test}.parquet`, reproducing **0.8519** on fold 0
   and **0.8579** on test exactly, and added the top-K splice whose identity
   re-ranking leaves per-query NDCG untouched. It corrected one thing the plan
