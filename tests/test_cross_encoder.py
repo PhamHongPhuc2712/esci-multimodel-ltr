@@ -148,3 +148,109 @@ def test_the_declared_losses_are_the_two_measured_recipes():
 def test_the_defaults_match_what_was_measured():
     assert DEFAULT_BACKBONE == "cross-encoder/ms-marco-MiniLM-L6-v2"
     assert DEFAULT_MAX_LENGTH == 192
+
+
+import numpy as np
+
+from src.cross_encoder import Latency, measure_latency, rerank
+from src.rerank_window import Window
+
+
+class FakeModel:
+    """A CrossEncoder with the one method the reranker uses."""
+
+    def __init__(self, scores=None):
+        self.scores = scores or {}
+        self.calls = []
+
+    def predict(self, pairs, batch_size=256, show_progress_bar=False, **kwargs):
+        pairs = list(pairs)
+        self.calls.append(len(pairs))
+        return np.array([self.scores.get(d, 0.0) for _, d in pairs], dtype=np.float32)
+
+
+def _windows():
+    return [
+        Window(query_id="1", window=("a", "b", "c"), tail=("d",)),
+        Window(query_id="2", window=("x", "y"), tail=()),
+    ]
+
+
+def _maps():
+    q = {"1": "red shoes", "2": "blue hat"}
+    d = {k: f"doc {k}" for k in "abcdxy"}
+    return q, d
+
+
+def test_rerank_orders_the_window_by_model_score():
+    q, d = _maps()
+    model = FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5, "doc x": 0.2, "doc y": 0.8})
+    out = rerank(model, _windows(), q, d)
+    assert out["1"] == ["b", "c", "a"]
+    assert out["2"] == ["y", "x"]
+
+
+def test_rerank_returns_a_permutation_of_each_window():
+    q, d = _maps()
+    out = rerank(FakeModel(), _windows(), q, d)
+    for w in _windows():
+        assert sorted(out[w.query_id]) == sorted(w.window)
+
+
+def test_rerank_never_touches_the_tail():
+    q, d = _maps()
+    out = rerank(FakeModel({"doc d": 99.0}), _windows(), q, d)
+    assert "d" not in out["1"]
+
+
+def test_rerank_breaks_ties_deterministically():
+    q, d = _maps()
+    a = rerank(FakeModel(), _windows(), q, d)
+    b = rerank(FakeModel(), _windows(), q, d)
+    assert a == b
+
+
+def test_rerank_scores_every_window_pair_once():
+    q, d = _maps()
+    model = FakeModel()
+    rerank(model, _windows(), q, d)
+    assert sum(model.calls) == 5  # 3 + 2 window documents, no tail
+
+
+def test_rerank_of_nothing_is_nothing():
+    assert rerank(FakeModel(), [], *_maps()) == {}
+
+
+# --- Review Focus 5: two latencies, both measured ---------------------------
+
+def test_latency_reports_single_and_batched_separately():
+    # Batched is what an offline job costs; single is what a user waits. They
+    # differ by 3-5x, and quoting one as the other flatters whichever arm
+    # batches better - the cross-encoder does, the LLM cannot.
+    q, d = _maps()
+    result = measure_latency(FakeModel(), _windows(), q, d, n_queries=2)
+    assert isinstance(result, Latency)
+    assert result.single_ms > 0
+    assert result.batched_ms > 0
+    assert result.n_queries == 2
+    assert result.n_pairs == 5
+
+
+def test_latency_single_mode_calls_the_model_once_per_query():
+    q, d = _maps()
+    model = FakeModel()
+    measure_latency(model, _windows(), q, d, n_queries=2)
+    # The single-query pass must issue one call per query, not one big batch,
+    # or it is measuring throughput again under a different name.
+    assert model.calls[:2] == [3, 2]
+
+
+def test_latency_serialises_both_numbers():
+    q, d = _maps()
+    payload = measure_latency(FakeModel(), _windows(), q, d, n_queries=2).to_dict()
+    assert set(payload) == {"single_ms", "batched_ms", "n_queries", "n_pairs"}
+
+
+def test_latency_needs_at_least_one_query():
+    with pytest.raises(ValueError, match="at least one"):
+        measure_latency(FakeModel(), [], *_maps(), n_queries=0)

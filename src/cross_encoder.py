@@ -234,6 +234,133 @@ def text_maps(
     return query_text, doc_text
 
 
+# --- prediction over the window ---------------------------------------------
+
+
+@dataclass(frozen=True)
+class Latency:
+    """Two different questions, both answered.
+
+    `batched_ms` is what an offline re-ranking job costs per query when the
+    whole split is in flight. `single_ms` is what one user waits. The
+    cross-encoder batches 256 pairs a forward pass and the LLM arm cannot
+    batch at all, so reporting only the amortised figure flatters this arm by
+    a further 3-5x on top of the real gap. Plan 4 measured the same split on
+    its BM25 index: 28 ms/query amortised against 64-88 ms single.
+    """
+
+    single_ms: float
+    batched_ms: float
+    n_queries: int
+    n_pairs: int
+
+    def to_dict(self) -> dict:
+        return {
+            "single_ms": self.single_ms,
+            "batched_ms": self.batched_ms,
+            "n_queries": self.n_queries,
+            "n_pairs": self.n_pairs,
+        }
+
+
+def load_reranker(
+    path: Path | str,
+    *,
+    device: str = "auto",
+    max_length: int = DEFAULT_MAX_LENGTH,
+):
+    """Load a fine-tuned (or off-the-shelf) cross-encoder onto the GPU."""
+    from sentence_transformers import CrossEncoder
+
+    from src.clip_encoder import resolve_device
+
+    return CrossEncoder(str(path), device=resolve_device(device), max_length=max_length)
+
+
+def _window_pairs(
+    windows_: Sequence, query_text: Mapping, doc_text: Mapping
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """(query, document) pairs for every window document, plus their (qid, doc)."""
+    pairs: list[tuple[str, str]] = []
+    keys: list[tuple[str, str]] = []
+    for w in windows_:
+        query = _lookup(query_text, w.query_id, "query text")
+        for document in w.window:
+            pairs.append((query, _lookup(doc_text, document, "document text")))
+            keys.append((w.query_id, document))
+    return pairs, keys
+
+
+def rerank(
+    model,
+    windows_: Sequence,
+    query_text: Mapping,
+    doc_text: Mapping,
+    *,
+    batch_size: int = 256,
+) -> dict[str, list[str]]:
+    """A new ordering of each window, best first.
+
+    Returns orderings rather than scores on purpose: src.rerank_window builds
+    the run from rank positions, so the cross-encoder's raw logits never enter
+    a run alongside Stage 2's scores. Ties break on document id so two runs of
+    the same model produce the same ordering.
+    """
+    windows_ = list(windows_)
+    if not windows_:
+        return {}
+
+    pairs, keys = _window_pairs(windows_, query_text, doc_text)
+    scores = model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
+
+    by_query: dict[str, list[tuple[float, str]]] = {}
+    for (query_id, document), score in zip(keys, scores):
+        by_query.setdefault(query_id, []).append((float(score), document))
+    return {
+        query_id: [d for _, d in sorted(scored, key=lambda sd: (-sd[0], sd[1]))]
+        for query_id, scored in by_query.items()
+    }
+
+
+def measure_latency(
+    model,
+    windows_: Sequence,
+    query_text: Mapping,
+    doc_text: Mapping,
+    *,
+    n_queries: int = 50,
+    batch_size: int = 256,
+) -> Latency:
+    """Time the same work twice: one query at a time, then all at once."""
+    import time
+
+    windows_ = list(windows_)[:n_queries]
+    if not windows_:
+        raise ValueError("latency needs at least one query to measure")
+
+    # One query at a time - what a user waits for.
+    started = time.perf_counter()
+    n_pairs = 0
+    for w in windows_:
+        pairs, _ = _window_pairs([w], query_text, doc_text)
+        model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
+        n_pairs += len(pairs)
+    single = (time.perf_counter() - started) * 1000 / len(windows_)
+
+    # Everything in flight - what an offline job costs.
+    pairs, _ = _window_pairs(windows_, query_text, doc_text)
+    started = time.perf_counter()
+    model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
+    batched = (time.perf_counter() - started) * 1000 / len(windows_)
+
+    return Latency(
+        single_ms=single,
+        batched_ms=batched,
+        n_queries=len(windows_),
+        n_pairs=n_pairs,
+    )
+
+
 def _main() -> int:
     import time
 
