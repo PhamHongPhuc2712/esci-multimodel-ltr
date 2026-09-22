@@ -23,6 +23,11 @@ baselines = [
     "sentence-transformers>=3.0",
     "torch>=2.4",
     "pillow>=10",
+    # CrossEncoderTrainer needs both and sentence-transformers ships neither.
+    # Without them the import succeeds and the first training step dies with
+    # "Using the Trainer with PyTorch requires accelerate>=1.1.0".
+    "datasets>=3.0",
+    "accelerate>=1.1.0",
 ]
 retrieval = [
     "bm25s>=0.3",
