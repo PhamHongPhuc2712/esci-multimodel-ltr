@@ -38,6 +38,7 @@ import concurrent.futures as cf
 import hashlib
 import json
 import re
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -53,6 +54,12 @@ MAX_COMPLETION_TOKENS = 2000
 # Measured: 4.3 s/query sequential, 1.3 s/query at 4 in flight - 4.9 h against
 # 1.5 h for fold 0.
 DEFAULT_CONCURRENCY = 4
+
+# Windows between cache writes. A fold-0 pass is ~2 h of paid calls; saving
+# only at the end means an interruption at 90% loses every answer, which is
+# the opposite of the resumability the cache exists for. 200 caps the loss at
+# ~90 s of calls and costs one small JSON write per 200 windows.
+CHECKPOINT_EVERY = 200
 
 # Titles only, capped. The window is already short; full descriptions would
 # quadruple the prompt for a signal the cross-encoder arm covers.
@@ -111,6 +118,10 @@ class RerankCache:
 
     def __init__(self, path: Path = DEFAULT_CACHE) -> None:
         self.path = Path(path)
+        # Workers write while the main loop checkpoints, so both go through
+        # the lock: json.dumps over a dict another thread is mutating raises
+        # "dictionary changed size during iteration" and loses the write.
+        self._lock = threading.Lock()
         self._entries: dict[str, list[int]] = {}
         if self.path.exists():
             try:
@@ -133,14 +144,18 @@ class RerankCache:
         return self._entries.get(key)
 
     def set(self, key: str, permutation: Sequence[int]) -> None:
-        self._entries[key] = [int(i) for i in permutation]
+        with self._lock:
+            self._entries[key] = [int(i) for i in permutation]
 
     def save(self) -> None:
+        with self._lock:
+            payload = json.dumps(self._entries, indent=0, sort_keys=True) + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps(self._entries, indent=0, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        # Write-then-rename: a process killed mid-write leaves the previous
+        # cache intact rather than a truncated file worth nothing.
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary.write_text(payload, encoding="utf-8")
+        temporary.replace(self.path)
 
 
 @dataclass(frozen=True)
@@ -185,6 +200,7 @@ def rerank_windows(
     cache: RerankCache | None = None,
     concurrency: int = DEFAULT_CONCURRENCY,
     progress: Callable[[int, int], None] | None = None,
+    checkpoint_every: int = CHECKPOINT_EVERY,
 ) -> tuple[dict[str, list[str]], Usage]:
     """A new ordering per window, falling back to Stage 2's on any failure."""
     windows_ = list(windows_)
@@ -236,6 +252,10 @@ def rerank_windows(
             out[query_id] = order
             if progress is not None:
                 progress(done, len(windows_))
+            # Checkpoint from the consumer thread, not the workers: an
+            # interruption must cost the windows in flight, not the run.
+            if cache is not None and checkpoint_every > 0 and done % checkpoint_every == 0:
+                cache.save()
     elapsed = time.time() - started
 
     if cache is not None:
