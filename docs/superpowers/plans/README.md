@@ -26,10 +26,10 @@ interfaces are known.
 | 3 | [**Image Pipeline**](2026-09-20-image-pipeline/) | Resolution gate re-run, bulk async fetch, in-flight CLIP embedding, embedding store **(landed)** | `python -m src.esci_images` ≥ 90%; end-to-end image coverage reported against the ~75% figure, not 91.5% | §3.3, §8.3 |
 | 4 | [**Recall**](2026-09-20-recall/) | BM25 + dense + CLIP channels, RRF fusion, Recall@k harness, Stage 0 LLM query rewriting **(landed)** | Ablations 1 and 2 produce a table with bootstrap CIs | §4.0, §4.1, §8.4 |
 | 5 | [**Coarse Rank**](2026-09-21-coarse-rank/) | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
-| 6 | **Fine Rank** | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
+| 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
 | 7 | **Blend and Report** | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 
-A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. Five are written so far, all split that way:
+A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. Six are written so far, all split that way:
 
 - [`2026-09-19-evaluation-foundation/`](2026-09-19-evaluation-foundation/) — Plan 1, an index plus three phases: the metric, the data, then statistics and the baseline. **Landed.** Its gate passed with zero-shot SBERT at NDCG 0.8294 against a published 0.8292, a measured random floor of 0.7467, and a lift of +0.0827 [+0.0802, +0.0855].
 - [`2026-09-19-enrichment-corpus/`](2026-09-19-enrichment-corpus/) — Plan 2, an index plus two phases: the record, then the corpus. Written against the real `esci.json.zst`, not its README: the field-presence figures, the book/product key split, the multi-price strings and zstandard's silence on truncation were all measured first. **Landed.** 1,080,262-row corpus at 89.59% join coverage.
@@ -58,6 +58,20 @@ A written plan gets its own directory and is split into phase files when a singl
   **fails its hypothesis** — learned fusion over the same two signals loses to a
   single hand-tuned global weight on fold 0 (−0.0023 [−0.0040, −0.0008]) and
   ties on test (−0.0011 [−0.0023, +0.0000]).
+
+- [`2026-09-21-fine-rank/`](2026-09-21-fine-rank/) — Plan 6, an index plus three
+  phases: the window, the cross-encoder, then the LLM and the ablation. Written
+  against the real Stage 2 output: an oracle reorder of Plan 5's own top-10
+  measured at **0.9533** against its 0.8519, so there is **+0.1014** of headroom
+  and only 3.3% of fold-0 queries are already perfect. Every **zero-shot**
+  cross-encoder measured *below* Stage 2 on an identical 400-query sample
+  (0.8286–0.8445 against 0.8577), so the fine-tune is the arm rather than an
+  optimisation of it; fine-tuning measured at 29 min/epoch with `LambdaLoss` and
+  10.6 min with `BinaryCrossEntropyLoss`, both inside 16 GB. The LLM listwise
+  arm returned **8/8** well-formed permutations on `gpt-5.6-luna`, with **88% of
+  completion tokens spent on reasoning** — 386 prompt + 387 completion per
+  top-10 window against 1,015 + 1,716 for the full list, which is why the window
+  exists. **Written, not yet executed.**
 
 Start at a plan's `README.md`.
 
