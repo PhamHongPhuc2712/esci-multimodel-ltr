@@ -62,6 +62,11 @@ python -m src.feature_matrix --split test
 python -m src.rank_report                     # Ablations 3, 4, 5, 7 on fold 0
 python -m src.rank_report --split test --final --out docs/results/coarse-rank-test.json
 
+# Fine rank (Plan 6). The Stage 2 dump retrains the frozen coarse ranker
+# (~35 s train, ~25 s test) and prints the NDCG it reproduces.
+python -m src.stage2_scores --split train     # -> data/features/stage2-train.parquet
+python -m src.stage2_scores --split test      # -> data/features/stage2-test.parquet
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
@@ -231,6 +236,17 @@ supplied it.
   6.4-point gap, larger than every effect in the ablation table. Pass
   `label_gain` explicitly, and take every reported number from `src.metrics`.
   `src/ranker.py` derives it from `src.labels` and refuses an override.
+- **Plan 5's two headlines came from two different fits, and reproducing
+  them means mirroring both.** `src/rank_report.py` trains on folds 2/3/4 when
+  it reports fold 0, but sets `fit = train` for `--split test` — every train
+  fold for the gradient, fold 1 still the early-stop set, which is why every
+  test arm records `best_iteration: 500`. Fitting 2/3/4 for both reproduces
+  fold 0's **0.8519** exactly and lands at **0.8559** on test, 0.0020 under the
+  published 0.8579. That gap is larger than Ablation 4's entire honest effect,
+  so a Stage 3 arm measured against the narrow-fit baseline would look 0.002
+  better than it is. `src.stage2_scores.score_split` takes `fit_folds` and its
+  CLI passes `None` for test; its `in_sample` flag is derived from the rows
+  actually fitted, never from a separate argument.
 - **LightGBM's `group` is sizes over consecutive rows, not query ids.** A
   feature matrix sorted any other way trains on comparisons that straddle
   queries, with nothing raised. `src.feature_matrix.group_sizes` counts runs

@@ -71,7 +71,13 @@ A written plan gets its own directory and is split into phase files when a singl
   arm returned **8/8** well-formed permutations on `gpt-5.6-luna`, with **88% of
   completion tokens spent on reasoning** — 386 prompt + 387 completion per
   top-10 window against 1,015 + 1,716 for the full list, which is why the window
-  exists. **Written, not yet executed.**
+  exists. **Phase 1 landed 2026-09-22**; Phases 2 and 3 are written, not yet
+  executed. Phase 1 persisted Plan 5's ordering to
+  `data/features/stage2-{train,test}.parquet`, reproducing **0.8519** on fold 0
+  and **0.8579** on test exactly, and added the top-K splice whose identity
+  re-ranking leaves per-query NDCG untouched. It corrected one thing the plan
+  had wrong: Plan 5's *test* headline was fitted on every train fold, not on
+  folds 2/3/4, and fitting the narrow set for both lands 0.0020 low.
 
 Start at a plan's `README.md`.
 

@@ -927,13 +927,14 @@ git commit -m "Carve the Stage 2 top-K window and splice re-rankings above the t
 
 ## Phase 1 Gate
 
-Phase 2 does not start until all of these hold:
+**Passed 2026-09-22.** One correction landed on the way: the frozen
+configuration's gradient set differs by split, because Plan 5's did. See Task 1.
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the identity-splice check.
-- [ ] `data/features/stage2-train.parquet` has 419,653 rows with 250,485 flagged in-sample, and `stage2-test.parquet` has 181,701 with none.
-- [ ] The persisted ordering reproduces Plan 5's fold-0 NDCG of 0.8519 and test NDCG of 0.8579 to within 0.0005.
-- [ ] An identity re-ranking through `spliced_run` reproduces `stage2_run`'s per-query NDCG **exactly**, on the real fold-0 ordering.
-- [ ] `src/rerank_window.py` imports no model, no store and no LightGBM.
+- [x] `python -m pytest` passes with no failures and no new skips. — 518 passed (485 before this phase), 23 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including the identity-splice check. — 22 passed in 6m14s (17 before this phase).
+- [x] `data/features/stage2-train.parquet` has 419,653 rows with 250,485 flagged in-sample, and `stage2-test.parquet` has 181,701 with none.
+- [x] The persisted ordering reproduces Plan 5's fold-0 NDCG of 0.8519 and test NDCG of 0.8579 to within 0.0005. — **both reproduce exactly** at 4 dp, once test is fitted on every train fold as `src/rank_report.py` does. The first attempt fitted folds 2/3/4 for both and the drift check caught test at 0.8559.
+- [x] An identity re-ranking through `spliced_run` reproduces `stage2_run`'s per-query NDCG **exactly**, on the real fold-0 ordering. — asserted with `==` on the per-query dicts, not `approx`, over all 4,130 fold-0 queries.
+- [x] `src/rerank_window.py` imports no model, no store and no LightGBM. — it imports `pandas`, `dataclasses` and `collections.abc`, nothing else.
 
 Then: [Phase 2 — The Cross-Encoder](phase-2-the-cross-encoder.md).
