@@ -214,3 +214,42 @@ def test_reranking_nothing_is_nothing():
     out, usage = rerank_windows([], {}, {}, call=lambda p: ("", 0, 0, 0))
     assert out == {}
     assert usage.n_calls == 0
+
+
+# --- resumability: the cache must survive an interrupted run ----------------
+
+def test_the_cache_is_checkpointed_before_the_run_ends(tmp_path):
+    # A fold-0 pass is ~2 h of paid calls. Saving only after the pool drains
+    # means an interruption at 90% loses every answer.
+    cache = RerankCache(tmp_path / "c.json")
+    ws = [Window(query_id=str(i), window=("a", "b"), tail=()) for i in range(6)]
+    # Distinct queries, or every window shares one cache key and only the
+    # first one issues a call.
+    q = {str(i): f"query {i}" for i in range(6)}
+    d = {"a": "doc a", "b": "doc b"}
+
+    seen = []
+
+    def call(prompt):
+        seen.append(prompt)
+        if len(seen) > 4:
+            raise KeyboardInterrupt("user pressed ctrl-c")
+        return "[2] > [1]", 1, 1, 1
+
+    with pytest.raises(KeyboardInterrupt):
+        rerank_windows(ws, q, d, call=call, cache=cache,
+                       concurrency=1, checkpoint_every=2)
+
+    # Whatever was answered before the interrupt is on disk and reusable.
+    assert len(RerankCache(tmp_path / "c.json")) >= 2
+
+
+def test_a_checkpoint_write_is_atomic(tmp_path):
+    # Write-then-rename: a kill mid-write must leave the previous cache, not a
+    # truncated file that parses as empty.
+    path = tmp_path / "c.json"
+    cache = RerankCache(path)
+    cache.set("k", [1])
+    cache.save()
+    assert not list(tmp_path.glob("*.tmp"))
+    assert RerankCache(path).get("k") == [1]
