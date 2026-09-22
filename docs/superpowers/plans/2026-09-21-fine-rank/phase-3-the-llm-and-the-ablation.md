@@ -1241,6 +1241,37 @@ def test_the_committed_report_carries_every_ablation_6_column():
 Run: `python -m pytest tests/test_fine_rank_report.py -m data -q`
 Expected: PASS.
 
+## The frozen configuration
+
+Written down before the single test run, as Step 7 requires. Nothing below
+changed after this point.
+
+| knob | value |
+|---|---|
+| `K` (window) | 10 |
+| backbone | `cross-encoder/ms-marco-MiniLM-L6-v2` |
+| losses | `LambdaLoss` (batch 8) and `BinaryCrossEntropyLoss` (batch 128) |
+| epochs | 1 |
+| `max_length` / `max_chars` | 192 tokens / 800 characters, title first |
+| learning rate | 2e-05 |
+| training folds | 2, 3, 4 (12,519 queries / 250,485 pairs) |
+| LLM | `gpt-5.6-luna`, `max_completion_tokens` 2000, concurrency 4, titles cut at 160 chars |
+| test sample | 2,000 queries, seed 0 |
+
+The prompt, verbatim:
+
+```
+Rank the {n} products by how well they satisfy the search query.
+
+Query: {query}
+
+{listing}
+
+Reply with the identifiers in descending relevance, like [3] > [1] > [2], covering all {n}. No explanation.
+```
+
+---
+
 - [ ] **Step 7: Freeze the configuration, then run test exactly once**
 
 Write down `K`, the backbone, the loss, the epoch count and the prompt before
