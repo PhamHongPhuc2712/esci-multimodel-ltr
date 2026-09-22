@@ -81,6 +81,33 @@ def cost_usd(
     )
 
 
+def llm_latency(usage: Usage, n_windows: int) -> Latency | None:
+    """Latency for an LLM arm, or None when the pass was served from cache.
+
+    The first fold-0 report derived this from `usage.seconds`, which is wall
+    clock for the whole pass. On a warm cache that is replay time: it published
+    the LLM arm at **5.5 ms/query** when the uncached pass had measured
+    **1,180 ms/query**, a 214x understatement in the one column Ablation 6
+    exists to report. Latency is only a latency if calls were actually made.
+
+    `single_ms` is the mean time inside one call - what a user waits.
+    `batched_ms` is wall clock over the windows, which at concurrency 4 is the
+    throughput figure. Both are None-or-both, never invented.
+    """
+    if usage.n_calls == 0 or n_windows <= 0:
+        return None
+    if usage.n_calls < 0.9 * n_windows:
+        # A partly cached pass times neither thing: the wall clock covers
+        # windows that cost nothing.
+        return None
+    return Latency(
+        single_ms=usage.call_seconds * 1000 / usage.n_calls,
+        batched_ms=usage.seconds * 1000 / n_windows,
+        n_queries=n_windows,
+        n_pairs=usage.n_calls,
+    )
+
+
 def check_same_queries(arms: Sequence) -> None:
     """Refuse a table whose arms cover different query sets."""
     if len(arms) < 2:
@@ -108,7 +135,13 @@ def _main() -> int:
         rerank,
     )
     from src.floor import random_floor
-    from src.llm_rerank import DEFAULT_CACHE, RerankCache, openai_call, rerank_windows
+    from src.llm_rerank import (
+        DEFAULT_CACHE,
+        DEFAULT_CONCURRENCY,
+        RerankCache,
+        openai_call,
+        rerank_windows,
+    )
     from src.metrics import ndcg_per_query
     from src.ranker import REPORT_FOLD
     from src.rerank_window import DEFAULT_K, Window, spliced_run, stage2_run, windows
@@ -127,6 +160,11 @@ def _main() -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--final", action="store_true",
                         help="required with --split test")
+    parser.add_argument(
+        "--llm-latency-probe", type=int, default=0,
+        help="measure LLM latency on N uncached windows (costs N API calls). "
+             "A warm cache makes the arm's own pass unmeasurable, so this is "
+             "the only honest source of the number once fold 0 is cached.")
     args = parser.parse_args()
 
     if args.split == "test" and not args.final:
@@ -204,12 +242,7 @@ def _main() -> int:
         "stage2+llm",
         spliced_run(ws, llm_orderings),
         ArmCost(
-            latency=Latency(
-                single_ms=usage.seconds * 1000 / max(len(ws), 1),
-                batched_ms=usage.seconds * 1000 / max(len(ws), 1),
-                n_queries=len(ws),
-                n_pairs=sum(len(w.window) for w in ws),
-            ),
+            latency=llm_latency(usage, len(ws)),
             usage=usage,
             cost=cost_usd(usage, price_in=args.price_per_mtok_in,
                           price_out=args.price_per_mtok_out),
@@ -230,10 +263,35 @@ def _main() -> int:
     record(
         "stage2+ce+llm",
         spliced_run(cascade_windows, cascade_orderings),
-        ArmCost(usage=cascade_usage,
+        ArmCost(latency=llm_latency(cascade_usage, len(ws)),
+                usage=cascade_usage,
                 cost=cost_usd(cascade_usage, price_in=args.price_per_mtok_in,
                               price_out=args.price_per_mtok_out)),
     )
+
+    # A warm cache leaves the LLM arms with no measurable latency, so the
+    # number comes from an explicit uncached probe or not at all.
+    probe = None
+    if args.llm_latency_probe > 0:
+        probe_windows = [
+            Window(query_id=w.query_id, window=w.window[::-1], tail=w.tail)
+            for w in ws[: args.llm_latency_probe]
+        ]
+        _, probe_usage = rerank_windows(
+            probe_windows, query_text, doc_text, call=openai_call(), cache=None
+        )
+        probe_latency = llm_latency(probe_usage, len(probe_windows))
+        probe = {
+            "n_windows": len(probe_windows),
+            "concurrency": DEFAULT_CONCURRENCY,
+            "latency": probe_latency.to_dict() if probe_latency else None,
+            "usage": probe_usage.to_dict(),
+        }
+        if probe_latency:
+            print(f"\n  -- LLM latency probe ({len(probe_windows)} uncached windows) --")
+            print(f"  single {probe_latency.single_ms:.0f} ms/call, "
+                  f"batched {probe_latency.batched_ms:.0f} ms/query "
+                  f"at concurrency {DEFAULT_CONCURRENCY}")
 
     check_same_queries(results)
     print()
@@ -254,6 +312,10 @@ def _main() -> int:
         if c.latency:
             print(f"  {arm.name:20s} single {c.latency.single_ms:8.1f} ms  "
                   f"batched {c.latency.batched_ms:7.1f} ms")
+        if c.usage and not c.latency:
+            print(f"  {arm.name:20s} latency null: {c.usage.n_cached:,} of "
+                  f"{len(ws):,} windows came from cache, so the wall clock is "
+                  "replay time, not latency")
         if c.usage:
             per = c.usage.per_query(len(ws))
             print(f"  {'':20s} {per['prompt_tokens']:.0f} prompt + "
@@ -272,6 +334,7 @@ def _main() -> int:
         "esci_baseline_target": ESCI_BASELINE,
         "arms": [arm.to_dict() | {"cost": costs[arm.name].to_dict()} for arm in results],
         "ablation_6": comparisons,
+        "llm_latency_probe": probe,
         "seed": args.seed,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)

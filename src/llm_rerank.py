@@ -166,6 +166,11 @@ class Usage:
     completion_tokens: int = 0
     reasoning_tokens: int = 0
     seconds: float = 0.0
+    # Time spent inside real API calls, summed across threads. `seconds` is
+    # wall clock for the whole pass and collapses to cache-replay time when
+    # the cache is warm; this does not, so a single-query latency derived from
+    # it stays honest.
+    call_seconds: float = 0.0
     n_calls: int = 0
     n_cached: int = 0
     n_fallback: int = 0
@@ -185,6 +190,7 @@ class Usage:
             "completion_tokens": self.completion_tokens,
             "reasoning_tokens": self.reasoning_tokens,
             "seconds": self.seconds,
+            "call_seconds": self.call_seconds,
             "n_calls": self.n_calls,
             "n_cached": self.n_cached,
             "n_fallback": self.n_fallback,
@@ -208,6 +214,10 @@ def rerank_windows(
         return {}, Usage()
 
     totals = {"pt": 0, "ct": 0, "rt": 0, "calls": 0, "cached": 0, "fallback": 0}
+    totals_seconds = 0.0
+    # `d[k] += v` is read-modify-write and the GIL does not make it atomic, so
+    # four workers over 4,130 windows can lose token updates silently.
+    totals_lock = threading.Lock()
 
     def one(w) -> tuple[str, list[str]]:
         documents = list(w.window)
@@ -219,27 +229,35 @@ def rerank_windows(
             if cached is not None and sorted(cached) == list(
                 range(1, len(documents) + 1)
             ):
-                totals["cached"] += 1
+                with totals_lock:
+                    totals["cached"] += 1
                 return w.query_id, [documents[i - 1] for i in cached]
 
         titles = [str(doc_text.get(d, "")) for d in documents]
+        started_call = time.perf_counter()
         try:
             text, pt, ct, rt = call(build_prompt(query, titles))
         except Exception:
             # One transient failure must not lose the other 4,129 windows, and
             # the Stage 2 order is always a valid order.
-            totals["fallback"] += 1
-            totals["calls"] += 1
+            with totals_lock:
+                totals["fallback"] += 1
+                totals["calls"] += 1
             return w.query_id, documents
+        call_elapsed = time.perf_counter() - started_call
 
-        totals["pt"] += int(pt)
-        totals["ct"] += int(ct)
-        totals["rt"] += int(rt)
-        totals["calls"] += 1
+        nonlocal totals_seconds
+        with totals_lock:
+            totals["pt"] += int(pt)
+            totals["ct"] += int(ct)
+            totals["rt"] += int(rt)
+            totals["calls"] += 1
+            totals_seconds += call_elapsed
 
         permutation = parse_permutation(text, len(documents))
         if permutation is None:
-            totals["fallback"] += 1
+            with totals_lock:
+                totals["fallback"] += 1
             return w.query_id, documents
         if cache is not None:
             cache.set(key, permutation)
@@ -266,6 +284,7 @@ def rerank_windows(
         completion_tokens=totals["ct"],
         reasoning_tokens=totals["rt"],
         seconds=elapsed,
+        call_seconds=totals_seconds,
         n_calls=totals["calls"],
         n_cached=totals["cached"],
         n_fallback=totals["fallback"],

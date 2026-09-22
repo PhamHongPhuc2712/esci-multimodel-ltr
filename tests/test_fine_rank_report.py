@@ -109,3 +109,84 @@ def test_latency_and_usage_both_reach_the_payload():
     assert json.loads(json.dumps(payload))["latency"]["single_ms"] == 40.0
     assert payload["latency"]["batched_ms"] == 8.0
     assert payload["usage"]["completion_tokens"] == 20
+
+
+# --- latency provenance -----------------------------------------------------
+# The first fold-0 run published the LLM arm at 5.5 ms/query, derived from the
+# wall clock of a fully cached replay. The uncached pass had measured 1,180
+# ms/query. Latency is only a latency if calls were actually made.
+
+from src.fine_rank_report import llm_latency  # noqa: E402
+
+
+def test_a_fully_cached_pass_has_no_latency():
+    cached = Usage(seconds=22.6, call_seconds=0.0, n_calls=0, n_cached=4130)
+    assert llm_latency(cached, 4130) is None
+
+
+def test_a_mostly_cached_pass_has_no_latency():
+    # The wall clock covers windows that cost nothing, so it times neither the
+    # single call nor the throughput.
+    partial = Usage(seconds=22.6, call_seconds=7.0, n_calls=6, n_cached=4124)
+    assert llm_latency(partial, 4130) is None
+
+
+def test_a_real_pass_reports_both_numbers():
+    real = Usage(seconds=4882.0, call_seconds=19528.0, n_calls=4130, n_cached=0)
+    latency = llm_latency(real, 4130)
+    assert latency is not None
+    # 4.73 s inside one call; 1.18 s/query wall clock at concurrency 4.
+    assert latency.single_ms == pytest.approx(4728.0, rel=0.01)
+    assert latency.batched_ms == pytest.approx(1182.0, rel=0.01)
+    assert latency.single_ms > latency.batched_ms
+
+
+def test_no_windows_means_no_latency():
+    assert llm_latency(Usage(n_calls=5), 0) is None
+
+
+@pytest.mark.data
+def test_the_committed_report_carries_every_ablation_6_column():
+    payload = json.loads(open("docs/results/fine-rank.json").read())
+
+    names = {arm["name"] for arm in payload["arms"]}
+    assert {"stage2", "stage2+ce", "stage2+llm"} <= names
+
+    # Every arm carries the floor it beats. PROJECT_SPEC.md §2.
+    assert 0.70 < payload["floor"]["mean"] < 0.80
+    for arm in payload["arms"]:
+        assert set(arm["lift_over_floor"]) == {"point", "low", "high"}
+
+    # §6 asks for NDCG, latency AND cost.
+    by_name = {arm["name"]: arm for arm in payload["arms"]}
+    assert by_name["stage2+ce"]["cost"]["latency"]["single_ms"] > 0
+    assert by_name["stage2+ce"]["cost"]["latency"]["batched_ms"] > 0
+
+    # The baseline must reproduce Plan 5.
+    assert by_name["stage2"]["ndcg"]["point"] == pytest.approx(0.8519, abs=0.002)
+
+    # Ablation 6 compares every arm against coarse-only.
+    assert {row["baseline"] for row in payload["ablation_6"]} == {"stage2"}
+
+
+@pytest.mark.data
+def test_the_llm_arm_reports_latency_from_real_calls_not_cache_replay():
+    # The first run published 5.5 ms/query from a cached replay against a real
+    # 1,180 ms/query. Either the arm measured its own uncached pass, or the
+    # probe carries the number - never the replay.
+    payload = json.loads(open("docs/results/fine-rank.json").read())
+    by_name = {arm["name"]: arm for arm in payload["arms"]}
+    arm = by_name["stage2+llm"]["cost"]
+    probe = payload["llm_latency_probe"]
+
+    if arm["latency"] is None:
+        assert arm["usage"]["n_cached"] > 0, "null latency needs a cache to explain it"
+        assert probe is not None, "a cached arm must carry a probe instead"
+        assert probe["latency"]["single_ms"] > 100
+    else:
+        assert arm["usage"]["n_calls"] >= 0.9 * payload["n_queries"]
+        assert arm["latency"]["single_ms"] > 100
+
+    # The LLM is orders of magnitude slower than the cross-encoder, and the
+    # report must say so rather than flattering it.
+    assert probe["latency"]["single_ms"] > by_name["stage2+ce"]["cost"]["latency"]["single_ms"] * 10
