@@ -66,6 +66,8 @@ python -m src.rank_report --split test --final --out docs/results/coarse-rank-te
 # (~35 s train, ~25 s test) and prints the NDCG it reproduces.
 python -m src.stage2_scores --split train     # -> data/features/stage2-train.parquet
 python -m src.stage2_scores --split test      # -> data/features/stage2-test.parquet
+python -m src.cross_encoder --loss lambda      # 30.6 min on the 3080 -> models/cross-encoder/lambda/
+python -m src.cross_encoder --loss bce         # 5.7 min -> models/cross-encoder/bce/
 
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine

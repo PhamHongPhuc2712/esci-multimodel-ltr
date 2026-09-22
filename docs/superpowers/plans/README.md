@@ -71,8 +71,13 @@ A written plan gets its own directory and is split into phase files when a singl
   arm returned **8/8** well-formed permutations on `gpt-5.6-luna`, with **88% of
   completion tokens spent on reasoning** — 386 prompt + 387 completion per
   top-10 window against 1,015 + 1,716 for the full list, which is why the window
-  exists. **Phase 1 landed 2026-09-22**; Phases 2 and 3 are written, not yet
-  executed. Phase 1 persisted Plan 5's ordering to
+  exists. **Phases 1 and 2 landed 2026-09-22**; Phase 3 is written, not yet
+  executed. Phase 2's fine-tune is the arm, as predicted: zero-shot
+  `ms-marco-MiniLM-L6-v2` scores **0.8457** on fold 0 against Stage 2's 0.8519,
+  while the fine-tuned arms reach **0.8587** (`LambdaLoss`) and **0.8594**
+  (`BinaryCrossEntropyLoss`) — **+0.0130** for the fine-tune. The listwise loss
+  the phase made default does *not* win at Stage 3, reversing Plan 5's
+  Ablation 5 by a small margin, and `bce` trains 5.4x faster. Phase 1 persisted Plan 5's ordering to
   `data/features/stage2-{train,test}.parquet`, reproducing **0.8519** on fold 0
   and **0.8579** on test exactly, and added the top-K splice whose identity
   re-ranking leaves per-query NDCG untouched. It corrected one thing the plan

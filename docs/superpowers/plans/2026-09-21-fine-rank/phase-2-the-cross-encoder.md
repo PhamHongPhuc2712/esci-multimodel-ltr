@@ -947,6 +947,38 @@ the loss and the learning rate are the places to look.
 
 Record the four numbers; Task 6 reproduces them with intervals.
 
+**Measured 2026-09-22** on all 4,130 fold-0 queries (the plan's zero-shot
+figures came from a 400-query sample, so they are not directly comparable):
+
+| arm | NDCG | vs. stage2 | single | batched |
+|---|---|---|---|---|
+| `stage2` | 0.8519 | — | — | — |
+| zero-shot `ms-marco-MiniLM-L6-v2` | 0.8457 | **−0.0062** | 21 ms | 9.7 ms |
+| **fine-tuned `lambda`** | **0.8587** | **+0.0068** | 21 ms | 9.9 ms |
+| **fine-tuned `bce`** | **0.8594** | **+0.0075** | 20 ms | 10.0 ms |
+
+**The fine-tune is the arm, as the plan argued.** Zero-shot loses to Stage 2
+by 0.0062 and both fine-tuned arms beat it; fine-tuning is worth **+0.0130**
+over zero-shot on the same backbone, same window, same 4,130 queries.
+
+**`bce` edges `lambda` by +0.0007, which the plan did not predict.** Plan 5's
+Ablation 5 measured listwise beating pointwise by +0.0085 to +0.0096 at the
+coarse stage, and this phase made `LambdaLoss` the default on that basis. At
+Stage 3, over a 10-document window rather than a full candidate list, the gap
+reverses and is an order of magnitude smaller than the coarse-stage one — well
+inside what a paired interval may not separate. Task 6 reports both with CIs
+rather than declaring a winner here. `bce` also trains **5.4x faster**
+(5.7 min against 30.6), so if the interval straddles zero the cheap arm wins on
+cost.
+
+The latency gap is **2.1x**, not the 3–5x the phase predicted — the window is
+only 10 documents, so a single-query call is already near the GPU's efficient
+batch size. Both numbers are recorded regardless, which is the point.
+
+Training, measured: `lambda` 30.6 min at 6.92 queries/s (predicted 29.0 at
+7.2); `bce` 5.7 min at 771 pairs/s (predicted 10.6 at 393 — nearly 2x faster
+than measured when the plan was written).
+
 - [ ] **Step 6: Run the whole fast suite**
 
 Run: `python -m pytest -q`
@@ -963,13 +995,14 @@ git commit -m "Re-rank the Stage 2 window with the cross-encoder and measure bot
 
 ## Phase 2 Gate
 
-Phase 3 does not start until all of these hold:
+**Passed 2026-09-22.** Both fine-tuned arms beat Stage 2; the loss the phase
+chose as default is not the one that won.
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `models/cross-encoder/lambda/` and `models/cross-encoder/bce/` exist, trained on 12,519 queries from folds 2/3/4 only.
-- [ ] `check_training_folds` raises on a frame containing fold 0, fold 1 or the test split, and the real fine-tune passed it.
-- [ ] `rerank` returns orderings, never scores, and `spliced_run` accepts every one of them as a permutation.
-- [ ] `measure_latency` reports single-query and batch-amortised figures that differ, both recorded.
-- [ ] The fine-tuned arms are scored on fold 0 against the zero-shot control, and the four numbers are written down.
+- [x] `python -m pytest` passes with no failures and no new skips. — 546 passed (518 before this phase), 23 deselected, 0 skipped.
+- [x] `models/cross-encoder/lambda/` and `models/cross-encoder/bce/` exist, trained on 12,519 queries from folds 2/3/4 only. — both 88 MB; the CLI printed `250,485 pairs over 12,519 queries from folds [2, 3, 4]` for each, and 1,565 steps at batch 8 is 12,520 rows of the listwise dataset.
+- [x] `check_training_folds` raises on a frame containing fold 0, fold 1 or the test split, and the real fine-tune passed it. — four tests pin the raises; `fine_tune` calls it before touching a model.
+- [x] `rerank` returns orderings, never scores, and `spliced_run` accepts every one of them as a permutation. — all 4,130 fold-0 windows spliced without raising, for all three models.
+- [x] `measure_latency` reports single-query and batch-amortised figures that differ, both recorded. — 20–21 ms single against 9.7–10.0 ms batched, a 2.1x gap.
+- [x] The fine-tuned arms are scored on fold 0 against the zero-shot control, and the four numbers are written down. — see the table in Task 4, Step 5.
 
 Then: [Phase 3 — The LLM and the Ablation](phase-3-the-llm-and-the-ablation.md).
