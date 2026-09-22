@@ -680,6 +680,28 @@ if __name__ == "__main__":
 Run: `python -m pytest tests/test_llm_rerank.py -q`
 Expected: PASS, 26 tests.
 
+**Two corrections landed here during execution.**
+
+*The cache test's fake was not a valid responder.* As written,
+`test_a_cached_window_is_not_called_again` returns the fixed string
+`"[2] > [1] > [3]"` for every window, including the two-document one — where
+`parse_permutation` correctly rejects it, so that window is never cached and
+*is* re-called. The test failed on its own premise, and the implementation was
+right. The fake now reads the candidate count out of the prompt
+(`int(prompt.split()[2])`) and answers with a permutation of that size.
+
+*The cache was not resumable, though this plan twice says it is.* `save()` is
+called once, after the `ThreadPoolExecutor` drains — so an interruption at 90%
+of a two-hour paid run loses **every** answer. Caught 64 windows into the real
+fold-0 run, which was stopped and restarted rather than gambling on it.
+`rerank_windows` now takes `checkpoint_every` (default `CHECKPOINT_EVERY = 200`)
+and saves from the consumer thread as results arrive; `RerankCache` guards
+`set`/`save` with a `threading.Lock`, because `json.dumps` over a dict a worker
+is mutating raises `dictionary changed size during iteration`; and `save()`
+writes to a `.tmp` and renames, so a kill mid-write leaves the previous cache
+rather than a truncated file. Two tests pin it: an interrupted run leaves its
+answered windows on disk, and no `.tmp` survives a successful write.
+
 - [ ] **Step 5: Warm the cache on fold 0**
 
 Run: `python -m src.llm_rerank --split train --folds 0`
@@ -1169,7 +1191,8 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_fine_rank_report.py -q`
-Expected: PASS, 15 tests.
+Expected: PASS, 15 tests. **Measured 14** — the block above defines fourteen
+tests, so the 15 is a miscount in this plan, not a missing test.
 
 - [ ] **Step 5: Produce the fold-0 Ablation 6 table**
 
