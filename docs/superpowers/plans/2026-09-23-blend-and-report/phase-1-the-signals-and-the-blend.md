@@ -1717,14 +1717,14 @@ deselected.
 
 ## Phase 1 Gate
 
-Phase 2 does not start until all of these hold:
+**Passed 2026-09-23.**
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the real signal-frame completeness check and the reproduction of Plan 6's three arms from the frame.
-- [ ] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, cover 4,130 and 2,000 queries, and `require_full_coverage` passes on both.
-- [ ] `llm_orderings_from_cache` returns its misses; the frame flags exactly the 1 + 2 malformed-answer windows Plan 6 counted, and `check_fallback_share` refuses a scope error.
-- [ ] `cross_fit_predict` and `cross_fit_select` partition by `query_id` through the same `_query_parts`, and the combiner's scores differ from an in-sample fit on the same frame.
-- [ ] `src/blend.py` reads no file, imports no store and issues no API call.
-- [ ] `rerank` still returns orderings, and `window_scores` is the only way to see a logit.
+- [x] `python -m pytest` passes with no failures and no new skips. — 646 passed (594 before this phase), 27 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including the real signal-frame completeness check and the reproduction of Plan 6's three arms from the frame. — 26 passed in 4m08s (24 before this phase); all six arm × scope NDCGs reproduce to under 2e-16.
+- [x] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, cover 4,130 and 2,000 queries, and `require_full_coverage` passes on both. — 41,255 and 19,974 rows.
+- [x] `llm_orderings_from_cache` returns its misses; the frame flags exactly the 1 + 2 malformed-answer windows Plan 6 counted, and `check_fallback_share` refuses a scope error. — 55755; 49855 and 66028. The full-test-split shape (6,956 of 8,956) raises.
+- [x] `cross_fit_predict` and `cross_fit_select` partition by `query_id` through the same `_query_parts`, and the combiner's scores differ from an in-sample fit on the same frame.
+- [x] `src/blend.py` reads no file, imports no store and issues no API call. — it imports numpy, pandas, two constants from `src.stage_signals`, and lazily `lightgbm` and `src.ranker.LABEL_GAIN`.
+- [x] `rerank` still returns orderings, and `window_scores` is the only way to see a logit. — `rerank` is now a wrapper over it, so the two cannot disagree about a tie-break.
 
 Then: [Phase 2 — The Blend Report](phase-2-the-blend-report.md).
