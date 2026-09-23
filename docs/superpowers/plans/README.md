@@ -95,8 +95,8 @@ A written plan gets its own directory and is split into phase files when a singl
   arm's 0.8814, so **+0.0262** of headroom exists, but every swept rank fusion
   loses (best **0.8800** at 1:1:4) and a cross-fitted learned combiner loses
   too (**0.8793**), with `llm_rank` dominating its feature importance. The
-  three arms genuinely disagree (Kendall τ 0.34–0.41) and no arm is best more
-  than **41.6%** of the time, which is why the plan adds a per-query
+  three arms genuinely disagree (Kendall τ 0.34–0.41) and no arm is strictly
+  best more than **41.6%** of the time, which is why the plan adds a per-query
   **selector** — the only strategy shaped like the oracle's advantage — and
   reports the ceiling beside every arm so a tie reads as missed headroom
   rather than absent headroom. Also measured for the error analysis: the LLM

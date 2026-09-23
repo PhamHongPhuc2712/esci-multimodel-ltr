@@ -933,6 +933,7 @@ Fast suite 623 passed (594 before), 27 deselected; `-m data` for this module
   - `src.blend.train_combiner(frame, *, features=BLEND_FEATURES, num_boost_round=150, seed=0) -> Any`
   - `src.blend.predict_combiner(booster, frame, *, features=BLEND_FEATURES) -> np.ndarray`
   - `src.blend.cross_fit_predict(frame, *, n_folds=2, seed=0, **kwargs) -> np.ndarray`
+  - `src.blend.selector_targets(per_arm, query_ids) -> np.ndarray` — the arm each query should teach; ties go to the best-mean arm
   - `src.blend.train_selector(frame, per_arm, *, seed=0) -> Any`
   - `src.blend.selector_ordering(selector, frame, arm_orderings) -> dict[str, list[str]]`
   - `src.blend.cross_fit_select(frame, per_arm, arm_orderings, *, n_folds=2, seed=0) -> dict[str, list[str]]`
@@ -956,8 +957,8 @@ sweep measured in [`README.md`](README.md#where-these-numbers-came-from) — and
 that sweep's best still lost to the LLM alone, which is the point.
 
 **The selector is the only arm aimed at the oracle's structure.** The oracle
-wins by choosing between arms per query, not by mixing them, and no arm is best
-more than 42% of the time. `train_selector` fits a multiclass LightGBM over
+wins by choosing between arms per query, not by mixing them, and no arm is
+strictly best more than 42% of the time. `train_selector` fits a multiclass LightGBM over
 query-level features — window size, the three arms' score spreads, their mutual
 rank agreement — to predict which arm to trust, and `selector_ordering` applies
 it. If it cannot beat the best single arm either, that is the plan's finding.
@@ -992,6 +993,7 @@ from src.blend import (
     orderings_from_scores,
     predict_combiner,
     selector_ordering,
+    selector_targets,
     train_combiner,
     train_selector,
 )
@@ -1192,6 +1194,34 @@ def test_the_selector_returns_a_permutation_from_one_of_the_arms():
         assert docs in [arm_orderings[arm][q] for arm in ("stage2", "ce", "llm")]
 
 
+def test_a_strict_winner_is_the_target():
+    per_arm = {
+        "stage2": {"0": 0.9, "1": 0.2, "2": 0.5},
+        "ce": {"0": 0.4, "1": 0.8, "2": 0.5},
+        "llm": {"0": 0.1, "1": 0.3, "2": 0.9},
+    }
+    assert list(selector_targets(per_arm, ["0", "1", "2"])) == [0, 1, 2]
+
+
+def test_a_tie_goes_to_the_arm_with_the_best_mean_not_the_first_listed():
+    # Measured on fold 0: argmax hands every tie to stage2, the first-listed
+    # and weakest arm, labelling 31.7% of queries "stage2" when it is strictly
+    # best on 17.7%. A tied query scores the same whichever tied arm routes
+    # it, so it should teach the default, not the list order.
+    per_arm = {
+        "stage2": {"tie": 0.8, "a": 0.5, "b": 0.5},
+        "ce": {"tie": 0.8, "a": 0.5, "b": 0.5},
+        "llm": {"tie": 0.8, "a": 0.9, "b": 0.9},
+    }
+    assert list(selector_targets(per_arm, ["tie", "a", "b"])) == [2, 2, 2]
+
+
+def test_a_query_missing_from_the_arm_scores_is_an_error_not_a_zero():
+    per_arm = {"stage2": {"0": 0.5}, "ce": {"0": 0.5}, "llm": {}}
+    with pytest.raises(KeyError, match="0"):
+        selector_targets(per_arm, ["0"])
+
+
 def _selector_inputs(n_queries=40):
     frame = _frame(n_queries=n_queries)
     per_arm = {
@@ -1264,8 +1294,8 @@ Three arms, and a ceiling:
 0.9076 against the best single arm's 0.8814, so there is +0.0262 to aim at; but
 every fixed weighting loses (best 0.8800 at 1:1:4) and a cross-fitted combiner
 loses too (0.8793). The selector exists because the oracle's advantage is
-*choosing*, not mixing: Stage 2 is best on 31.7% of queries, the cross-encoder
-on 26.7%, the LLM on 41.6%.
+*choosing*, not mixing: the LLM is strictly best on 41.6% of queries, the
+cross-encoder on 21.3%, Stage 2 on 17.7%, and 19.4% are tied at the top.
 
 Nothing here reads a file or calls an API, so every path is testable.
 """
@@ -1507,6 +1537,41 @@ SELECTOR_FEATURES: tuple[str, ...] = (
 )
 
 
+def selector_targets(
+    per_arm: Mapping[str, Mapping[str, float]], query_ids: Sequence[str]
+) -> np.ndarray:
+    """Which arm the selector should learn to pick for each query.
+
+    The arm with the highest NDCG - and on a tie, the tied arm with the best
+    mean over these queries, never the first one listed. Measured on fold 0,
+    19.4% of queries are tied at the top; np.argmax hands every such tie to
+    stage2, the weakest arm, labelling 31.7% of queries "stage2" when it is
+    strictly best on 17.7%. A tied query scores the same whichever tied arm
+    routes it, so it should teach the default, not the list order.
+    """
+    missing = [
+        q for q in query_ids
+        if any(str(q) not in per_arm[arm] for arm in _SELECTOR_ARMS)
+    ]
+    if missing:
+        raise KeyError(
+            f"{len(missing):,} queries have no NDCG for some arm (first: "
+            f"{missing[:3]}); scoring them 0.0 would teach the selector a "
+            "loss that never happened"
+        )
+    scores = np.array(
+        [[float(per_arm[arm][str(q)]) for arm in _SELECTOR_ARMS] for q in query_ids]
+    )
+    if scores.size == 0:
+        return np.zeros(0, dtype=np.int64)
+    preference = np.argsort(-scores.mean(axis=0), kind="stable")
+    winners = np.isclose(scores, scores.max(axis=1, keepdims=True), rtol=0.0, atol=1e-12)
+    return np.array(
+        [next(int(i) for i in preference if row[i]) for row in winners],
+        dtype=np.int64,
+    )
+
+
 def train_selector(
     frame: pd.DataFrame,
     per_arm: Mapping[str, Mapping[str, float]],
@@ -1516,20 +1581,18 @@ def train_selector(
 ) -> Any:
     """A multiclass model over which arm wins each query.
 
-    The oracle's advantage is choosing, not mixing: on fold 0 no arm is best
-    more than 41.6% of the time. This is the only Stage 4 arm whose shape
-    matches that.
+    The oracle's advantage is choosing, not mixing: on fold 0 the LLM is
+    strictly best on 41.6% of queries, the cross-encoder on 21.3%, Stage 2 on
+    17.7%, and 19.4% are tied at the top. This is the only Stage 4 arm whose
+    shape matches that.
     """
     import lightgbm as lgb
 
     features = _selector_features(frame)
-    target = []
-    for query_id in features["query_id"]:
-        scores = [float(per_arm[arm].get(query_id, 0.0)) for arm in _SELECTOR_ARMS]
-        target.append(int(np.argmax(scores)))
+    target = selector_targets(per_arm, list(features["query_id"]))
     dataset = lgb.Dataset(
         features[list(SELECTOR_FEATURES)],
-        label=np.asarray(target),
+        label=target,
         free_raw_data=False,
     )
     return lgb.train(
@@ -1613,7 +1676,7 @@ def oracle_ordering(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_blend.py -q`
-Expected: PASS, 20 tests.
+Expected: PASS, 23 tests.
 
 - [ ] **Step 5: Run the whole fast suite**
 
@@ -1626,6 +1689,29 @@ Expected: PASS with no new failures and no new skips.
 git add src/blend.py tests/test_blend.py
 git commit -m "Add the fixed-weight, learned and selector blend strategies"
 ```
+
+**Landed 2026-09-23, with one correction made during execution: the
+selector's labels.** As written, `train_selector` labelled each query with
+`np.argmax` over the three arms' NDCG, and `argmax` breaks ties toward the
+first-listed arm — `stage2`, the weakest. Measured on the real fold-0 frame
+before any selector was trained: **19.4%** of queries are tied at the top
+(11.2% two-way, 8.2% all three), so the labels said `stage2` on **31.7%** of
+queries when it is strictly best on **17.7%** — 14.0% of all queries taught
+"route to the coarse ranker" by list order alone. A tied query scores the same
+whichever tied arm routes it, so it should teach the default instead. The new
+`selector_targets` breaks ties toward the tied arm with the best mean over the
+training queries, and raises on a query with no NDCG where the old code scored
+it 0.0. The labels are now `llm` 59.8%, `ce` 22.5%, `stage2` 17.7%. The same
+`argmax` artefact was in this plan's README ("Stage 2 best on 31.7%"), now
+corrected there too.
+
+This was decided on training labels, before any Stage 4 arm was scored — it is
+a label-construction fix, not tuning toward a win, and whether the selector
+now beats the LLM is still Task 3's question. Smoke-tested on the real fold-0
+frame without computing NDCG: `fixed_weight_ordering`, `cross_fit_predict` and
+`cross_fit_select` each return a valid permutation of every one of the 4,130
+windows through `spliced_run` (2 s, 5 s and 8 s). Fast suite 646 passed, 27
+deselected.
 
 ---
 

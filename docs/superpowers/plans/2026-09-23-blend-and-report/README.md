@@ -45,10 +45,13 @@ to measure that honestly rather than to chase a win.
   | **`stage2+llm` alone (best single)** | **0.8814** |
   | **oracle best-of-three** | **0.9076** |
 
-  That is **+0.0262** over the best single arm. No arm dominates: Stage 2 is
-  the best of the three on **31.7%** of queries, the cross-encoder on
-  **26.7%**, the LLM on **41.6%**, and all three are identical on only 8.2%.
-  So Stage 4 has something real to aim at.
+  That is **+0.0262** over the best single arm. No arm dominates: the LLM is
+  *strictly* best on **41.6%** of queries, the cross-encoder on **21.3%**,
+  Stage 2 on **17.7%**, and **19.4%** are tied at the top (11.2% two-way,
+  8.2% all three). So Stage 4 has something real to aim at. (This bullet
+  first read "Stage 2 31.7%, cross-encoder 26.7%", which is `argmax` handing
+  every tie to the first-listed arm — the same artefact Task 2 found in the
+  selector's labels.)
 
 - **The three arms genuinely disagree.** Mean Kendall τ over the window:
   `stage2`~`ce` **0.338**, `stage2`~`llm` **0.410**, `ce`~`llm` **0.374**.
@@ -84,8 +87,8 @@ to measure that honestly rather than to chase a win.
   builds both anyway, because §4.4 asks for them and a measured loss is the
   answer, and it adds a third arm — a **per-query selector** — which is the
   only form that targets the oracle's structure directly: the oracle wins by
-  *choosing between* arms, not by averaging them, and no arm is best more than
-  42% of the time.
+  *choosing between* arms, not by averaging them, and no arm is strictly best
+  more than 42% of the time.
 
 - **The LLM arm hurts a quarter of queries, and that is the failure analysis
   §6 asks for.** Against Stage 2, per query: **better on 59.0%**, **worse on
