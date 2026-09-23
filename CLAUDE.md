@@ -75,6 +75,15 @@ python -m src.fine_rank_report --llm-latency-probe 40    # Ablation 6 on fold 0
 python -m src.fine_rank_report --split test --final --llm-latency-probe 40 \
     --out docs/results/fine-rank-test.json
 
+# Blend and report (Plan 7). No API calls - the LLM orderings are cached, and
+# the 3 windows whose answer was malformed carry Stage 2 order, flagged.
+python -m src.stage_signals --scope fold0         # -> data/features/stage-signals-fold0.parquet, ~1 min GPU
+python -m src.stage_signals --scope test-sample
+python -m src.blend_report --scope fold0          # Stage 4 vs every stage alone, ~25 s
+python -m src.blend_report --scope test-sample --final --out docs/results/blend-test.json
+python -m src.error_analysis                      # per-category, image strata, LLM failures, ~20 s
+python -m src.ablation_table                      # the §6 table from the committed JSON
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
