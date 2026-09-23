@@ -63,6 +63,7 @@ also loses, say so in the same breath.
   - `src.blend_report.single_stage_orderings(frame) -> dict[str, dict[str, list[str]]]`
   - `src.blend_report.per_query_ndcg(orderings, windows_, qrels) -> dict[str, float]`
   - `src.blend_report.best_single(results) -> Any`
+  - `src.blend_report.selector_routes(routed, arm_orderings, per_query_by_stage, *, default) -> dict` — added in Phase 3 so the writeup's routing figures are in `blend.json`
   - CLI: `python -m src.blend_report --scope fold0` and `--scope test-sample --final`
 
 **Windows are rebuilt, then checked against the signal frame.** The signal
@@ -95,6 +96,7 @@ from src.blend_report import (
     SINGLE_STAGES,
     best_single,
     per_query_ndcg,
+    selector_routes,
     single_stage_orderings,
 )
 from src.rank_report import evaluate_arm
@@ -210,6 +212,47 @@ def test_best_single_needs_a_single_stage():
         best_single([_arm("blend_fixed", [0.9])])
 
 
+# --- where the selector sent each query -------------------------------------
+
+def _routing():
+    arm_orderings = {
+        "stage2": {"1": ["a", "b"], "2": ["x", "y"], "3": ["p", "q"]},
+        "ce": {"1": ["b", "a"], "2": ["y", "x"], "3": ["p", "q"]},
+        "llm": {"1": ["a", "b"], "2": ["x", "y"], "3": ["q", "p"]},
+    }
+    per_stage = {
+        "stage2": {"1": 0.5, "2": 0.6, "3": 0.9},
+        "ce": {"1": 0.7, "2": 0.4, "3": 0.9},
+        "llm": {"1": 0.5, "2": 0.6, "3": 0.8},
+    }
+    return arm_orderings, per_stage
+
+
+def test_routes_are_counted_against_the_best_mean_arm():
+    arm_orderings, per_stage = _routing()
+    routed = {"1": ["b", "a"], "2": ["x", "y"], "3": ["q", "p"]}   # ce, llm, llm
+    out = selector_routes(routed, arm_orderings, per_stage, default="llm")
+    assert out["share"] == pytest.approx({"llm": 2 / 3, "ce": 1 / 3, "stage2": 0.0})
+
+
+def test_an_ordering_identical_to_the_default_counts_as_the_default():
+    # Query 2's stage2 and llm orderings are the same list; routing it to
+    # stage2 changes nothing and is not a deviation.
+    arm_orderings, per_stage = _routing()
+    routed = {"1": ["a", "b"], "2": ["x", "y"], "3": ["q", "p"]}
+    out = selector_routes(routed, arm_orderings, per_stage, default="llm")
+    assert out["n_deviations"] == 0
+
+
+def test_a_deviation_reports_what_it_cost():
+    arm_orderings, per_stage = _routing()
+    routed = {"1": ["b", "a"], "2": ["y", "x"], "3": ["p", "q"]}   # ce, ce, ce/stage2
+    out = selector_routes(routed, arm_orderings, per_stage, default="llm")
+    assert out["n_deviations"] == 3
+    assert (out["n_better"], out["n_worse"], out["n_same"]) == (2, 1, 0)
+    assert out["mean_delta"] == pytest.approx((0.2 - 0.2 + 0.1) / 3)
+
+
 def test_the_declared_arms_cover_every_strategy_and_the_ceiling():
     from src.blend import STRATEGIES
 
@@ -311,6 +354,45 @@ def best_single(results: Sequence) -> object:
             "a win"
         )
     return max(singles, key=lambda arm: arm.ndcg.point)
+
+
+def selector_routes(
+    routed: Mapping[str, Sequence[str]],
+    arm_orderings: Mapping[str, Mapping[str, Sequence[str]]],
+    per_query_by_stage: Mapping[str, Mapping[str, float]],
+    *,
+    default: str,
+) -> dict:
+    """Where the selector sent each query, and what leaving `default` cost.
+
+    A query counts as routed to `default` whenever its ordering equals the
+    default arm's, whichever arm the selector named: identical lists score
+    identically, so that is not a decision. The rest are deviations, and
+    their deltas against `default` say whether the selector knew better.
+    """
+    order = [default, *[arm for arm in arm_orderings if arm != default]]
+    counts = {arm: 0 for arm in arm_orderings}
+    deltas: list[float] = []
+    for query_id, ordering in routed.items():
+        chosen = next(
+            arm for arm in order if list(arm_orderings[arm][query_id]) == list(ordering)
+        )
+        counts[chosen] += 1
+        if chosen != default:
+            deltas.append(
+                float(per_query_by_stage[chosen][query_id])
+                - float(per_query_by_stage[default][query_id])
+            )
+    n = max(len(routed), 1)
+    return {
+        "default_arm": default,
+        "share": {arm: counts[arm] / n for arm in counts},
+        "n_deviations": len(deltas),
+        "n_better": sum(d > 0 for d in deltas),
+        "n_worse": sum(d < 0 for d in deltas),
+        "n_same": sum(d == 0 for d in deltas),
+        "mean_delta": float(np.mean(deltas)) if deltas else 0.0,
+    }
 
 
 def _check_windows_match_signals(windows_, signals: pd.DataFrame) -> None:
@@ -439,6 +521,15 @@ def _main() -> int:
     for arm in (*BLEND_ARMS, ORACLE):
         per_query[arm] = per_query_ndcg(orderings[arm], ws, qrels)
 
+    # Why the selector ends where it does: how often it leaves the strongest
+    # single stage, and whether those departures pay.
+    routes = selector_routes(
+        orderings["blend_selector"],
+        arm_orderings,
+        {_STAGE_OF_ARM[arm]: per_query[arm] for arm in SINGLE_STAGES},
+        default=_STAGE_OF_ARM[max(SINGLE_STAGES, key=lambda a: np.mean(list(per_query[a].values())))],
+    )
+
     results = [
         evaluate_arm(
             arm, per_query[arm], floor.per_query, groups=("blend",),
@@ -471,6 +562,12 @@ def _main() -> int:
         for arm in (*SINGLE_STAGES[1:], *BLEND_ARMS, ORACLE)
     ]
 
+    shares = ", ".join(f"{arm} {share:.1%}" for arm, share in routes["share"].items())
+    print(f"\n  -- the selector's routes: {shares} --")
+    print(f"  left {routes['default_arm']} on {routes['n_deviations']:,} queries: better "
+          f"{routes['n_better']:,}, worse {routes['n_worse']:,}, same {routes['n_same']:,}, "
+          f"mean {routes['mean_delta']:+.4f}")
+
     wins = [r for r in against_best if r["arm"] in BLEND_ARMS
             and r["significant"] and r["delta"]["point"] > 0]
     if not wins:
@@ -489,6 +586,7 @@ def _main() -> int:
         "esci_baseline_target": ESCI_BASELINE,
         "combiner_fitted_on": fitted_on,
         "selector_fitted_on": selector_fitted_on,
+        "selector_routes": routes,
         "fixed_weights": dict(DEFAULT_WEIGHTS),
         # 1:1:4 is the best of a sweep run on fold 0 itself, so on fold 0 this
         # arm is tuned in-sample - an optimistic number that still lost.
@@ -588,6 +686,17 @@ def test_the_fold_0_learned_arms_are_cross_fitted():
     payload = json.loads(open("docs/results/blend.json").read())
     assert "cross-fit" in payload["combiner_fitted_on"]
     assert "cross-fit" in payload["selector_fitted_on"]
+
+
+@pytest.mark.data
+def test_the_fold_0_report_records_the_selector_routes():
+    # The writeup explains Stage 4's result by these routes, so they live in
+    # the committed report rather than in an ad hoc calculation.
+    payload = json.loads(open("docs/results/blend.json").read())
+    routes = payload["selector_routes"]
+    assert routes["default_arm"] == "llm"
+    assert sum(routes["share"].values()) == pytest.approx(1.0)
+    assert routes["n_better"] + routes["n_worse"] + routes["n_same"] == routes["n_deviations"]
 ```
 
 Run: `python -m pytest tests/test_blend_report.py -m data -q`
@@ -633,6 +742,11 @@ label-free query features cannot predict *which* queries the LLM will get
 wrong, so the best a selector can learn is "trust the LLM" — which is the
 LLM. That is the finding: the headroom exists and none of §4.4's forms, nor
 the one aimed squarely at it, can reach it from these signals.
+
+These routes were first computed ad hoc; Phase 3 added `selector_routes` so
+they are recorded in `docs/results/blend.json` (`selector_routes`) before the
+writeup quotes them — a deterministic fold-0 re-run that left every other field
+identical. The test sample was not re-run.
 
 Tests 12 fast + 2 data; fast suite 658 passed, 29 deselected. Runtimes 24 s
 (fold 0) and 15 s (test sample). No API call.
