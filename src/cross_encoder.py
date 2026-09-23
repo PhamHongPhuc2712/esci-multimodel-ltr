@@ -291,6 +291,30 @@ def _window_pairs(
     return pairs, keys
 
 
+def window_scores(
+    model,
+    windows_: Sequence,
+    query_text: Mapping,
+    doc_text: Mapping,
+    *,
+    batch_size: int = 256,
+) -> dict[tuple[str, str], float]:
+    """The raw logit for every window document, keyed (query_id, product_id).
+
+    `rerank` returns orderings on purpose - a cross-encoder logit must never
+    enter a run beside a Stage 2 score (see src/rerank_window.py). Stage 4
+    blends the scores themselves, so it needs them, and it is the only caller
+    that should. Exposing them here rather than duplicating the forward pass
+    keeps one tie-break and one batching path.
+    """
+    windows_ = list(windows_)
+    if not windows_:
+        return {}
+    pairs, keys = _window_pairs(windows_, query_text, doc_text)
+    scores = model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
+    return {key: float(score) for key, score in zip(keys, scores)}
+
+
 def rerank(
     model,
     windows_: Sequence,
@@ -309,16 +333,12 @@ def rerank(
     windows_ = list(windows_)
     if not windows_:
         return {}
-
-    pairs, keys = _window_pairs(windows_, query_text, doc_text)
-    scores = model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
-
-    by_query: dict[str, list[tuple[float, str]]] = {}
-    for (query_id, document), score in zip(keys, scores):
-        by_query.setdefault(query_id, []).append((float(score), document))
+    scores = window_scores(
+        model, windows_, query_text, doc_text, batch_size=batch_size
+    )
     return {
-        query_id: [d for _, d in sorted(scored, key=lambda sd: (-sd[0], sd[1]))]
-        for query_id, scored in by_query.items()
+        w.query_id: sorted(w.window, key=lambda d: (-scores[(w.query_id, d)], d))
+        for w in windows_
     }
 
 

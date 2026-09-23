@@ -254,3 +254,34 @@ def test_latency_serialises_both_numbers():
 def test_latency_needs_at_least_one_query():
     with pytest.raises(ValueError, match="at least one"):
         measure_latency(FakeModel(), [], *_maps(), n_queries=0)
+
+
+# --- Plan 7: the scores themselves, for the blend ---------------------------
+
+def test_window_scores_keys_on_query_and_document():
+    from src.cross_encoder import window_scores
+
+    q, d = _maps()
+    model = FakeModel({"doc b": 0.9})
+    scores = window_scores(model, _windows(), q, d)
+    assert scores[("1", "b")] == pytest.approx(0.9)
+    assert set(scores) == {("1", "a"), ("1", "b"), ("1", "c"), ("2", "x"), ("2", "y")}
+
+
+def test_rerank_and_window_scores_agree():
+    # rerank is a wrapper over window_scores, so an ordering can never
+    # disagree with the scores it came from.
+    from src.cross_encoder import window_scores
+
+    q, d = _maps()
+    scores = window_scores(FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5}), _windows(), q, d)
+    ordering = rerank(FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5}), _windows(), q, d)
+    assert ordering["1"] == sorted(
+        ["a", "b", "c"], key=lambda doc: (-scores[("1", doc)], doc)
+    )
+
+
+def test_window_scores_of_nothing_is_nothing():
+    from src.cross_encoder import window_scores
+
+    assert window_scores(FakeModel(), [], *_maps()) == {}
