@@ -726,7 +726,8 @@ Ablation 3 on this surface):
 **Interfaces:**
 - Consumes: the committed `docs/results/*.json` of Plans 4–7.
 - Produces:
-  - `src.ablation_table.ABLATIONS: tuple[dict, ...]` — the seven ablations as eight rows (Ablation 2 is its two ladder rungs, `2a` and `2b`), each with its label, owner file, metric and scope
+  - `src.ablation_table.ABLATIONS: tuple[dict, ...]` — the seven ablations as ten rows, one per measured comparison (`2a`/`2b` the ladder, `5a`/`5b` the two pointwise baselines, `6a`/`6b` the two rerankers), each named "A − B" with its label, owner file, metric and scope
+  - `src.ablation_table.by_arm(rows, arm) -> Mapping` — a comparison found by arm name, never by position
   - `src.ablation_table.Row` (frozen dataclass: `number`, `label`, `name`, `metric`, `scope`, `n_queries`, `delta`, `significant`, `source`)
   - `src.ablation_table.load_results(directory) -> dict[str, dict]`
   - `src.ablation_table.build_rows(results) -> list[Row]`
@@ -766,6 +767,7 @@ import pytest
 from src.ablation_table import (
     ABLATIONS,
     Row,
+    by_arm,
     build_rows,
     format_markdown,
     load_results,
@@ -884,6 +886,34 @@ def test_an_ordered_table_is_numbered_one_to_seven():
     assert [row.number for row in rows] == [1, 2, 3]
 
 
+def test_ablations_5_and_6_report_each_measured_comparison():
+    # Ablation 5 measured two pointwise baselines and Ablation 6 two rerankers;
+    # showing one of each hides the other, the same way one fusion-vs-BM25 row
+    # hid Ablation 2's ladder.
+    for number, expected in [(5, ["5a", "5b"]), (6, ["6a", "6b"])]:
+        assert sorted(a["label"] for a in ABLATIONS if a["number"] == number) == expected
+
+
+def test_every_row_name_states_its_direction():
+    # A negative Ablation 5 means lambdarank wins; unlabelled, it reads as
+    # "the listwise objective hurts".
+    for ablation in ABLATIONS:
+        assert " − " in ablation["name"], ablation["label"]
+
+
+def test_a_comparison_is_found_by_arm_name():
+    rows = [{"arm": "full/pointwise_regression", "delta": 1},
+            {"arm": "full/pointwise_class", "delta": 2}]
+    assert by_arm(rows, "full/pointwise_class")["delta"] == 2
+
+
+def test_a_missing_comparison_is_named_not_guessed():
+    # Picking by position is how "pointwise classifier" silently became the
+    # regression arm: the plan read 5_objective[0].
+    with pytest.raises(KeyError, match="pointwise_class"):
+        by_arm([{"arm": "full/pointwise_regression"}], "full/pointwise_class")
+
+
 def test_rows_sharing_a_number_order_by_label():
     rows = build_rows([_row(number=2, label="2b"), _row(number=2, label="2a")])
     assert [row.label for row in rows] == ["2a", "2b"]
@@ -936,26 +966,42 @@ REQUIRED_FILES: tuple[str, ...] = (
     "blend-test",
 )
 
+_RECALL, _COARSE, _FINE = (
+    "docs/results/recall.json",
+    "docs/results/coarse-rank-test.json",
+    "docs/results/fine-rank-test.json",
+)
+
+# One row per measured comparison, named "A − B" so the sign reads the same
+# way on every row: negative means B won.
+#
+# Ablation 2 is a ladder - dense, +BM25, +image - and each rung's claim is
+# about the rung below it; one fusion-vs-BM25 row would credit the image
+# channel with the whole fusion gain (+0.0661) when its step is +0.0048.
+# Ablations 5 and 6 each measured two comparisons as well, and showing one
+# hides the other: 5a is §6's literal "pointwise classifier", 6a the
+# fine-tuned cross-encoder beside 6b's LLM.
 ABLATIONS: tuple[dict, ...] = (
-    {"number": 1, "label": "1", "name": "Raw vs. LLM-rewritten query", "metric": "Recall@100",
-     "scope": "fold 0, full corpus", "source": "docs/results/recall.json", "owner": "Plan 4"},
-    # Ablation 2 is a ladder - dense, +BM25, +image - and each rung's claim is
-    # about the rung below it. One fusion-vs-BM25 row would credit the image
-    # channel with the whole fusion gain (+0.0661) when its step is +0.0048.
-    {"number": 2, "label": "2a", "name": "+BM25 over dense-only (RRF)", "metric": "Recall@100",
-     "scope": "fold 0, full corpus", "source": "docs/results/recall.json", "owner": "Plan 4"},
-    {"number": 2, "label": "2b", "name": "+image over dense+BM25 (RRF)", "metric": "Recall@100",
-     "scope": "fold 0, full corpus", "source": "docs/results/recall.json", "owner": "Plan 4"},
-    {"number": 3, "label": "3", "name": "Text-only vs. text+image features", "metric": "NDCG",
-     "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
-    {"number": 4, "label": "4", "name": "With vs. without behavioural features", "metric": "NDCG",
-     "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
-    {"number": 5, "label": "5", "name": "Pointwise vs. lambdarank", "metric": "NDCG",
-     "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
-    {"number": 6, "label": "6", "name": "Coarse-only vs. +cross-encoder vs. +LLM listwise", "metric": "NDCG",
-     "scope": "test sample", "source": "docs/results/fine-rank-test.json", "owner": "Plan 6"},
-    {"number": 7, "label": "7", "name": "Learned fusion vs. fixed global weight", "metric": "NDCG",
-     "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
+    {"number": 1, "label": "1", "name": "LLM-rewritten − raw query", "metric": "Recall@100",
+     "scope": "fold 0, full corpus", "source": _RECALL, "owner": "Plan 4"},
+    {"number": 2, "label": "2a", "name": "dense+BM25 − dense-only (RRF)", "metric": "Recall@100",
+     "scope": "fold 0, full corpus", "source": _RECALL, "owner": "Plan 4"},
+    {"number": 2, "label": "2b", "name": "dense+BM25+image − dense+BM25 (RRF)", "metric": "Recall@100",
+     "scope": "fold 0, full corpus", "source": _RECALL, "owner": "Plan 4"},
+    {"number": 3, "label": "3", "name": "text+image − text-only features", "metric": "NDCG",
+     "scope": "test", "source": _COARSE, "owner": "Plan 5"},
+    {"number": 4, "label": "4", "name": "behavioural values − text+presence indicators", "metric": "NDCG",
+     "scope": "test", "source": _COARSE, "owner": "Plan 5"},
+    {"number": 5, "label": "5a", "name": "pointwise classifier − lambdarank", "metric": "NDCG",
+     "scope": "test", "source": _COARSE, "owner": "Plan 5"},
+    {"number": 5, "label": "5b", "name": "pointwise regression − lambdarank", "metric": "NDCG",
+     "scope": "test", "source": _COARSE, "owner": "Plan 5"},
+    {"number": 6, "label": "6a", "name": "coarse+cross-encoder − coarse-only", "metric": "NDCG",
+     "scope": "test sample", "source": _FINE, "owner": "Plan 6"},
+    {"number": 6, "label": "6b", "name": "coarse+LLM listwise − coarse-only", "metric": "NDCG",
+     "scope": "test sample", "source": _FINE, "owner": "Plan 6"},
+    {"number": 7, "label": "7", "name": "learned fusion − fixed global weight", "metric": "NDCG",
+     "scope": "test", "source": _COARSE, "owner": "Plan 5"},
 )
 
 _SCOPE_WARNING = (
@@ -1007,6 +1053,20 @@ def load_results(directory: Path = DEFAULT_DIR) -> dict[str, dict]:
     for path in sorted(directory.glob("*.json")):
         loaded.setdefault(path.stem, json.loads(path.read_text(encoding="utf-8")))
     return loaded
+
+
+def by_arm(rows: Sequence[Mapping], arm: str) -> Mapping:
+    """The comparison row for `arm`, or a KeyError naming it.
+
+    Never by position: the plan as written read `5_objective[0]`, which is the
+    regression arm, under the name of §6's pointwise *classifier*.
+    """
+    for row in rows:
+        if row.get("arm") == arm:
+            return row
+    raise KeyError(
+        f"no comparison for arm {arm!r} among {[r.get('arm') for r in rows]}"
+    )
 
 
 def build_rows(rows: Sequence[Row]) -> list[Row]:
@@ -1069,10 +1129,10 @@ def _main() -> int:
     # 2 - the ladder, rung by rung, from `ablation_2_ladder`. Never from
     # `comparisons`, whose fusion-vs-BM25 row credits the image channel with
     # the whole fusion gain - the over-credit Plan 4 stored the ladder to avoid.
-    ladder = {row["arm"]: row for row in recall["ablation_2_ladder"]}
     for label, arm in [("2a", "dense+bm25"), ("2b", "dense+bm25+image")]:
-        by_label[label]["delta"] = ladder[arm]["delta"]
-        by_label[label]["significant"] = ladder[arm]["significant"]
+        entry = by_arm(recall["ablation_2_ladder"], arm)
+        by_label[label]["delta"] = entry["delta"]
+        by_label[label]["significant"] = entry["significant"]
         by_label[label]["n_queries"] = recall["n_queries"]
 
     for label, key in [("3", "3_text_vs_image"), ("7", "7_learned_fusion")]:
@@ -1086,15 +1146,19 @@ def _main() -> int:
     by_label["4"]["significant"] = behavioural["values_over_indicators_significant"]
     by_label["4"]["n_queries"] = coarse["n_queries"]
 
-    objective = coarse["ablations"]["5_objective"][0]
-    by_label["5"]["delta"] = objective["delta"]
-    by_label["5"]["significant"] = objective["significant"]
-    by_label["5"]["n_queries"] = coarse["n_queries"]
+    # 5 - each pointwise baseline against lambdarank, found by name.
+    for label, arm in [("5a", "full/pointwise_class"), ("5b", "full/pointwise_regression")]:
+        entry = by_arm(coarse["ablations"]["5_objective"], arm)
+        by_label[label]["delta"] = entry["delta"]
+        by_label[label]["significant"] = entry["significant"]
+        by_label[label]["n_queries"] = coarse["n_queries"]
 
-    llm = [row for row in fine["ablation_6"] if row["arm"] == "stage2+llm"][0]
-    by_label["6"]["delta"] = llm["delta"]
-    by_label["6"]["significant"] = llm["significant"]
-    by_label["6"]["n_queries"] = fine["n_queries"]
+    # 6 - each fine-tuned reranker against coarse-only, on the frozen sample.
+    for label, arm in [("6a", "stage2+ce"), ("6b", "stage2+llm")]:
+        entry = by_arm(fine["ablation_6"], arm)
+        by_label[label]["delta"] = entry["delta"]
+        by_label[label]["significant"] = entry["significant"]
+        by_label[label]["n_queries"] = fine["n_queries"]
 
     rows = build_rows([
         Row(number=a["number"], label=a["label"], name=a["name"],
@@ -1129,14 +1193,14 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_ablation_table.py -q`
-Expected: PASS, 15 tests.
+Expected: PASS, 19 tests.
 
 - [ ] **Step 5: Produce the table**
 
 Run: `python -m src.ablation_table`
 
-Expected: eight rows — the seven ablations, with Ablation 2 as its two
-rungs (2a +0.0895, 2b +0.0048) — with three distinct scopes visible, and
+Expected: ten rows — the seven ablations, one row per measured comparison —
+with three distinct scopes visible, and
 `docs/results/ablation-table.json` written. Check each delta against its source
 file by eye once — this module's whole value is that it does not recompute, so
 a wrong key selection would silently publish the wrong number under the right
@@ -1148,6 +1212,31 @@ name.
 git add src/ablation_table.py tests/test_ablation_table.py docs/results/ablation-table.json
 git commit -m "Assemble the seven ablations into one table with their scopes"
 ```
+
+**Landed 2026-09-23, with Ablations 5 and 6 split during execution.** The
+written version read Ablation 5 as `5_objective[0]` — by position, which is the
+*regression* arm, published under §6's name "pointwise classifier" — and gave
+Ablation 6 only the LLM step, dropping the cross-encoder the spec lists beside
+it. Both are the shape Ablation 2's ladder fix already corrected: a single row
+for a multi-comparison ablation hides a measured result. So every comparison
+is its own row, found by arm name through `by_arm` (a missing arm raises,
+naming it), and every row is named "A − B" so a negative reads the same way
+everywhere — Ablation 5's −0.0085 is lambdarank winning, not the listwise
+objective hurting. An independent pass over the committed JSON found all ten
+deltas identical to their source keys.
+
+| # | comparison | scope | n | delta | |
+|---|---|---|---|---|---|
+| 1 | LLM-rewritten − raw query | fold 0, Recall@100 | 4,130 | +0.0048 [−0.0007, +0.0107] | ties |
+| 2a | dense+BM25 − dense-only | fold 0, Recall@100 | 4,130 | +0.0895 [+0.0831, +0.0958] | significant |
+| 2b | dense+BM25+image − dense+BM25 | fold 0, Recall@100 | 4,130 | +0.0048 [+0.0008, +0.0088] | significant |
+| 3 | text+image − text-only | test, NDCG | 8,956 | +0.0075 [+0.0059, +0.0090] | significant |
+| 4 | behavioural values − text+indicators | test, NDCG | 8,956 | +0.0036 [+0.0023, +0.0051] | significant |
+| 5a | pointwise classifier − lambdarank | test, NDCG | 8,956 | −0.0085 [−0.0101, −0.0069] | significant |
+| 5b | pointwise regression − lambdarank | test, NDCG | 8,956 | −0.0096 [−0.0112, −0.0079] | significant |
+| 6a | coarse+cross-encoder − coarse-only | test sample, NDCG | 2,000 | +0.0043 [+0.0002, +0.0086] | significant |
+| 6b | coarse+LLM − coarse-only | test sample, NDCG | 2,000 | +0.0278 [+0.0236, +0.0325] | significant |
+| 7 | learned fusion − fixed global weight | test, NDCG | 8,956 | −0.0011 [−0.0023, +0.0000] | ties |
 
 ---
 

@@ -1,0 +1,198 @@
+{
+  "ablations": [
+    {
+      "number": 1,
+      "label": "1",
+      "name": "LLM-rewritten \u2212 raw query",
+      "metric": "Recall@100",
+      "scope": "fold 0, full corpus",
+      "n_queries": 4130,
+      "delta": {
+        "point": 0.004766683221340096,
+        "low": -0.0007101702907645589,
+        "high": 0.010694981370672449
+      },
+      "significant": false,
+      "source": "docs/results/recall.json"
+    },
+    {
+      "number": 2,
+      "label": "2a",
+      "name": "dense+BM25 \u2212 dense-only (RRF)",
+      "metric": "Recall@100",
+      "scope": "fold 0, full corpus",
+      "n_queries": 4130,
+      "delta": {
+        "point": 0.08950464092907871,
+        "low": 0.0830663239562132,
+        "high": 0.09578173100966549
+      },
+      "significant": true,
+      "source": "docs/results/recall.json"
+    },
+    {
+      "number": 2,
+      "label": "2b",
+      "name": "dense+BM25+image \u2212 dense+BM25 (RRF)",
+      "metric": "Recall@100",
+      "scope": "fold 0, full corpus",
+      "n_queries": 4130,
+      "delta": {
+        "point": 0.004762423595184834,
+        "low": 0.0007519644650087565,
+        "high": 0.008822936525989108
+      },
+      "significant": true,
+      "source": "docs/results/recall.json"
+    },
+    {
+      "number": 3,
+      "label": "3",
+      "name": "text+image \u2212 text-only features",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.00748040632538255,
+        "low": 0.005869850041895112,
+        "high": 0.009027614384980169
+      },
+      "significant": true,
+      "source": "docs/results/coarse-rank-test.json"
+    },
+    {
+      "number": 4,
+      "label": "4",
+      "name": "behavioural values \u2212 text+presence indicators",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.003628931393247433,
+        "low": 0.002288636973970238,
+        "high": 0.0051113247549431275
+      },
+      "significant": true,
+      "source": "docs/results/coarse-rank-test.json"
+    },
+    {
+      "number": 5,
+      "label": "5a",
+      "name": "pointwise classifier \u2212 lambdarank",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": -0.008530132373248497,
+        "low": -0.010078845278674,
+        "high": -0.006933126226672946
+      },
+      "significant": true,
+      "source": "docs/results/coarse-rank-test.json"
+    },
+    {
+      "number": 5,
+      "label": "5b",
+      "name": "pointwise regression \u2212 lambdarank",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": -0.009621483648689626,
+        "low": -0.011229204285945722,
+        "high": -0.007907333934742149
+      },
+      "significant": true,
+      "source": "docs/results/coarse-rank-test.json"
+    },
+    {
+      "number": 6,
+      "label": "6a",
+      "name": "coarse+cross-encoder \u2212 coarse-only",
+      "metric": "NDCG",
+      "scope": "test sample",
+      "n_queries": 2000,
+      "delta": {
+        "point": 0.004321135553435194,
+        "low": 0.0001588931571272832,
+        "high": 0.008558194191988803
+      },
+      "significant": true,
+      "source": "docs/results/fine-rank-test.json"
+    },
+    {
+      "number": 6,
+      "label": "6b",
+      "name": "coarse+LLM listwise \u2212 coarse-only",
+      "metric": "NDCG",
+      "scope": "test sample",
+      "n_queries": 2000,
+      "delta": {
+        "point": 0.02784548377611047,
+        "low": 0.02360502394135098,
+        "high": 0.03248120258348212
+      },
+      "significant": true,
+      "source": "docs/results/fine-rank-test.json"
+    },
+    {
+      "number": 7,
+      "label": "7",
+      "name": "learned fusion \u2212 fixed global weight",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": -0.0011125662809486818,
+        "low": -0.0022587918862796556,
+        "high": 3.945957581655566e-05
+      },
+      "significant": false,
+      "source": "docs/results/coarse-rank-test.json"
+    }
+  ],
+  "markdown": "| # | ablation | metric | scope | n | delta | |\n|---|---|---|---|---|---|---|\n| 1 | LLM-rewritten \u2212 raw query | Recall@100 | fold 0, full corpus | 4,130 | +0.0048 [-0.0007, +0.0107] | ties |\n| 2a | dense+BM25 \u2212 dense-only (RRF) | Recall@100 | fold 0, full corpus | 4,130 | +0.0895 [+0.0831, +0.0958] | significant |\n| 2b | dense+BM25+image \u2212 dense+BM25 (RRF) | Recall@100 | fold 0, full corpus | 4,130 | +0.0048 [+0.0008, +0.0088] | significant |\n| 3 | text+image \u2212 text-only features | NDCG | test | 8,956 | +0.0075 [+0.0059, +0.0090] | significant |\n| 4 | behavioural values \u2212 text+presence indicators | NDCG | test | 8,956 | +0.0036 [+0.0023, +0.0051] | significant |\n| 5a | pointwise classifier \u2212 lambdarank | NDCG | test | 8,956 | -0.0085 [-0.0101, -0.0069] | significant |\n| 5b | pointwise regression \u2212 lambdarank | NDCG | test | 8,956 | -0.0096 [-0.0112, -0.0079] | significant |\n| 6a | coarse+cross-encoder \u2212 coarse-only | NDCG | test sample | 2,000 | +0.0043 [+0.0002, +0.0086] | significant |\n| 6b | coarse+LLM listwise \u2212 coarse-only | NDCG | test sample | 2,000 | +0.0278 [+0.0236, +0.0325] | significant |\n| 7 | learned fusion \u2212 fixed global weight | NDCG | test | 8,956 | -0.0011 [-0.0023, +0.0000] | ties |\n\n> These rows are **not comparable to each other**: they were measured on three different query populations with two different metrics. The scope and n columns say which.",
+  "stage4": {
+    "best_single_stage": "stage2+llm",
+    "any_blend_beats_best_single": false,
+    "scope": "test-sample",
+    "n_queries": 2000,
+    "arms": {
+      "stage2": {
+        "point": 0.85762559931803,
+        "low": 0.8509104929469817,
+        "high": 0.863643053056854
+      },
+      "stage2+ce": {
+        "point": 0.8619467348714652,
+        "low": 0.8558308458998145,
+        "high": 0.867918348827197
+      },
+      "stage2+llm": {
+        "point": 0.8854710830941404,
+        "low": 0.8798912039852589,
+        "high": 0.8910211268326297
+      },
+      "blend_fixed": {
+        "point": 0.8842857986497561,
+        "low": 0.8785540457807153,
+        "high": 0.8899210487098551
+      },
+      "blend_combiner": {
+        "point": 0.884876078970049,
+        "low": 0.8790908097802803,
+        "high": 0.8906964211383083
+      },
+      "blend_selector": {
+        "point": 0.8852558354083756,
+        "low": 0.8797957617731536,
+        "high": 0.8908092819976774
+      },
+      "oracle_best_of_three": {
+        "point": 0.9101018909845241,
+        "low": 0.9049086709572535,
+        "high": 0.9149126007290791
+      }
+    }
+  }
+}
