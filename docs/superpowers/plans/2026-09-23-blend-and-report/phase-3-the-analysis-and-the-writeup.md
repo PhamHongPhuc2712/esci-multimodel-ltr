@@ -55,8 +55,9 @@ quotes a number no file contains).
   - `src.error_analysis.OTHER: str` = `"(other)"`
   - `src.error_analysis.top_level_category(value) -> str | None`
   - `src.error_analysis.query_categories(judgements, products) -> dict[str, str]`
+  - `src.error_analysis.category_buckets(categories, *, min_queries=MIN_CATEGORY_QUERIES) -> dict[str, list[str]]`
   - `src.error_analysis.category_breakdown(per_query_by_arm, categories, *, min_queries=MIN_CATEGORY_QUERIES) -> list[dict]`
-  - `src.error_analysis.coverage_strata(coverage, *, edges=(0.0, 0.5, 0.9, 1.0001)) -> dict[str, list[str]]`
+  - `src.error_analysis.coverage_strata(coverage, *, edges=(0.0, 0.5, 0.9, 1.0, 1.0001)) -> dict[str, list[str]]` — the last stratum is exactly 1.0
   - `src.error_analysis.delta_by_stratum(delta, strata, *, seed=0) -> list[dict]`
   - `src.error_analysis.failure_profile(arm, baseline, attributes, *, seed=0) -> dict`
   - CLI: `python -m src.error_analysis --out docs/results/error-analysis.json`
@@ -81,6 +82,7 @@ from src.error_analysis import (
     MIN_CATEGORY_QUERIES,
     OTHER,
     category_breakdown,
+    category_buckets,
     coverage_strata,
     delta_by_stratum,
     failure_profile,
@@ -177,6 +179,17 @@ def test_the_threshold_is_the_measured_one():
     assert MIN_CATEGORY_QUERIES == 100
 
 
+def test_category_buckets_collapse_exactly_as_the_breakdown_does():
+    # The per-category intervals and the per-category table must be over the
+    # same queries, or a row's n and its interval describe two populations.
+    per_arm, categories = _per_arm()
+    buckets = category_buckets(categories)
+    rows = category_breakdown(per_arm, categories)
+    assert {row["category"]: row["n_queries"] for row in rows} == {
+        name: len(queries) for name, queries in buckets.items()
+    }
+
+
 def test_a_breakdown_with_no_large_category_is_all_other():
     per_arm = {"a": {"q1": 0.8, "q2": 0.9}}
     rows = category_breakdown(per_arm, {"q1": "X", "q2": "Y"})
@@ -196,6 +209,22 @@ def test_full_coverage_lands_in_the_top_stratum():
     strata = coverage_strata({"d": 1.0})
     top = list(strata)[-1]
     assert strata[top] == ["d"]
+
+
+def test_an_all_imaged_query_has_its_own_stratum():
+    # Presence can only rank within a query when some candidates lack an
+    # image. Where every candidate has one, has_image_vector is constant and
+    # the delta is the image signal alone - so that population stands apart.
+    strata = coverage_strata({"most": 0.95, "all": 1.0})
+    assert strata["= 1.00"] == ["all"]
+    assert "most" not in strata["= 1.00"]
+
+
+def test_stratum_names_do_not_hide_the_closed_top_edge():
+    # "[0.90, 1.00)" read as excluding 1.0 while the stratum contained it.
+    names = list(coverage_strata({}))
+    assert names[-2] == "[0.90, 1.00)"
+    assert names[-1] == "= 1.00"
 
 
 def test_a_stratum_delta_carries_an_interval_and_an_n():
@@ -327,6 +356,28 @@ def query_categories(
     return {str(k): str(v) for k, v in modal.items()}
 
 
+def category_buckets(
+    categories: Mapping[str, str], *, min_queries: int = MIN_CATEGORY_QUERIES
+) -> dict[str, list[str]]:
+    """Query ids per category, small categories collapsed into OTHER.
+
+    Ordered largest first with OTHER last. The table and the per-category
+    intervals both come from here, so a row's n and its interval always
+    describe the same queries.
+    """
+    counts: dict[str, int] = {}
+    for category in categories.values():
+        counts[category] = counts.get(category, 0) + 1
+    large = {name for name, n in counts.items() if n >= min_queries}
+
+    buckets: dict[str, list[str]] = {}
+    for query_id, category in categories.items():
+        name = category if category in large else OTHER
+        buckets.setdefault(name, []).append(str(query_id))
+    named = sorted((n for n in buckets if n != OTHER), key=lambda n: -len(buckets[n]))
+    return {name: buckets[name] for name in [*named, *([OTHER] if OTHER in buckets else [])]}
+
+
 def category_breakdown(
     per_query_by_arm: Mapping[str, Mapping[str, float]],
     categories: Mapping[str, str],
@@ -338,43 +389,41 @@ def category_breakdown(
     Review Focus 4: 49 categories, 13 of them meaningful. A four-query row
     reads like a finding and is noise.
     """
-    counts: dict[str, int] = {}
-    for query_id in categories:
-        counts[categories[query_id]] = counts.get(categories[query_id], 0) + 1
-    large = {name for name, n in counts.items() if n >= min_queries}
+    return [
+        {
+            "category": name,
+            "n_queries": len(queries),
+            "ndcg": {
+                arm: float(np.mean([per[q] for q in queries if q in per]))
+                for arm, per in per_query_by_arm.items()
+            },
+        }
+        for name, queries in category_buckets(categories, min_queries=min_queries).items()
+    ]
 
-    buckets: dict[str, list[str]] = {}
-    for query_id, category in categories.items():
-        name = category if category in large else OTHER
-        buckets.setdefault(name, []).append(query_id)
 
-    rows = []
-    for name, queries in buckets.items():
-        rows.append(
-            {
-                "category": name,
-                "n_queries": len(queries),
-                "ndcg": {
-                    arm: float(np.mean([per[q] for q in queries if q in per]))
-                    for arm, per in per_query_by_arm.items()
-                },
-            }
-        )
-    named = sorted(
-        [row for row in rows if row["category"] != OTHER],
-        key=lambda row: -row["n_queries"],
-    )
-    other = [row for row in rows if row["category"] == OTHER]
-    return named + other
+def _stratum_name(low: float, high: float) -> str:
+    """"[0.50, 0.90)", or for the closed top edge "[0.90, 1.00]" / "= 1.00"."""
+    if high > 1.0:
+        return "= 1.00" if low >= 1.0 else f"[{low:.2f}, 1.00]"
+    return f"[{low:.2f}, {high:.2f})"
 
 
 def coverage_strata(
     coverage: Mapping[str, float],
     *,
-    edges: Sequence[float] = (0.0, 0.5, 0.9, 1.0001),
+    edges: Sequence[float] = (0.0, 0.5, 0.9, 1.0, 1.0001),
 ) -> dict[str, list[str]]:
-    """Queries bucketed by the share of their candidates carrying an image."""
-    names = [f"[{edges[i]:.2f}, {edges[i + 1]:.2f})" for i in range(len(edges) - 1)]
+    """Queries bucketed by the share of their candidates carrying an image.
+
+    The last default stratum is exactly 1.0 - every candidate imaged - and it
+    stands apart on purpose. has_image_vector is a weak ranker in its own
+    right (CLAUDE.md: presence flags alone are worth +0.0084), and it can only
+    rank *within* a query whose candidates differ in it. Where all of them
+    carry an image it is constant, so Ablation 3's delta there is the image
+    signal alone.
+    """
+    names = [_stratum_name(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
     strata: dict[str, list[str]] = {name: [] for name in names}
     for query_id, value in coverage.items():
         for i in range(len(edges) - 1):
@@ -500,11 +549,26 @@ def _main() -> int:
     judged = matrix[["query_id", "product_id"]].astype(str)
     categories = query_categories(judged, products)
     rows = category_breakdown(per_arm, categories)
+    # A query none of whose judged products carries s_category has no row.
+    # Counted, not dropped silently.
+    n_uncategorised = len(qrels) - len(categories)
+    # Whether the LLM's gain is uniform across categories needs an interval
+    # per row, over exactly the queries the row's n counts.
+    llm_delta = {q: per_arm["stage2+llm"][q] - per_arm["stage2"][q] for q in per_arm["stage2"]}
+    llm_by_category = {
+        row["stratum"]: row
+        for row in delta_by_stratum(llm_delta, category_buckets(categories), seed=args.seed)
+    }
+    for row in rows:
+        row["llm_minus_stage2"] = llm_by_category[row["category"]]["delta"]
+        row["llm_minus_stage2_significant"] = llm_by_category[row["category"]]["significant"]
     print(f"{len(rows) - 1} categories with >= {MIN_CATEGORY_QUERIES} queries, "
-          f"plus {OTHER}")
+          f"plus {OTHER}; {n_uncategorised} queries have no category")
     for row in rows:
         cells = "  ".join(f"{arm} {row['ndcg'][arm]:.4f}" for arm in SINGLE_STAGES)
-        print(f"  {row['category'][:32]:34s} n={row['n_queries']:5,}  {cells}")
+        d = row["llm_minus_stage2"]
+        print(f"  {row['category'][:32]:34s} n={row['n_queries']:5,}  {cells}  "
+              f"llm-s2 {d['point']:+.4f} [{d['low']:+.4f}, {d['high']:+.4f}]")
 
     # --- where images help vs. hurt -----------------------------------------
     # Asked of Ablation 3's own arms, not of image *presence*, which is itself
@@ -539,6 +603,9 @@ def _main() -> int:
         d = row["delta"]
         print(f"  {row['stratum']:16s} n={row['n_queries']:5,}  {d['point']:+.4f} "
               f"[{d['low']:+.4f}, {d['high']:+.4f}]")
+    overall = sum(image_delta.values()) / len(image_delta)
+    print(f"  {'all':16s} n={len(image_delta):5,}  {overall:+.4f}  "
+          "(Ablation 3 on this surface; must match its committed number)")
 
     # --- the LLM's failure population ---------------------------------------
     window_size = signals.groupby("query_id").size()
@@ -548,25 +615,39 @@ def _main() -> int:
         "window_size": {str(k): float(v) for k, v in window_size.items()},
         "image_coverage": coverage,
         "stage2_ndcg": per_arm["stage2"],
+        # Short queries leave the LLM little to reason from.
+        "query_words": {str(k): float(v) for k, v in
+                        matrix.groupby("query_id")["query_words"].first().items()},
+        # A window of all-Exact (or all-Irrelevant) products cannot be
+        # reordered for better or worse; the share says how much room there is.
+        "window_exact_share": {
+            str(k): float(v) for k, v in
+            signals.assign(_e=(signals["label_code"] == 3).astype(float))
+            .groupby("query_id")["_e"].mean().items()
+        },
     }
     profile = failure_profile(
         per_arm["stage2+llm"], per_arm["stage2"], attributes, seed=args.seed
     )
     print(f"\n  -- the LLM arm against Stage 2, per query --")
-    print(f"  better {profile['n_better']:,} ({1 - profile['share_worse']:.1%} not worse), "
-          f"worse {profile['n_worse']:,} ({profile['share_worse']:.1%}), "
-          f"same {profile['n_same']:,}")
+    n = profile["n_queries"]
+    print(f"  better {profile['n_better']:,} ({profile['n_better'] / n:.1%}), "
+          f"worse {profile['n_worse']:,} ({profile['n_worse'] / n:.1%}), "
+          f"same {profile['n_same']:,} ({profile['n_same'] / n:.1%})")
     print(f"  mean gain when better {profile['mean_gain_when_better']:+.4f}, "
           f"mean loss when worse {profile['mean_loss_when_worse']:+.4f}")
+    print(f"  {'attribute (mean)':20s} {'better':>8s} {'worse':>8s} {'same':>8s}")
     for name, values in profile["attributes"].items():
-        print(f"  {name:16s} better {values['better']}, worse {values['worse']}")
+        print(f"  {name:20s} " + " ".join(f"{values[k]:8.3f}" for k in ("better", "worse", "same")))
 
     payload = {
         "scope": args.scope,
         "n_queries": len(qrels),
         "min_category_queries": MIN_CATEGORY_QUERIES,
+        "n_queries_without_category": n_uncategorised,
         "categories": rows,
         "image_coverage_strata": image_rows,
+        "image_delta_overall": overall,
         "llm_failure_profile": profile,
         "seed": args.seed,
     }
@@ -583,7 +664,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_error_analysis.py -q`
-Expected: PASS, 19 tests.
+Expected: PASS, 22 tests.
 
 - [ ] **Step 5: Produce the analysis**
 
@@ -601,6 +682,38 @@ with a mean loss near −0.0607.
 git add src/error_analysis.py tests/test_error_analysis.py docs/results/error-analysis.json
 git commit -m "Break results down by category, image coverage and LLM failure"
 ```
+
+**Landed 2026-09-23, with four additions made during execution.** The written
+version dropped the 55 fold-0 queries with no category without counting them;
+printed its top image stratum as "[0.90, 1.00)" while it contained 1.0; had no
+interval on any category row; and profiled the damaged population on window
+size and coverage alone. So: `n_queries_without_category` is recorded;
+`coverage_strata` gives **exactly-1.0** coverage its own stratum, because
+`has_image_vector` is a ranker only within a query whose candidates differ in
+it, and where every candidate is imaged the delta is the image signal alone;
+each category row carries a paired interval on the LLM's gain over Stage 2,
+through `category_buckets` so the interval and the `n` are the same queries;
+and the profile adds query length and the window's Exact share.
+
+What fold 0 says (overall image delta +0.0060, reproducing the committed
+Ablation 3 on this surface):
+
+- **The LLM's gain is significant in every one of the 13 categories and in
+  `(other)`**, from +0.0184 (Automotive) to +0.0426 (Cell Phones); the
+  intervals overlap, so no category is a failure mode of its own.
+- **Images help through the signal, not only through presence.** On the 1,049
+  queries whose every candidate is imaged, Ablation 3's delta is **+0.0065
+  [+0.0019, +0.0112]**. Only the lowest-coverage stratum, [0.00, 0.50) with 583
+  queries, ties (+0.0033 [−0.0017, +0.0087]). The strata's intervals overlap,
+  so "images help more where there are more images" is consistent with the
+  data but not established by it.
+- **The LLM damages the queries Stage 2 already ranked well.** Better 2,437
+  (59.0%), worse 1,089 (26.4%), same 604 (14.6%), exactly as pre-measured.
+  Damaged queries had Stage 2 NDCG 0.873 against 0.829 where it helped;
+  candidate count, window size, image coverage, query length (3.99 vs 3.94
+  words) and the window's Exact share barely separate the two. The damage is
+  the flip side of a strong baseline, not a query type — which is also why
+  Task 3's selector could not learn to route around it.
 
 ---
 
