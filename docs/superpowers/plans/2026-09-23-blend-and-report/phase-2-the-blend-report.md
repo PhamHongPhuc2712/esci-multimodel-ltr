@@ -641,15 +641,15 @@ Tests 12 fast + 2 data; fast suite 658 passed, 29 deselected. Runtimes 24 s
 
 ## Phase 2 Gate
 
-Phase 3 does not start until all of these hold:
+**Passed 2026-09-23.**
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including both committed blend reports.
-- [ ] `docs/results/{blend,blend-test}.json` exist and carry all six arms plus the oracle, every one on the same query set with `n` recorded.
-- [ ] Every blend arm is compared against the **best single stage**, not only against `stage2`.
-- [ ] Both fold-0 learned arms — the combiner **and the selector** — are cross-fitted, and the JSON says so for each.
-- [ ] The oracle bounds every single-stage arm in both files.
-- [ ] Exactly one test-sample run exists, behind `--final`.
-- [ ] If no blend arm beats the best single stage, `any_blend_beats_best_single` is `false` and the console said so in words.
+- [x] `python -m pytest` passes with no failures and no new skips. — 658 passed (646 before this phase), 29 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including both committed blend reports. — 28 passed in 3m12s (26 before this phase).
+- [x] `docs/results/{blend,blend-test}.json` exist and carry all six arms plus the oracle, every one on the same query set with `n` recorded. — 4,130 in every fold-0 arm, 2,000 in every test-sample arm; `check_same_queries` enforced it.
+- [x] Every blend arm is compared against the **best single stage**, not only against `stage2`. — `stage2+llm` on both surfaces; `against_stage2` is recorded beside it.
+- [x] Both fold-0 learned arms — the combiner **and the selector** — are cross-fitted, and the JSON says so for each. — `"fold 0, cross-fitted"` in both fields.
+- [x] The oracle bounds every single-stage arm in both files. — 0.9076 and 0.9101, +0.0262 and +0.0246 over the LLM.
+- [x] Exactly one test-sample run exists, behind `--final`. — run once, after the fold-0 table, with nothing changed between.
+- [x] If no blend arm beats the best single stage, `any_blend_beats_best_single` is `false` and the console said so in words. — `false` in both files; on fold 0 all three lose significantly, on the test sample all three tie.
 
 Then: [Phase 3 — The Analysis and the Writeup](phase-3-the-analysis-and-the-writeup.md).
