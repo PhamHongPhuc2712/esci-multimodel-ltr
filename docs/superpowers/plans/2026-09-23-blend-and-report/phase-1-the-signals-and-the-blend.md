@@ -900,6 +900,21 @@ git add src/stage_signals.py tests/test_stage_signals.py src/cross_encoder.py te
 git commit -m "Persist every stage's signal for the blend and the error analysis"
 ```
 
+**Landed 2026-09-23, as written.** `stage-signals-fold0.parquet` holds 41,255
+rows over 4,130 queries (66 s end to end on the 3080) and
+`stage-signals-test-sample.parquet` 19,974 over 2,000 (33 s); each run flagged
+exactly the predicted fallbacks, 55755 and then 49855 and 66028. Ordering by
+each column reproduces Plan 6's committed NDCG to float precision — every
+difference is under 2e-16:
+
+| scope | `stage2` | `stage2+ce` | `stage2+llm` |
+|---|---|---|---|
+| fold 0 | 0.851866 | 0.858663 | 0.881422 |
+| test sample | 0.857626 | 0.861947 | 0.885471 |
+
+Fast suite 623 passed (594 before), 27 deselected; `-m data` for this module
+2 passed. No API call was made.
+
 ---
 
 ## Task 2: The three blend strategies
