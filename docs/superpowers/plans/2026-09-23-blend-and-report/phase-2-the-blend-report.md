@@ -605,6 +605,38 @@ git add src/blend_report.py tests/test_blend_report.py docs/results/blend.json d
 git commit -m "Report Stage 4 against every single stage with an oracle ceiling"
 ```
 
+**Landed 2026-09-23, as written. No Stage 4 strategy beats the LLM alone.**
+The single stages reproduce Plan 6 exactly on both surfaces, the fixed and
+combiner arms land exactly on this plan's pre-measurements, and the
+configuration was not touched between the fold-0 run and the one test run.
+
+| arm | fold 0 (n=4,130) | vs `stage2+llm` | test sample (n=2,000) | vs `stage2+llm` |
+|---|---|---|---|---|
+| `stage2` | 0.8519 | | 0.8576 | |
+| `stage2+ce` | 0.8587 | | 0.8619 | |
+| **`stage2+llm`** | **0.8814** | | **0.8855** | |
+| `blend_fixed` | 0.8800 | −0.0014 [−0.0023, −0.0006] loses | 0.8843 | −0.0012 [−0.0026, +0.0000] ties |
+| `blend_combiner` | 0.8793 | −0.0021 [−0.0033, −0.0010] loses | 0.8849 | −0.0006 [−0.0019, +0.0007] ties |
+| `blend_selector` | 0.8805 | −0.0009 [−0.0016, −0.0002] loses | 0.8853 | −0.0002 [−0.0007, +0.0002] ties |
+| oracle best-of-three | 0.9076 | +0.0262 [+0.0241, +0.0281] | 0.9101 | +0.0246 [+0.0222, +0.0272] |
+
+Floors 0.7437 and 0.7454. Fold-0 learned arms are cross-fitted; the fixed
+weights were swept on fold 0 itself, so its fold-0 row is in-sample and lost
+anyway.
+
+**Why the selector, the one arm shaped like the oracle, still only ties.**
+Measured on fold 0 from the same cross-fitted routes: it sends **93.2%** of
+queries to the LLM, 4.6% to the cross-encoder and 2.2% to Stage 2, and on the
+281 queries it routes away from the LLM it is worse **52.0%** of the time and
+better only **31.3%** (mean −0.0128). The oracle's +0.0262 is real, but these
+label-free query features cannot predict *which* queries the LLM will get
+wrong, so the best a selector can learn is "trust the LLM" — which is the
+LLM. That is the finding: the headroom exists and none of §4.4's forms, nor
+the one aimed squarely at it, can reach it from these signals.
+
+Tests 12 fast + 2 data; fast suite 658 passed, 29 deselected. Runtimes 24 s
+(fold 0) and 15 s (test sample). No API call.
+
 ---
 
 ## Phase 2 Gate

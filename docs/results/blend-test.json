@@ -1,0 +1,269 @@
+{
+  "scope": "test-sample",
+  "n_queries": 2000,
+  "n_judgements": 40151,
+  "floor": {
+    "mean": 0.7453584681364889,
+    "low": 0.7423333071603733,
+    "high": 0.7481402566349032,
+    "n_trials": 100
+  },
+  "esci_baseline_target": 0.8562,
+  "combiner_fitted_on": "fold 0",
+  "selector_fitted_on": "fold 0",
+  "fixed_weights": {
+    "stage2": 1.0,
+    "ce": 1.0,
+    "llm": 4.0
+  },
+  "fixed_weights_chosen_on": "fold 0 sweep",
+  "best_single_stage": "stage2+llm",
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.85762559931803,
+        "low": 0.8509104929469817,
+        "high": 0.863643053056854
+      },
+      "lift_over_floor": {
+        "point": 0.11226713118154104,
+        "low": 0.10645283616335607,
+        "high": 0.11799690182050318
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.8619467348714652,
+        "low": 0.8558308458998145,
+        "high": 0.867918348827197
+      },
+      "lift_over_floor": {
+        "point": 0.11658826673497623,
+        "low": 0.11066052822391181,
+        "high": 0.12216175042965656
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.8854710830941404,
+        "low": 0.8798912039852589,
+        "high": 0.8910211268326297
+      },
+      "lift_over_floor": {
+        "point": 0.14011261495765148,
+        "low": 0.13371760882092834,
+        "high": 0.146115207506779
+      }
+    },
+    {
+      "name": "blend_fixed",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.8842857986497561,
+        "low": 0.8785540457807153,
+        "high": 0.8899210487098551
+      },
+      "lift_over_floor": {
+        "point": 0.1389273305132672,
+        "low": 0.1325978736362974,
+        "high": 0.1450324737319757
+      }
+    },
+    {
+      "name": "blend_combiner",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.884876078970049,
+        "low": 0.8790908097802803,
+        "high": 0.8906964211383083
+      },
+      "lift_over_floor": {
+        "point": 0.13951761083356015,
+        "low": 0.13309962672169529,
+        "high": 0.14566602841844542
+      }
+    },
+    {
+      "name": "blend_selector",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.8852558354083756,
+        "low": 0.8797957617731536,
+        "high": 0.8908092819976774
+      },
+      "lift_over_floor": {
+        "point": 0.13989736727188667,
+        "low": 0.13349719163709664,
+        "high": 0.1458534131363071
+      }
+    },
+    {
+      "name": "oracle_best_of_three",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 2000,
+      "ndcg": {
+        "point": 0.9101018909845241,
+        "low": 0.9049086709572535,
+        "high": 0.9149126007290791
+      },
+      "lift_over_floor": {
+        "point": 0.16474342284803525,
+        "low": 0.15864031887188879,
+        "high": 0.17065718836747726
+      }
+    }
+  ],
+  "against_best_single": [
+    {
+      "arm": "blend_fixed",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0011852844443843015,
+        "low": -0.0025897513298689693,
+        "high": 3.101989276077853e-05
+      },
+      "significant": false
+    },
+    {
+      "arm": "blend_combiner",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0005950041240913619,
+        "low": -0.0019188354731618194,
+        "high": 0.0006574427463632878
+      },
+      "significant": false
+    },
+    {
+      "arm": "blend_selector",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.00021524768576483116,
+        "low": -0.0007152397364255732,
+        "high": 0.00021850346427204804
+      },
+      "significant": false
+    },
+    {
+      "arm": "oracle_best_of_three",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": 0.024630807890383757,
+        "low": 0.02220149053431397,
+        "high": 0.027190922844895153
+      },
+      "significant": true
+    }
+  ],
+  "against_stage2": [
+    {
+      "arm": "stage2+ce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.004321135553435194,
+        "low": 0.0001588931571272832,
+        "high": 0.008558194191988803
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02784548377611047,
+        "low": 0.02360502394135098,
+        "high": 0.03248120258348212
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_fixed",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02666019933172617,
+        "low": 0.022902988755366244,
+        "high": 0.030785775769517867
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_combiner",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02725047965201911,
+        "low": 0.02321677904626781,
+        "high": 0.031391783719047155
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_selector",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02763023609034564,
+        "low": 0.023403027751230272,
+        "high": 0.03220917216049503
+      },
+      "significant": true
+    },
+    {
+      "arm": "oracle_best_of_three",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.05247629166649423,
+        "low": 0.04910071792003159,
+        "high": 0.0560786600700698
+      },
+      "significant": true
+    }
+  ],
+  "any_blend_beats_best_single": false,
+  "seed": 0
+}
