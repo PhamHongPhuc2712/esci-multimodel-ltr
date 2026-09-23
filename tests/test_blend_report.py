@@ -8,6 +8,7 @@ from src.blend_report import (
     SINGLE_STAGES,
     best_single,
     per_query_ndcg,
+    selector_routes,
     single_stage_orderings,
 )
 from src.rank_report import evaluate_arm
@@ -123,6 +124,47 @@ def test_best_single_needs_a_single_stage():
         best_single([_arm("blend_fixed", [0.9])])
 
 
+# --- where the selector sent each query -------------------------------------
+
+def _routing():
+    arm_orderings = {
+        "stage2": {"1": ["a", "b"], "2": ["x", "y"], "3": ["p", "q"]},
+        "ce": {"1": ["b", "a"], "2": ["y", "x"], "3": ["p", "q"]},
+        "llm": {"1": ["a", "b"], "2": ["x", "y"], "3": ["q", "p"]},
+    }
+    per_stage = {
+        "stage2": {"1": 0.5, "2": 0.6, "3": 0.9},
+        "ce": {"1": 0.7, "2": 0.4, "3": 0.9},
+        "llm": {"1": 0.5, "2": 0.6, "3": 0.8},
+    }
+    return arm_orderings, per_stage
+
+
+def test_routes_are_counted_against_the_best_mean_arm():
+    arm_orderings, per_stage = _routing()
+    routed = {"1": ["b", "a"], "2": ["x", "y"], "3": ["q", "p"]}   # ce, llm, llm
+    out = selector_routes(routed, arm_orderings, per_stage, default="llm")
+    assert out["share"] == pytest.approx({"llm": 2 / 3, "ce": 1 / 3, "stage2": 0.0})
+
+
+def test_an_ordering_identical_to_the_default_counts_as_the_default():
+    # Query 2's stage2 and llm orderings are the same list; routing it to
+    # stage2 changes nothing and is not a deviation.
+    arm_orderings, per_stage = _routing()
+    routed = {"1": ["a", "b"], "2": ["x", "y"], "3": ["q", "p"]}
+    out = selector_routes(routed, arm_orderings, per_stage, default="llm")
+    assert out["n_deviations"] == 0
+
+
+def test_a_deviation_reports_what_it_cost():
+    arm_orderings, per_stage = _routing()
+    routed = {"1": ["b", "a"], "2": ["y", "x"], "3": ["p", "q"]}   # ce, ce, ce/stage2
+    out = selector_routes(routed, arm_orderings, per_stage, default="llm")
+    assert out["n_deviations"] == 3
+    assert (out["n_better"], out["n_worse"], out["n_same"]) == (2, 1, 0)
+    assert out["mean_delta"] == pytest.approx((0.2 - 0.2 + 0.1) / 3)
+
+
 def test_the_declared_arms_cover_every_strategy_and_the_ceiling():
     from src.blend import STRATEGIES
 
@@ -170,3 +212,14 @@ def test_the_fold_0_learned_arms_are_cross_fitted():
     payload = json.loads(open("docs/results/blend.json").read())
     assert "cross-fit" in payload["combiner_fitted_on"]
     assert "cross-fit" in payload["selector_fitted_on"]
+
+
+@pytest.mark.data
+def test_the_fold_0_report_records_the_selector_routes():
+    # The writeup explains Stage 4's result by these routes, so they live in
+    # the committed report rather than in an ad hoc calculation.
+    payload = json.loads(open("docs/results/blend.json").read())
+    routes = payload["selector_routes"]
+    assert routes["default_arm"] == "llm"
+    assert sum(routes["share"].values()) == pytest.approx(1.0)
+    assert routes["n_better"] + routes["n_worse"] + routes["n_same"] == routes["n_deviations"]

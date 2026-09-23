@@ -83,6 +83,45 @@ def best_single(results: Sequence) -> object:
     return max(singles, key=lambda arm: arm.ndcg.point)
 
 
+def selector_routes(
+    routed: Mapping[str, Sequence[str]],
+    arm_orderings: Mapping[str, Mapping[str, Sequence[str]]],
+    per_query_by_stage: Mapping[str, Mapping[str, float]],
+    *,
+    default: str,
+) -> dict:
+    """Where the selector sent each query, and what leaving `default` cost.
+
+    A query counts as routed to `default` whenever its ordering equals the
+    default arm's, whichever arm the selector named: identical lists score
+    identically, so that is not a decision. The rest are deviations, and
+    their deltas against `default` say whether the selector knew better.
+    """
+    order = [default, *[arm for arm in arm_orderings if arm != default]]
+    counts = {arm: 0 for arm in arm_orderings}
+    deltas: list[float] = []
+    for query_id, ordering in routed.items():
+        chosen = next(
+            arm for arm in order if list(arm_orderings[arm][query_id]) == list(ordering)
+        )
+        counts[chosen] += 1
+        if chosen != default:
+            deltas.append(
+                float(per_query_by_stage[chosen][query_id])
+                - float(per_query_by_stage[default][query_id])
+            )
+    n = max(len(routed), 1)
+    return {
+        "default_arm": default,
+        "share": {arm: counts[arm] / n for arm in counts},
+        "n_deviations": len(deltas),
+        "n_better": sum(d > 0 for d in deltas),
+        "n_worse": sum(d < 0 for d in deltas),
+        "n_same": sum(d == 0 for d in deltas),
+        "mean_delta": float(np.mean(deltas)) if deltas else 0.0,
+    }
+
+
 def _check_windows_match_signals(windows_, signals: pd.DataFrame) -> None:
     """The signal frame holds window documents only; NDCG needs the tail too.
 
@@ -209,6 +248,15 @@ def _main() -> int:
     for arm in (*BLEND_ARMS, ORACLE):
         per_query[arm] = per_query_ndcg(orderings[arm], ws, qrels)
 
+    # Why the selector ends where it does: how often it leaves the strongest
+    # single stage, and whether those departures pay.
+    routes = selector_routes(
+        orderings["blend_selector"],
+        arm_orderings,
+        {_STAGE_OF_ARM[arm]: per_query[arm] for arm in SINGLE_STAGES},
+        default=_STAGE_OF_ARM[max(SINGLE_STAGES, key=lambda a: np.mean(list(per_query[a].values())))],
+    )
+
     results = [
         evaluate_arm(
             arm, per_query[arm], floor.per_query, groups=("blend",),
@@ -241,6 +289,12 @@ def _main() -> int:
         for arm in (*SINGLE_STAGES[1:], *BLEND_ARMS, ORACLE)
     ]
 
+    shares = ", ".join(f"{arm} {share:.1%}" for arm, share in routes["share"].items())
+    print(f"\n  -- the selector's routes: {shares} --")
+    print(f"  left {routes['default_arm']} on {routes['n_deviations']:,} queries: better "
+          f"{routes['n_better']:,}, worse {routes['n_worse']:,}, same {routes['n_same']:,}, "
+          f"mean {routes['mean_delta']:+.4f}")
+
     wins = [r for r in against_best if r["arm"] in BLEND_ARMS
             and r["significant"] and r["delta"]["point"] > 0]
     if not wins:
@@ -259,6 +313,7 @@ def _main() -> int:
         "esci_baseline_target": ESCI_BASELINE,
         "combiner_fitted_on": fitted_on,
         "selector_fitted_on": selector_fitted_on,
+        "selector_routes": routes,
         "fixed_weights": dict(DEFAULT_WEIGHTS),
         # 1:1:4 is the best of a sweep run on fold 0 itself, so on fold 0 this
         # arm is tuned in-sample - an optimistic number that still lost.
