@@ -27,9 +27,9 @@ interfaces are known.
 | 4 | [**Recall**](2026-09-20-recall/) | BM25 + dense + CLIP channels, RRF fusion, Recall@k harness, Stage 0 LLM query rewriting **(landed)** | Ablations 1 and 2 produce a table with bootstrap CIs | §4.0, §4.1, §8.4 |
 | 5 | [**Coarse Rank**](2026-09-21-coarse-rank/) | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
 | 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
-| 7 | **Blend and Report** | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
+| 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 
-A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. Six are written so far, all split that way:
+A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way:
 
 - [`2026-09-19-evaluation-foundation/`](2026-09-19-evaluation-foundation/) — Plan 1, an index plus three phases: the metric, the data, then statistics and the baseline. **Landed.** Its gate passed with zero-shot SBERT at NDCG 0.8294 against a published 0.8292, a measured random floor of 0.7467, and a lift of +0.0827 [+0.0802, +0.0855].
 - [`2026-09-19-enrichment-corpus/`](2026-09-19-enrichment-corpus/) — Plan 2, an index plus two phases: the record, then the corpus. Written against the real `esci.json.zst`, not its README: the field-presence figures, the book/product key split, the multi-price strings and zstandard's silence on truncation were all measured first. **Landed.** 1,080,262-row corpus at 89.59% join coverage.
@@ -85,7 +85,26 @@ A written plan gets its own directory and is split into phase files when a singl
   does not earn its keep at Stage 3**, reversing Plan 5's Ablation 5, while
   `bce` trains 5.4x faster. Malformed permutations: **2 in 2,000**. One defect
   was caught and fixed in this plan's own code — the first Ablation 6 timed a
-  cached replay and published the LLM arm at 5.5 ms/query against a real 1,180. Phase 1 persisted Plan 5's ordering to
+  cached replay and published the LLM arm at 5.5 ms/query against a real 1,180.
+
+- [`2026-09-23-blend-and-report/`](2026-09-23-blend-and-report/) — Plan 7, the
+  last: an index plus three phases — the signals and the blend, the blend
+  report, then the analysis and the writeup. Written against the real fold-0
+  output, and **four of its measurements say its own central hypothesis will
+  fail**: the oracle best-of-three reaches **0.9076** against the best single
+  arm's 0.8814, so **+0.0262** of headroom exists, but every swept rank fusion
+  loses (best **0.8800** at 1:1:4) and a cross-fitted learned combiner loses
+  too (**0.8793**), with `llm_rank` dominating its feature importance. The
+  three arms genuinely disagree (Kendall τ 0.34–0.41) and no arm is best more
+  than **41.6%** of the time, which is why the plan adds a per-query
+  **selector** — the only strategy shaped like the oracle's advantage — and
+  reports the ceiling beside every arm so a tie reads as missed headroom
+  rather than absent headroom. Also measured for the error analysis: the LLM
+  arm **damages 26.4%** of queries (mean −0.0607) while helping 59.0% (mean
+  +0.0772); `s_category` is a path with 49 top-level values of which only 13
+  clear 100 queries; per-query image coverage averages 0.78. **No new paid API
+  calls** — fold 0 and the test sample are both already cached. **Written, not
+  yet executed.** Phase 1 persisted Plan 5's ordering to
   `data/features/stage2-{train,test}.parquet`, reproducing **0.8519** on fold 0
   and **0.8579** on test exactly, and added the top-K splice whose identity
   re-ranking leaves per-query NDCG untouched. It corrected one thing the plan
