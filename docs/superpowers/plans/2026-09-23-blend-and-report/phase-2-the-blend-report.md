@@ -55,7 +55,7 @@ also loses, say so in the same breath.
 - Create: `tests/test_blend_report.py`
 
 **Interfaces:**
-- Consumes: `src.blend.*` (Task 2), `src.stage_signals.{load_signals, SCOPES}` (Task 1), `src.rerank_window.{windows, spliced_run, stage2_run, DEFAULT_K}`, `src.rank_report.{qrels_from_frame, evaluate_arm, compare, format_table}`, `src.fine_rank_report.check_same_queries`, `src.floor.random_floor`, `src.metrics.ndcg_per_query`.
+- Consumes: `src.blend.*` (Task 2), `src.stage_signals.{load_signals, scope_windows, SCOPES}` (Task 1), `src.rerank_window.spliced_run`, `src.rank_report.{qrels_from_frame, evaluate_arm, compare, format_table}`, `src.fine_rank_report.check_same_queries`, `src.floor.random_floor`, `src.metrics.ndcg_per_query`.
 - Produces:
   - `src.blend_report.SINGLE_STAGES: tuple[str, ...]` = `("stage2", "stage2+ce", "stage2+llm")`
   - `src.blend_report.BLEND_ARMS: tuple[str, ...]` = `("blend_fixed", "blend_combiner", "blend_selector")`
@@ -63,16 +63,22 @@ also loses, say so in the same breath.
   - `src.blend_report.single_stage_orderings(frame) -> dict[str, dict[str, list[str]]]`
   - `src.blend_report.per_query_ndcg(orderings, windows_, qrels) -> dict[str, float]`
   - `src.blend_report.best_single(results) -> Any`
-  - `src.blend_report.rebuild_windows(scope, *, k=None, features_dir=Path("data/features"), seed=0) -> tuple[list, pd.DataFrame]` (`k=None` means `DEFAULT_K`)
   - CLI: `python -m src.blend_report --scope fold0` and `--scope test-sample --final`
 
 **Windows are rebuilt, then checked against the signal frame.** The signal
 frame holds only window documents, not tails, and NDCG needs the whole judged
-list. `rebuild_windows` runs the same `windows(joined, k)` call Phase 1 ran, and
-then asserts the window documents it produced are exactly the ones in the
-signal frame. If Stage 2's parquet were ever re-dumped with a different fit, the
-two would silently disagree about which ten documents Stage 3 ranked, and every
-Stage 4 number would be measured over a candidate set the arms never saw.
+list. The windows come from `src.stage_signals.scope_windows` — the same call
+Phase 1 built the frame from, not a second copy of the sampling logic (this
+plan first had its own `rebuild_windows` here, a duplicate of Phase 1's scope
+code) — and are then checked to hold exactly the frame's window documents. If
+Stage 2's parquet were ever re-dumped with a different fit, the two would
+silently disagree about which ten documents Stage 3 ranked, and every Stage 4
+number would be measured over a candidate set the arms never saw.
+
+**Both learned arms are cross-fitted on fold 0.** The combiner through
+`cross_fit_predict`, the selector through `cross_fit_select`, over one shared
+partition. The plan as first written cross-fitted only the combiner and scored
+fold 0 with a selector trained on all of fold 0.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -307,46 +313,15 @@ def best_single(results: Sequence) -> object:
     return max(singles, key=lambda arm: arm.ndcg.point)
 
 
-def rebuild_windows(
-    scope: str,
-    *,
-    k: int | None = None,
-    features_dir: Path = Path("data/features"),
-    seed: int = 0,
-):
-    """The same windows Phase 1 built, plus the judged matrix behind them.
-
-    The signal frame holds window documents only; NDCG needs the tail too. So
-    the windows are rebuilt through the same call and then checked against the
-    frame - if Stage 2's parquet were ever re-dumped under a different fit, the
-    two would disagree about which ten documents Stage 3 ranked and every
-    number here would be measured over a candidate set no arm ever saw.
-    """
-    from src.fine_rank_report import TEST_SAMPLE
-    from src.ranker import REPORT_FOLD
-    from src.rerank_window import DEFAULT_K, windows
-    from src.stage2_scores import load_stage2
-
-    k = DEFAULT_K if k is None else k
-    if scope == "fold0":
-        matrix = pd.read_parquet(features_dir / "train.parquet")
-        matrix = matrix.loc[matrix["fold"] == REPORT_FOLD]
-        split = "train"
-    else:
-        matrix = pd.read_parquet(features_dir / "test.parquet")
-        keep = matrix["query_id"].drop_duplicates().sample(
-            n=TEST_SAMPLE, random_state=seed
-        )
-        matrix = matrix.loc[matrix["query_id"].isin(set(keep))]
-        split = "test"
-    matrix = matrix.reset_index(drop=True)
-    joined = matrix[["query_id", "product_id"]].merge(
-        load_stage2(split), on=["query_id", "product_id"]
-    )
-    return windows(joined, k=k), matrix
-
-
 def _check_windows_match_signals(windows_, signals: pd.DataFrame) -> None:
+    """The signal frame holds window documents only; NDCG needs the tail too.
+
+    So the windows are rebuilt through src.stage_signals.scope_windows and
+    checked against the frame - if Stage 2's parquet were ever re-dumped under
+    a different fit, the two would disagree about which ten documents Stage 3
+    ranked and every number here would be measured over a candidate set no
+    arm ever saw.
+    """
     from_windows = {(w.query_id, d) for w in windows_ for d in w.window}
     from_signals = set(
         zip(signals["query_id"].astype(str), signals["product_id"].astype(str))
@@ -363,6 +338,7 @@ def _main() -> int:
     from src.blend import (
         DEFAULT_WEIGHTS,
         cross_fit_predict,
+        cross_fit_select,
         fixed_weight_ordering,
         oracle_ordering,
         predict_combiner,
@@ -372,7 +348,7 @@ def _main() -> int:
     )
     from src.fine_rank_report import check_same_queries
     from src.floor import random_floor
-    from src.stage_signals import SCOPES, load_signals
+    from src.stage_signals import SCOPES, load_signals, scope_windows
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scope", default="fold0", choices=list(SCOPES))
@@ -391,7 +367,7 @@ def _main() -> int:
         )
 
     signals = load_signals(args.scope, args.features_dir)
-    ws, matrix = rebuild_windows(
+    ws, matrix = scope_windows(
         args.scope, features_dir=args.features_dir, seed=args.seed
     )
     _check_windows_match_signals(ws, signals)
@@ -427,22 +403,32 @@ def _main() -> int:
     )
 
     # --- Stage 4, arm 3: the per-query selector -----------------------------
-    train_signals = load_signals("fold0", args.features_dir)
-    train_ws, train_matrix = rebuild_windows(
-        "fold0", features_dir=args.features_dir, seed=args.seed
-    )
-    train_qrels = qrels_from_frame(train_matrix)
-    train_orderings = single_stage_orderings(train_signals)
-    train_per_arm = {
-        _STAGE_OF_ARM[arm]: per_query_ndcg(train_orderings[arm], train_ws, train_qrels)
-        for arm in SINGLE_STAGES
-    }
-    selector = train_selector(train_signals, train_per_arm, seed=args.seed)
-    orderings["blend_selector"] = selector_ordering(
-        selector,
-        signals,
-        {_STAGE_OF_ARM[arm]: orderings[arm] for arm in SINGLE_STAGES},
-    )
+    # Its target is which arm scored best per query - the label in another
+    # form - so fold 0 is cross-fitted over the combiner's own partition. The
+    # test sample is routed by a selector fitted on all of fold 0.
+    arm_orderings = {_STAGE_OF_ARM[arm]: orderings[arm] for arm in SINGLE_STAGES}
+    if args.scope == "fold0":
+        orderings["blend_selector"] = cross_fit_select(
+            signals,
+            {_STAGE_OF_ARM[arm]: per_query[arm] for arm in SINGLE_STAGES},
+            arm_orderings,
+            seed=args.seed,
+        )
+        selector_fitted_on = "fold 0, cross-fitted"
+    else:
+        train_signals = load_signals("fold0", args.features_dir)
+        train_ws, train_matrix = scope_windows(
+            "fold0", features_dir=args.features_dir, seed=args.seed
+        )
+        train_qrels = qrels_from_frame(train_matrix)
+        train_orderings = single_stage_orderings(train_signals)
+        train_per_arm = {
+            _STAGE_OF_ARM[arm]: per_query_ndcg(train_orderings[arm], train_ws, train_qrels)
+            for arm in SINGLE_STAGES
+        }
+        selector = train_selector(train_signals, train_per_arm, seed=args.seed)
+        orderings["blend_selector"] = selector_ordering(selector, signals, arm_orderings)
+        selector_fitted_on = "fold 0"
 
     # --- the ceiling ---------------------------------------------------------
     orderings[ORACLE] = oracle_ordering(
@@ -502,7 +488,14 @@ def _main() -> int:
                   "n_trials": floor.n_trials},
         "esci_baseline_target": ESCI_BASELINE,
         "combiner_fitted_on": fitted_on,
+        "selector_fitted_on": selector_fitted_on,
         "fixed_weights": dict(DEFAULT_WEIGHTS),
+        # 1:1:4 is the best of a sweep run on fold 0 itself, so on fold 0 this
+        # arm is tuned in-sample - an optimistic number that still lost.
+        "fixed_weights_chosen_on": (
+            "fold 0 sweep, in-sample on this surface"
+            if args.scope == "fold0" else "fold 0 sweep"
+        ),
         "best_single_stage": baseline.name,
         "arms": [arm.to_dict() for arm in results],
         "against_best_single": against_best,
@@ -536,8 +529,11 @@ expected outcome for at least the first two.
 
 Sanity checks: if `blend_fixed` equals `stage2+llm` exactly, the weights
 collapsed onto one arm. If the oracle is not the highest row, `oracle_ordering`
-is being given the wrong per-query scores. If `blend_combiner` on fold 0 beats
-the oracle, the cross-fit is leaking and Task 2's guard failed.
+is being given the wrong per-query scores. If `blend_combiner` or
+`blend_selector` on fold 0 beats the oracle, the cross-fit is leaking and Task
+2's guard failed. `stage2`, `stage2+ce` and `stage2+llm` must match Plan 6's
+0.8519 / 0.8587 / 0.8814 exactly — Task 1's data test already proved the frame
+reproduces them.
 
 - [ ] **Step 6: Run test exactly once**
 
@@ -591,6 +587,7 @@ def test_the_fold_0_learned_arms_are_cross_fitted():
     # clothes.
     payload = json.loads(open("docs/results/blend.json").read())
     assert "cross-fit" in payload["combiner_fitted_on"]
+    assert "cross-fit" in payload["selector_fitted_on"]
 ```
 
 Run: `python -m pytest tests/test_blend_report.py -m data -q`
@@ -618,7 +615,7 @@ Phase 3 does not start until all of these hold:
 - [ ] `python -m pytest -m data` passes, including both committed blend reports.
 - [ ] `docs/results/{blend,blend-test}.json` exist and carry all six arms plus the oracle, every one on the same query set with `n` recorded.
 - [ ] Every blend arm is compared against the **best single stage**, not only against `stage2`.
-- [ ] The fold-0 learned arms are cross-fitted, and the JSON says so.
+- [ ] Both fold-0 learned arms — the combiner **and the selector** — are cross-fitted, and the JSON says so for each.
 - [ ] The oracle bounds every single-stage arm in both files.
 - [ ] Exactly one test-sample run exists, behind `--final`.
 - [ ] If no blend arm beats the best single stage, `any_blend_beats_best_single` is `false` and the console said so in words.

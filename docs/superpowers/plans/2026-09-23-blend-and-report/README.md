@@ -106,10 +106,16 @@ to measure that honestly rather than to chase a win.
   "where images help vs. hurt".
 
 - **No new paid API calls are needed.** `data/llm-rerank.json` already holds
-  the LLM's permutation for **4,129 of 4,130** fold-0 windows and for all
-  2,000 test-sample windows. The blend trains on fold 0 and reports on the
-  test sample, and both are cached, so this plan's marginal API cost is
-  **zero**. Nothing in it should issue a call.
+  the LLM's permutation for **4,129 of 4,130** fold-0 windows and **1,998 of
+  2,000** test-sample windows. (This bullet first said "all 2,000"; checked
+  against the cache it is not.) The three missing windows — fold-0 query
+  55755 and test queries 49855 and 66028, two TV-series titles and a book —
+  are ones whose LLM answer was malformed, which is never cached; fold 0's
+  has failed twice. Plan 6 scored all three in Stage 2 order and counted
+  them in `n_fallback`, so this plan carries them the same way, flagged
+  `llm_fallback`, and its single-stage arms reproduce Plan 6's 0.8814 and
+  0.8855 exactly. The marginal API cost is **zero**. Nothing in it should
+  issue a call.
 
 ---
 
@@ -127,6 +133,28 @@ permutation, so Plan 6's Review Focus 1 protection is untouched.
 
 ---
 
+## Corrected before execution
+
+Reading this plan against the landed code on 2026-09-23, before any task ran,
+found six things wrong. Each is fixed in the phase that owns it, and every
+code block in all three phases now passes its own fast tests.
+
+| # | What the plan said | What is true | Fixed in |
+|---|---|---|---|
+| 1 | The LLM cache holds all 2,000 test-sample windows; `stage_signals` should see no misses | 1 fold-0 and 2 test-sample windows are missing (malformed answers are never cached), so Task 1 would have stopped on both scopes | Task 1: flagged `llm_fallback`, capped by `check_fallback_share` |
+| 2 | Fold-0 learned arms are cross-fitted | Only the combiner was; the selector was trained on all of fold 0 and scored on it | Task 2 `cross_fit_select`; Task 3 |
+| 3 | Ablation 2 = full fusion vs. BM25 (+0.0661) | That credits images with the whole fusion gain, which Plan 4 stored `ablation_2_ladder` to avoid; the image step is +0.0048 | Task 5: rows 2a and 2b |
+| 4 | `build_signals` guards Review Focus 2 | It silently fell back to the window order; only the CLI checked | Task 1: raises on an undeclared miss |
+| 5 | Task 1's tests pass against Task 1's code | Its test labels had no `stage2_score`, so the "complete" frame carried NaN and `require_full_coverage` rejected it | Task 1 |
+| 6 | The error analysis retrains Ablation 3's arms on folds 2/3/4 | Correct for fold 0, but a test-sample run would repeat Plan 5's two-fit mismatch (0.0020 low) | Task 4: fit set follows the scope |
+
+Smaller: the signal frames are 41,255 and 19,974 rows, not "roughly 33,000
+and 16,000"; the error analysis has 19 tests, not 20; and the scope-to-windows
+code existed twice (Task 1 and Task 3's `rebuild_windows`) and is now
+`src.stage_signals.scope_windows` alone.
+
+---
+
 ## The fold protocol, and why Stage 4 trains on fold 0
 
 Plans 5 and 6 used three roles: train 2/3/4, early-stop 1, report 0, test once.
@@ -138,13 +166,15 @@ money for a combiner with five features.
 |---|---|---|
 | **train** | fold 0 (4,130) | the combiner's gradient and the selector's |
 | **report** | the frozen 2,000-query test sample | every headline number in Stage 4 |
-| **fold-0 self-estimate** | fold 0, **cross-fitted** | the fold-0 column only, no query training on itself |
+| **fold-0 self-estimate** | fold 0, **cross-fitted** | the fold-0 column only, no query training on itself — for the combiner **and** the selector, over one shared query partition |
 
 This is legitimate and is not tuning on test: fold 0 is a *validation* fold, the
 test sample was frozen by Plan 6 before this plan existed, and the combiner sees
 test only at prediction time. It does mean **fold 0 stops being a clean
 reporting surface for Stage 4 arms** — hence the cross-fit, and hence every
-fold-0 Stage 4 number is labelled `cross-fit` in the output.
+fold-0 learned-arm number is labelled `cross-fit` in the output. The fixed
+1:1:4 weights were chosen by a sweep on fold 0 itself, so the fixed arm's
+fold-0 number is tuned in-sample; the JSON says so, and it lost anyway.
 
 ---
 
@@ -152,7 +182,7 @@ fold-0 Stage 4 number is labelled `cross-fit` in the output.
 
 - **Python ≥3.11.** Development machine runs 3.13.13.
 - **Never tune on test.** The blend's features, weights, round count and the selector's threshold are chosen on fold 0. The test sample is predicted once per arm.
-- **No new API calls.** Every LLM ordering this plan needs is already in `data/llm-rerank.json`. A task that issues a call is a bug; `stage_signals` reads the cache and *fails* on a miss rather than silently falling back.
+- **No new API calls.** Every usable LLM ordering this plan needs is already in `data/llm-rerank.json`. A task that issues a call is a bug. `stage_signals` reads the cache, carries the three measured malformed-answer windows in Stage 2 order *with a flag* (as Plan 6 scored them), and *fails* when misses pass 0.5% of windows — a scope error, not a malfunction.
 - **Every reported NDCG comes from `src.metrics.ndcg_per_query`**, paired with `src.floor.random_floor` and a bootstrap CI over queries from `src.bootstrap`. Never from a training log, and never from a number typed into the writeup by hand.
 - **Arms are only ever compared over the same queries.** `src.fine_rank_report.check_same_queries` exists for this; Stage 4 reuses it rather than reimplementing it.
 - **The random floor is computed, never quoted.** Measured 0.7467 on test; the published 0.7483 is wrong for this discount and the swapped-label figure 0.7141 is wronger. (`CLAUDE.md`.)
@@ -167,8 +197,8 @@ fold-0 Stage 4 number is labelled `cross-fit` in the output.
 
 The five failure modes the spec implies but that no task's happy path exercises. Each is pinned to a test inside the task that owns the code.
 
-1. **The combiner trained on the queries it reports.** The LLM's orderings exist only for fold 0 and the test sample, so fold 0 is the only training set available — and it is also the surface every earlier plan reported on. A combiner fitted on all of fold 0 and scored on all of fold 0 will look excellent and mean nothing, and five features over 4,130 queries is more than enough to memorise. `cross_fit_predict` must guarantee no query is ever scored by a model that trained on it. — pinned in Task 2.
-2. **Blending a stage that never ran on those queries.** `data/llm-rerank.json` covers fold 0 and the 2,000-query test sample — not the other 6,956 test queries. Asking for signals over the full test split would silently give 6,956 queries the Stage 2 order under the name `llm`, and the blend would report the resulting dilution as a Stage 4 effect. `stage_signals` must raise on a cache miss, naming the count. — pinned in Task 1.
+1. **A learned arm trained on the queries it reports.** The LLM's orderings exist only for fold 0 and the test sample, so fold 0 is the only training set available — and it is also the surface every earlier plan reported on. A combiner fitted on all of fold 0 and scored on all of fold 0 will look excellent and mean nothing, and five features over 4,130 queries is more than enough to memorise. The same holds for the selector, whose target — which arm scored best on each query — is the label in another form; this plan as first written cross-fitted the combiner and not the selector. `cross_fit_predict` and `cross_fit_select` must guarantee no query is ever scored or routed by a model that trained on it. — pinned in Task 2.
+2. **Blending a stage that never ran on those queries.** `data/llm-rerank.json` covers fold 0 and the 2,000-query test sample — not the other 6,956 test queries. Asking for signals over the full test split would silently give 6,956 queries the Stage 2 order under the name `llm`, and the blend would report the resulting dilution as a Stage 4 effect. `stage_signals` must return its misses, refuse more than 0.5% of windows, and flag the three measured malformed-answer fallbacks rather than hide them; `build_signals` must raise for any window with neither an ordering nor a declared fallback. — pinned in Task 1.
 3. **A §6 table that mixes scopes silently.** Recall@k on 4,130 fold-0 queries, NDCG on 8,956 test queries and NDCG on a 2,000-query sample are three different measurements. Printed as seven rows of one table with no scope column, they read as comparable, and the writeup's summary sentence inherits the error. — pinned in Task 5.
 4. **Per-category NDCG over categories with too few queries to mean anything.** 49 top-level categories, only 13 with ≥100 queries. A category with 4 queries will show a ±0.15 swing from noise alone, and "images hurt in Musical Instruments" is exactly the sentence a reader will quote. Categories below the threshold must collapse into one bucket, and every row must carry its `n`. — pinned in Task 4.
 5. **A writeup that quotes a number no file contains.** `CLAUDE.md` records that the published floor (0.7483), the published product count (1,215,851) and the swapped label distribution are all wrong for this project, and that third-party write-ups disagree with the measured data. The writeup is the one artifact a reader will trust without checking, so every figure in it must come from a committed `docs/results/*.json`, and a test must verify the headline ones do. — pinned in Task 6.
@@ -182,7 +212,7 @@ The repo's established pattern is flat modules under `src/`, imported as
 
 | File | Responsibility | Written in |
 |---|---|---|
-| `src/stage_signals.py` | Every stage's opinion of every window document, persisted; `python -m src.stage_signals` | Phase 1, Task 1 |
+| `src/stage_signals.py` | Every stage's opinion of every window document, persisted; `scope_windows`, the one place a scope becomes query ids, read by Phases 2 and 3 too; `python -m src.stage_signals` | Phase 1, Task 1 |
 | `src/cross_encoder.py` | *Modified*: add public `window_scores` beside `rerank` | Phase 1, Task 1 |
 | `src/blend.py` | Fixed-weight, learned combiner, selector, oracle. Pure | Phase 1, Task 2 |
 | `src/blend_report.py` | Stage 4 against every stage alone; `python -m src.blend_report` | Phase 2, Task 3 |
@@ -219,11 +249,11 @@ This is the last plan; its gate is the project's.
 
 - [ ] `python -m pytest` passes with no failures and no new skips.
 - [ ] `python -m pytest -m data` passes, including the signal-frame coverage assertion and the writeup's figure check.
-- [ ] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, and every row carries a Stage 2 score, a cross-encoder score and an LLM rank — no silent Stage 2 fallbacks.
+- [ ] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, every row carries a Stage 2 score, a cross-encoder score and an LLM rank, the only Stage 2 fallbacks are the 1 + 2 flagged windows Plan 6 counted, and ordering by each column reproduces Plan 6's `stage2`, `stage2+ce` and `stage2+llm` NDCG.
 - [ ] Stage 4 is reported against **each single stage alone**, as §4.4 requires, with paired bootstrap CIs, on fold 0 (cross-fitted) and on the frozen test sample.
 - [ ] All three Stage 4 strategies are reported — fixed weight, learned combiner, per-query selector — **and the oracle ceiling beside them**, or the plan states which was dropped and why.
 - [ ] If no Stage 4 arm beats the best single stage, that is written down as the result, in the table and in the writeup's summary sentence.
-- [ ] `docs/results/ablation-table.json` carries all seven ablations, each with its **scope, `n`, metric and interval**, and no two rows are presented as comparable when their scopes differ.
+- [ ] `docs/results/ablation-table.json` carries all seven ablations — Ablation 2 as its two ladder rungs — each with its **scope, `n`, metric and interval**, and no two rows are presented as comparable when their scopes differ.
 - [ ] The per-category breakdown reports only categories with ≥100 queries, collapses the rest, and carries `n` on every row.
 - [ ] The LLM failure-case analysis characterises the ~26% of queries the arm damages, not a hand-picked sample.
 - [ ] `docs/RESULTS.md` exists, states the project's best number with its scope and CI, compares it to the 0.8562 `ESCI_baseline` and the **measured** floor, and every headline figure in it is traceable to a committed `docs/results/*.json`.

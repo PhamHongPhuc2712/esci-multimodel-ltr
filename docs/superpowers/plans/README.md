@@ -103,13 +103,13 @@ A written plan gets its own directory and is split into phase files when a singl
   arm **damages 26.4%** of queries (mean −0.0607) while helping 59.0% (mean
   +0.0772); `s_category` is a path with 49 top-level values of which only 13
   clear 100 queries; per-query image coverage averages 0.78. **No new paid API
-  calls** — fold 0 and the test sample are both already cached. **Written, not
-  yet executed.** Phase 1 persisted Plan 5's ordering to
-  `data/features/stage2-{train,test}.parquet`, reproducing **0.8519** on fold 0
-  and **0.8579** on test exactly, and added the top-K splice whose identity
-  re-ranking leaves per-query NDCG untouched. It corrected one thing the plan
-  had wrong: Plan 5's *test* headline was fitted on every train fold, not on
-  folds 2/3/4, and fitting the narrow set for both lands 0.0020 low.
+  calls** — fold 0 and the test sample are already cached, bar three windows
+  whose LLM answer was malformed, which Plan 6 scored in Stage 2 order and
+  this plan carries the same way, flagged. **Written, not yet executed.** Six
+  defects were corrected before any task ran — the cache-coverage claim, a
+  selector trained on the fold it reported, Ablation 2 read as fusion-vs-BM25
+  rather than as its ladder, and three smaller ones; see its README's
+  "Corrected before execution".
 
 Start at a plan's `README.md`.
 

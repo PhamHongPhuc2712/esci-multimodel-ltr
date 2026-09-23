@@ -49,7 +49,7 @@ quotes a number no file contains).
 - Create: `tests/test_error_analysis.py`
 
 **Interfaces:**
-- Consumes: `src.stage_signals.load_signals`, `src.blend_report.{SINGLE_STAGES, single_stage_orderings, per_query_ndcg, rebuild_windows}`, `src.rank_report.qrels_from_frame`, `src.bootstrap.paired_delta_ci`.
+- Consumes: `src.stage_signals.{load_signals, scope_windows, SCOPES}`, `src.blend_report.{SINGLE_STAGES, single_stage_orderings, per_query_ndcg}`, `src.rank_report.qrels_from_frame`, `src.bootstrap.paired_delta_ci`.
 - Produces:
   - `src.error_analysis.MIN_CATEGORY_QUERIES: int` = `100`
   - `src.error_analysis.OTHER: str` = `"(other)"`
@@ -473,17 +473,16 @@ def _main() -> int:
     from src.blend_report import (
         SINGLE_STAGES,
         per_query_ndcg,
-        rebuild_windows,
         single_stage_orderings,
     )
     from src.feature_matrix import select_columns
     from src.metrics import ndcg_per_query
     from src.rank_report import qrels_from_frame
     from src.ranker import EARLY_STOP_FOLD, TRAIN_FOLDS, folds, predict_run, train_ranker
-    from src.stage_signals import load_signals
+    from src.stage_signals import SCOPES, load_signals, scope_windows
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scope", default="fold0")
+    parser.add_argument("--scope", default="fold0", choices=list(SCOPES))
     parser.add_argument("--features-dir", type=Path, default=Path("data/features"))
     parser.add_argument("--products", type=Path, default=Path("data/combined/products.parquet"))
     parser.add_argument("--seed", type=int, default=0)
@@ -491,7 +490,7 @@ def _main() -> int:
     args = parser.parse_args()
 
     signals = load_signals(args.scope, args.features_dir)
-    ws, matrix = rebuild_windows(args.scope, features_dir=args.features_dir, seed=args.seed)
+    ws, matrix = scope_windows(args.scope, features_dir=args.features_dir, seed=args.seed)
     qrels = qrels_from_frame(matrix)
     orderings = single_stage_orderings(signals)
     per_arm = {arm: per_query_ndcg(orderings[arm], ws, qrels) for arm in SINGLE_STAGES}
@@ -511,7 +510,11 @@ def _main() -> int:
     # Asked of Ablation 3's own arms, not of image *presence*, which is itself
     # a weak ranker (CLAUDE.md: presence flags alone are worth +0.0084).
     train = pd.read_parquet(args.features_dir / "train.parquet")
-    fit, early = folds(train, TRAIN_FOLDS), folds(train, [EARLY_STOP_FOLD])
+    # Plan 5's two fits: folds 2/3/4 when fold 0 is reported, every train fold
+    # when test is. Fitting the narrow set for test lands 0.0020 low - more
+    # than Ablation 4's whole honest effect (CLAUDE.md).
+    fit = train if args.scope == "test-sample" else folds(train, TRAIN_FOLDS)
+    early = folds(train, [EARLY_STOP_FOLD])
     text_only = select_columns(["text", "esci_indicators", "retrieval"])
     with_image = select_columns(["text", "esci_indicators", "retrieval", "image"])
     per_text = ndcg_per_query(
@@ -580,7 +583,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_error_analysis.py -q`
-Expected: PASS, 20 tests.
+Expected: PASS, 19 tests.
 
 - [ ] **Step 5: Produce the analysis**
 
@@ -610,8 +613,8 @@ git commit -m "Break results down by category, image coverage and LLM failure"
 **Interfaces:**
 - Consumes: the committed `docs/results/*.json` of Plans 4–7.
 - Produces:
-  - `src.ablation_table.ABLATIONS: tuple[dict, ...]` — the seven rows, each with its owner file, metric and scope
-  - `src.ablation_table.Row` (frozen dataclass: `number`, `name`, `metric`, `scope`, `n_queries`, `delta`, `significant`, `source`)
+  - `src.ablation_table.ABLATIONS: tuple[dict, ...]` — the seven ablations as eight rows (Ablation 2 is its two ladder rungs, `2a` and `2b`), each with its label, owner file, metric and scope
+  - `src.ablation_table.Row` (frozen dataclass: `number`, `label`, `name`, `metric`, `scope`, `n_queries`, `delta`, `significant`, `source`)
   - `src.ablation_table.load_results(directory) -> dict[str, dict]`
   - `src.ablation_table.build_rows(results) -> list[Row]`
   - `src.ablation_table.format_markdown(rows) -> str`
@@ -626,6 +629,17 @@ read as comparable, and every summary sentence written from that table inherits
 the error. So `scope` and `n_queries` are required fields on every row, the
 Markdown renderer prints them as columns, and `build_rows` raises if a row is
 missing either.
+
+**Ablation 2 is a ladder and is printed as one.** `PROJECT_SPEC.md` §6 reads
+"Dense-only vs. +BM25 vs. +image" — three arms, two steps — and Plan 4's
+`src/recall_report.py` stores both steps in `ablation_2_ladder` precisely
+because "comparing only against BM25 would credit the image channel with the
+whole fusion gain when its own marginal contribution is what the spec asks
+for". This plan as first written read Ablation 2 from `comparisons` instead —
+the full fusion against BM25, **+0.0661** — which is the over-credit Plan 4
+warned about: the image step is **+0.0048**, the BM25 step **+0.0895**. So
+Ablation 2 is two rows, `2a` (+BM25 over dense) and `2b` (+image over
+dense+BM25), both read from the ladder.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -647,18 +661,20 @@ from src.ablation_table import (
 
 def _row(number=1, **kwargs):
     base = dict(
-        number=number, name="a thing", metric="NDCG", scope="test",
-        n_queries=8956, delta={"point": 0.01, "low": 0.005, "high": 0.015},
+        number=number, label=str(number), name="a thing", metric="NDCG",
+        scope="test", n_queries=8956,
+        delta={"point": 0.01, "low": 0.005, "high": 0.015},
         significant=True, source="docs/results/x.json",
     )
     base.update(kwargs)
     return Row(**base)
 
 
-# --- the seven rows ---------------------------------------------------------
+# --- the seven ablations ----------------------------------------------------
 
 def test_all_seven_ablations_are_declared():
-    assert [a["number"] for a in ABLATIONS] == [1, 2, 3, 4, 5, 6, 7]
+    assert sorted({a["number"] for a in ABLATIONS}) == [1, 2, 3, 4, 5, 6, 7]
+    assert len({a["label"] for a in ABLATIONS}) == len(ABLATIONS)
 
 
 def test_every_declared_ablation_names_its_source_and_metric():
@@ -669,10 +685,19 @@ def test_every_declared_ablation_names_its_source_and_metric():
 
 def test_the_recall_ablations_are_the_first_two():
     # §6: Ablations 1 and 2 are Recall@k, the rest NDCG.
-    by_number = {a["number"]: a for a in ABLATIONS}
-    assert by_number[1]["metric"] == "Recall@100"
-    assert by_number[2]["metric"] == "Recall@100"
-    assert by_number[3]["metric"] == "NDCG"
+    for ablation in ABLATIONS:
+        expected = "Recall@100" if ablation["number"] in (1, 2) else "NDCG"
+        assert ablation["metric"] == expected
+
+
+def test_ablation_2_is_reported_rung_by_rung():
+    # Fusion-vs-BM25 (+0.0661) credits the image channel with the whole fusion
+    # gain; its own step is +0.0048. Plan 4 stored the ladder for this reason.
+    import src.ablation_table as module
+
+    rungs = sorted(a["label"] for a in ABLATIONS if a["number"] == 2)
+    assert rungs == ["2a", "2b"]
+    assert "ablation_2_ladder" in __import__("inspect").getsource(module)
 
 
 # --- Review Focus 3: scope is not optional ---------------------------------
@@ -744,6 +769,11 @@ def test_a_row_records_where_it_came_from():
 def test_an_ordered_table_is_numbered_one_to_seven():
     rows = build_rows([_row(number=n) for n in (3, 1, 2)])
     assert [row.number for row in rows] == [1, 2, 3]
+
+
+def test_rows_sharing_a_number_order_by_label():
+    rows = build_rows([_row(number=2, label="2b"), _row(number=2, label="2a")])
+    assert [row.label for row in rows] == ["2a", "2b"]
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -794,19 +824,24 @@ REQUIRED_FILES: tuple[str, ...] = (
 )
 
 ABLATIONS: tuple[dict, ...] = (
-    {"number": 1, "name": "Raw vs. LLM-rewritten query", "metric": "Recall@100",
+    {"number": 1, "label": "1", "name": "Raw vs. LLM-rewritten query", "metric": "Recall@100",
      "scope": "fold 0, full corpus", "source": "docs/results/recall.json", "owner": "Plan 4"},
-    {"number": 2, "name": "Dense-only vs. +BM25 vs. +image (RRF)", "metric": "Recall@100",
+    # Ablation 2 is a ladder - dense, +BM25, +image - and each rung's claim is
+    # about the rung below it. One fusion-vs-BM25 row would credit the image
+    # channel with the whole fusion gain (+0.0661) when its step is +0.0048.
+    {"number": 2, "label": "2a", "name": "+BM25 over dense-only (RRF)", "metric": "Recall@100",
      "scope": "fold 0, full corpus", "source": "docs/results/recall.json", "owner": "Plan 4"},
-    {"number": 3, "name": "Text-only vs. text+image features", "metric": "NDCG",
+    {"number": 2, "label": "2b", "name": "+image over dense+BM25 (RRF)", "metric": "Recall@100",
+     "scope": "fold 0, full corpus", "source": "docs/results/recall.json", "owner": "Plan 4"},
+    {"number": 3, "label": "3", "name": "Text-only vs. text+image features", "metric": "NDCG",
      "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
-    {"number": 4, "name": "With vs. without behavioural features", "metric": "NDCG",
+    {"number": 4, "label": "4", "name": "With vs. without behavioural features", "metric": "NDCG",
      "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
-    {"number": 5, "name": "Pointwise vs. lambdarank", "metric": "NDCG",
+    {"number": 5, "label": "5", "name": "Pointwise vs. lambdarank", "metric": "NDCG",
      "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
-    {"number": 6, "name": "Coarse-only vs. +cross-encoder vs. +LLM listwise", "metric": "NDCG",
+    {"number": 6, "label": "6", "name": "Coarse-only vs. +cross-encoder vs. +LLM listwise", "metric": "NDCG",
      "scope": "test sample", "source": "docs/results/fine-rank-test.json", "owner": "Plan 6"},
-    {"number": 7, "name": "Learned fusion vs. fixed global weight", "metric": "NDCG",
+    {"number": 7, "label": "7", "name": "Learned fusion vs. fixed global weight", "metric": "NDCG",
      "scope": "test", "source": "docs/results/coarse-rank-test.json", "owner": "Plan 5"},
 )
 
@@ -820,6 +855,7 @@ _SCOPE_WARNING = (
 @dataclass(frozen=True)
 class Row:
     number: int
+    label: str
     name: str
     metric: str
     scope: str
@@ -831,6 +867,7 @@ class Row:
     def to_dict(self) -> dict:
         return {
             "number": self.number,
+            "label": self.label,
             "name": self.name,
             "metric": self.metric,
             "scope": self.scope,
@@ -872,7 +909,7 @@ def build_rows(rows: Sequence[Row]) -> list[Row]:
                 f"ablation {row.number} has no n_queries; an interval without "
                 "its sample size cannot be judged"
             )
-    return sorted(rows, key=lambda row: row.number)
+    return sorted(rows, key=lambda row: (row.number, row.label))
 
 
 def format_markdown(rows: Sequence[Row]) -> str:
@@ -889,7 +926,7 @@ def format_markdown(rows: Sequence[Row]) -> str:
                     f"[{row.delta['low']:+.4f}, {row.delta['high']:+.4f}]")
             verdict = "significant" if row.significant else "ties"
         lines.append(
-            f"| {row.number} | {row.name} | {row.metric} | {row.scope} | "
+            f"| {row.label} | {row.name} | {row.metric} | {row.scope} | "
             f"{row.n_queries:,} | {cell} | {verdict} |"
         )
     return "\n".join(lines) + "\n\n" + _SCOPE_WARNING
@@ -905,49 +942,52 @@ def _main() -> int:
     recall, coarse = results["recall"], results["coarse-rank-test"]
     fine, blend = results["fine-rank-test"], results["blend-test"]
 
-    by_number = {a["number"]: dict(a) for a in ABLATIONS}
+    by_label = {a["label"]: dict(a) for a in ABLATIONS}
 
     # 1 - the rewritten query against the same fused channel. Plan 4 already
     # computed this as a *paired* bootstrap and stored it under
     # `ablation_1_rewrite`; subtracting two vs-BM25 intervals instead would be
     # the same interval arithmetic that over-corrected Plan 5's Ablation 4 by
     # 0.0143. Read the file, never re-derive.
-    by_number[1]["delta"] = recall["ablation_1_rewrite"]["delta"]
-    by_number[1]["significant"] = recall["ablation_1_rewrite"]["significant"]
-    by_number[1]["n_queries"] = recall["n_queries"]
+    by_label["1"]["delta"] = recall["ablation_1_rewrite"]["delta"]
+    by_label["1"]["significant"] = recall["ablation_1_rewrite"]["significant"]
+    by_label["1"]["n_queries"] = recall["n_queries"]
 
-    # 2 - the full fusion against the BM25 baseline.
-    fused = [c for c in recall["comparisons"] if c["arm"] == "dense+bm25+image"][0]
-    by_number[2]["delta"] = fused["delta"]
-    by_number[2]["significant"] = fused["significant"]
-    by_number[2]["n_queries"] = recall["n_queries"]
+    # 2 - the ladder, rung by rung, from `ablation_2_ladder`. Never from
+    # `comparisons`, whose fusion-vs-BM25 row credits the image channel with
+    # the whole fusion gain - the over-credit Plan 4 stored the ladder to avoid.
+    ladder = {row["arm"]: row for row in recall["ablation_2_ladder"]}
+    for label, arm in [("2a", "dense+bm25"), ("2b", "dense+bm25+image")]:
+        by_label[label]["delta"] = ladder[arm]["delta"]
+        by_label[label]["significant"] = ladder[arm]["significant"]
+        by_label[label]["n_queries"] = recall["n_queries"]
 
-    for number, key in [(3, "3_text_vs_image"), (7, "7_learned_fusion")]:
+    for label, key in [("3", "3_text_vs_image"), ("7", "7_learned_fusion")]:
         entry = coarse["ablations"][key]
-        by_number[number]["delta"] = entry["delta"]
-        by_number[number]["significant"] = entry["significant"]
-        by_number[number]["n_queries"] = coarse["n_queries"]
+        by_label[label]["delta"] = entry["delta"]
+        by_label[label]["significant"] = entry["significant"]
+        by_label[label]["n_queries"] = coarse["n_queries"]
 
     behavioural = coarse["ablations"]["4_behavioural"]
-    by_number[4]["delta"] = behavioural["values_over_indicators"]
-    by_number[4]["significant"] = behavioural["values_over_indicators_significant"]
-    by_number[4]["n_queries"] = coarse["n_queries"]
+    by_label["4"]["delta"] = behavioural["values_over_indicators"]
+    by_label["4"]["significant"] = behavioural["values_over_indicators_significant"]
+    by_label["4"]["n_queries"] = coarse["n_queries"]
 
     objective = coarse["ablations"]["5_objective"][0]
-    by_number[5]["delta"] = objective["delta"]
-    by_number[5]["significant"] = objective["significant"]
-    by_number[5]["n_queries"] = coarse["n_queries"]
+    by_label["5"]["delta"] = objective["delta"]
+    by_label["5"]["significant"] = objective["significant"]
+    by_label["5"]["n_queries"] = coarse["n_queries"]
 
     llm = [row for row in fine["ablation_6"] if row["arm"] == "stage2+llm"][0]
-    by_number[6]["delta"] = llm["delta"]
-    by_number[6]["significant"] = llm["significant"]
-    by_number[6]["n_queries"] = fine["n_queries"]
+    by_label["6"]["delta"] = llm["delta"]
+    by_label["6"]["significant"] = llm["significant"]
+    by_label["6"]["n_queries"] = fine["n_queries"]
 
     rows = build_rows([
-        Row(number=a["number"], name=a["name"], metric=a["metric"],
-            scope=a["scope"], n_queries=a["n_queries"], delta=a["delta"],
-            significant=a["significant"], source=a["source"])
-        for a in by_number.values()
+        Row(number=a["number"], label=a["label"], name=a["name"],
+            metric=a["metric"], scope=a["scope"], n_queries=a["n_queries"],
+            delta=a["delta"], significant=a["significant"], source=a["source"])
+        for a in by_label.values()
     ])
     table = format_markdown(rows)
     print(table)
@@ -976,13 +1016,14 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_ablation_table.py -q`
-Expected: PASS, 13 tests.
+Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Produce the table**
 
 Run: `python -m src.ablation_table`
 
-Expected: seven rows with three distinct scopes visible, and
+Expected: eight rows — the seven ablations, with Ablation 2 as its two
+rungs (2a +0.0895, 2b +0.0048) — with three distinct scopes visible, and
 `docs/results/ablation-table.json` written. Check each delta against its source
 file by eye once — this module's whole value is that it does not recompute, so
 a wrong key selection would silently publish the wrong number under the right

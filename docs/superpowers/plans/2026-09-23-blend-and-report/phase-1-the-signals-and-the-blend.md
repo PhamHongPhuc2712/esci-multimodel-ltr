@@ -22,8 +22,8 @@ reports; blending a stage that never ran on those queries).
 The full list is in [`README.md`](README.md#global-constraints); these are the
 ones this phase's code can get wrong:
 
-- **No new API calls.** Every LLM ordering is already cached; a miss is an error, never a fallback.
-- **No query may be scored by a model that trained on it.**
+- **No new API calls.** Every usable LLM ordering is already cached. The three windows whose answer was malformed carry the Stage 2 order, *flagged*, exactly as Plan 6 scored them; any miss beyond that is a scope error and stops the run.
+- **No query may be scored — or routed — by a model that trained on it.** The combiner and the selector both.
 - **Stage 4 orderings go through `spliced_run`**, which still refuses anything that is not a permutation of the window.
 - **`label_gain` comes from `src.ranker.LABEL_GAIN`**, never LightGBM's default.
 - **Commit messages are one line. Never mention Claude, Claude Code, Anthropic, or any AI tool.**
@@ -38,28 +38,49 @@ ones this phase's code can get wrong:
 - Modify: `src/cross_encoder.py` (add `window_scores` beside `rerank`)
 
 **Interfaces:**
-- Consumes: `src.rerank_window.{Window, windows, DEFAULT_K}`, `src.stage2_scores.load_stage2`, `src.llm_rerank.{RerankCache, window_key}`, `src.cross_encoder.{load_reranker, text_maps, DEFAULT_MODEL_DIR}`.
+- Consumes: `src.rerank_window.{Window, windows, DEFAULT_K}`, `src.stage2_scores.load_stage2`, `src.fine_rank_report.TEST_SAMPLE`, `src.ranker.REPORT_FOLD`, `src.rrf.DEFAULT_K`, `src.llm_rerank.{RerankCache, window_key, DEFAULT_CACHE}`, `src.cross_encoder.{load_reranker, text_maps, DEFAULT_MODEL_DIR}`.
 - Produces:
   - `src.cross_encoder.window_scores(model, windows_, query_text, doc_text, *, batch_size=256) -> dict[tuple[str, str], float]`
   - `src.stage_signals.DEFAULT_DIR: Path` = `Path("data/features")`
   - `src.stage_signals.SCOPES: tuple[str, ...]` = `("fold0", "test-sample")`
-  - `src.stage_signals.SIGNAL_COLUMNS: tuple[str, ...]`
+  - `src.stage_signals.SIGNAL_COLUMNS: tuple[str, ...]` (includes `llm_fallback`)
   - `src.stage_signals.BLEND_FEATURES: tuple[str, ...]`
+  - `src.stage_signals.RRF_K: int` (re-exported from `src.rrf.DEFAULT_K`)
+  - `src.stage_signals.MAX_FALLBACK_SHARE: float` = `0.005`
+  - `src.stage_signals.scope_windows(scope, *, k=None, features_dir=DEFAULT_DIR, seed=0) -> tuple[list[Window], pd.DataFrame]` — the only place a scope becomes query ids; Phases 2 and 3 call it rather than re-deriving the sample
   - `src.stage_signals.llm_orderings_from_cache(windows_, query_text, cache) -> tuple[dict[str, list[str]], list[str]]`
-  - `src.stage_signals.build_signals(windows_, labels, *, ce_scores, llm_orderings) -> pd.DataFrame`
+  - `src.stage_signals.check_fallback_share(missing, n_windows) -> None`
+  - `src.stage_signals.build_signals(windows_, labels, *, ce_scores, llm_orderings, llm_fallbacks=()) -> pd.DataFrame`
   - `src.stage_signals.require_full_coverage(frame) -> None`
   - `src.stage_signals.load_signals(scope, directory=DEFAULT_DIR) -> pd.DataFrame`
   - CLI: `python -m src.stage_signals --scope {fold0,test-sample}` writing `data/features/stage-signals-<scope>.parquet`
 
-**Review Focus 2 lives in `llm_orderings_from_cache` and
-`require_full_coverage`.** `data/llm-rerank.json` holds permutations for the
-4,130 fold-0 windows and the 2,000 test-sample windows — and nothing else. The
-tempting shape is "look it up, and if it is missing keep the Stage 2 order",
-which is exactly what `rerank_windows` does at runtime and exactly wrong here:
-a signal frame built over the full 8,956-query test split would give 6,956
-queries the Stage 2 order *labelled `llm`*, and Stage 4 would report the
-dilution as a blend effect. So the lookup returns the misses and the caller
-raises.
+**Review Focus 2 lives in `llm_orderings_from_cache`, `check_fallback_share`
+and `build_signals`.** `data/llm-rerank.json` holds permutations for fold 0 and
+the 2,000-query test sample — and nothing else. The tempting shape is "look it
+up, and if it is missing keep the Stage 2 order", which is what `rerank_windows`
+does at runtime and exactly wrong here: a signal frame built over the full
+8,956-query test split would give 6,956 queries the Stage 2 order *labelled
+`llm`*, and Stage 4 would report the dilution as a blend effect.
+
+**But the cache is not complete even for the right scopes**, and this plan as
+first written said it was. Measured against the cache on 2026-09-23 with no API
+calls: **1 of 4,130** fold-0 windows (query 55755, "jeff shalfon the family")
+and **2 of 2,000** test-sample windows (49855, "heartland season 13"; 66028,
+"marvelous mrs maisel season 2") have no permutation. They are windows whose
+LLM answer was malformed; malformed answers are deliberately not cached, and
+fold 0's has now failed twice, so re-running would likely fail again — and on
+test it would also be a second measurement. Plan 6 scored all three in Stage 2
+order and counted them in `n_fallback` (1 and 2 in its committed results).
+
+So the frame carries them the same way, **flagged**: `llm_fallback = True`,
+`llm_rank = stage2_rank`. That is the only choice under which the frame's `llm`
+column is the arm Plan 6 published (0.8814 fold 0, 0.8855 test), and the data
+test proves it by reproducing both. What separates this from the scope error
+is the count: `check_fallback_share` refuses more than 0.5% of windows (the
+worst measured is 0.10%; the scope error is 77.7%), and `build_signals` raises
+on any window that has neither an ordering nor a declared fallback, so the
+silent path does not exist even for a caller that skips the CLI.
 
 **Why the cross-encoder needs a new entry point.** Plan 6's `rerank` returns
 orderings on purpose, so a logit can never land in a run beside a Stage 2
@@ -73,6 +94,8 @@ two can never disagree about a tie-break.
 Create `tests/test_stage_signals.py`:
 
 ```python
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -80,11 +103,15 @@ import pytest
 from src.rerank_window import Window
 from src.stage_signals import (
     BLEND_FEATURES,
+    MAX_FALLBACK_SHARE,
+    RRF_K,
     SCOPES,
     SIGNAL_COLUMNS,
     build_signals,
+    check_fallback_share,
     llm_orderings_from_cache,
     require_full_coverage,
+    scope_windows,
 )
 
 
@@ -111,6 +138,7 @@ def _labels():
             "label_code": [3, 0, 2, 1, 3, 0],
             "gain": [1.0, 0.0, 0.1, 0.01, 1.0, 0.0],
             "qrel": [100, 0, 10, 1, 100, 0],
+            "stage2_score": [3.0, 2.0, 1.0, 0.5, 9.0, 8.0],
         }
     )
 
@@ -124,55 +152,67 @@ def _llm():
     return {"1": ["c", "a", "b"], "2": ["y", "x"]}
 
 
+def _frame(**kwargs):
+    arguments = dict(ce_scores=_ce(), llm_orderings=_llm()) | kwargs
+    return build_signals(_windows(), _labels(), **arguments)
+
+
 # --- the frame --------------------------------------------------------------
 
 def test_the_frame_has_one_row_per_window_document():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
+    frame = _frame()
     assert len(frame) == 5          # 3 + 2 window documents; the tail is not scored
     assert list(frame.columns) == list(SIGNAL_COLUMNS)
 
 
 def test_the_tail_is_not_in_the_frame():
     # Stage 3 never looked at it, so no stage has an opinion to blend.
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    assert "z" not in set(frame["product_id"])
+    assert "z" not in set(_frame()["product_id"])
 
 
 def test_stage_2_rank_is_the_window_position():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    q1 = frame[frame["query_id"] == "1"].set_index("product_id")
+    q1 = _frame().query("query_id == '1'").set_index("product_id")
     assert q1.loc["a", "stage2_rank"] == 1
     assert q1.loc["c", "stage2_rank"] == 3
 
 
+def test_stage_2_score_travels_from_the_labels():
+    q1 = _frame().query("query_id == '1'").set_index("product_id")
+    assert q1.loc["b", "stage2_score"] == pytest.approx(2.0)
+
+
 def test_llm_rank_is_the_position_in_the_llm_ordering():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    q1 = frame[frame["query_id"] == "1"].set_index("product_id")
+    q1 = _frame().query("query_id == '1'").set_index("product_id")
     assert q1.loc["c", "llm_rank"] == 1      # the LLM put c first
     assert q1.loc["b", "llm_rank"] == 3
 
 
-def test_reciprocal_rank_falls_with_rank():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    q1 = frame[frame["query_id"] == "1"].set_index("product_id")
+def test_reciprocal_rank_uses_the_stage_1_constant():
+    q1 = _frame().query("query_id == '1'").set_index("product_id")
+    assert q1.loc["c", "llm_rr"] == pytest.approx(1.0 / (RRF_K + 1))
     assert q1.loc["c", "llm_rr"] > q1.loc["b", "llm_rr"]
 
 
 def test_labels_travel_with_the_signals():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    q1 = frame[frame["query_id"] == "1"].set_index("product_id")
+    q1 = _frame().query("query_id == '1'").set_index("product_id")
     assert q1.loc["a", "label_code"] == 3
     assert q1.loc["a", "qrel"] == 100
 
 
 def test_every_blend_feature_is_a_column():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    assert set(BLEND_FEATURES) <= set(frame.columns)
+    assert set(BLEND_FEATURES) <= set(_frame().columns)
+
+
+def test_the_answer_is_not_a_blend_feature():
+    # gain, qrel and label_code are the label. llm_fallback is bookkeeping:
+    # three windows carry it, and a combiner that learned from it would be
+    # learning which queries made the LLM malfunction.
+    assert not {"gain", "qrel", "label_code", "llm_fallback"} & set(BLEND_FEATURES)
 
 
 def test_a_missing_cross_encoder_score_raises():
     with pytest.raises(KeyError, match="cross-encoder"):
-        build_signals(_windows(), _labels(), ce_scores={}, llm_orderings=_llm())
+        _frame(ce_scores={})
 
 
 def test_a_missing_label_raises():
@@ -182,7 +222,15 @@ def test_a_missing_label_raises():
         build_signals(_windows(), labels, ce_scores=_ce(), llm_orderings=_llm())
 
 
-# --- Review Focus 2: the cache covers these windows, or it does not ---------
+def test_labels_without_a_stage_2_score_raise():
+    # The written plan let this through as NaN, and require_full_coverage then
+    # rejected every frame - including the one its own test called complete.
+    labels = _labels().drop(columns=["stage2_score"])
+    with pytest.raises(KeyError, match="stage2_score"):
+        build_signals(_windows(), labels, ce_scores=_ce(), llm_orderings=_llm())
+
+
+# --- Review Focus 2: the cache covers these windows, or it says so ---------
 
 def test_cached_permutations_become_orderings():
     from src.llm_rerank import window_key
@@ -199,11 +247,12 @@ def test_cached_permutations_become_orderings():
 
 def test_a_cache_miss_is_reported_not_papered_over():
     # The cache covers fold 0 and the 2,000-query test sample, nothing else.
-    # Falling back to the Stage 2 order here would label 6,956 test queries
-    # `llm` and report the dilution as a blend effect.
+    # Falling back silently here would label 6,956 test queries `llm` and
+    # report the dilution as a blend effect.
     query_text = {"1": "red shoes", "2": "blue hat"}
     orderings, missing = llm_orderings_from_cache(_windows(), query_text, FakeCache({}))
     assert sorted(missing) == ["1", "2"]
+    assert orderings == {}
 
 
 def test_a_permutation_of_the_wrong_length_counts_as_a_miss():
@@ -215,13 +264,55 @@ def test_a_permutation_of_the_wrong_length_counts_as_a_miss():
     assert "1" in missing
 
 
+def test_a_window_with_no_ordering_and_no_fallback_flag_raises():
+    # build_signals itself refuses the silent fallback; the CLI is not the
+    # only guard.
+    with pytest.raises(KeyError, match="LLM ordering"):
+        _frame(llm_orderings={"1": ["c", "a", "b"]})
+
+
+def test_a_declared_fallback_keeps_the_stage_2_order_and_is_flagged():
+    # Exactly how Plan 6 scored a window whose LLM answer was malformed, so
+    # the frame reproduces Plan 6's arm rather than a different one.
+    frame = _frame(llm_orderings={"1": ["c", "a", "b"]}, llm_fallbacks=["2"])
+    q2 = frame.query("query_id == '2'").set_index("product_id")
+    assert list(q2["llm_rank"]) == list(q2["stage2_rank"])
+    assert q2["llm_fallback"].all()
+    assert not frame.query("query_id == '1'")["llm_fallback"].any()
+
+
+def test_a_query_cannot_be_both_ranked_and_a_fallback():
+    with pytest.raises(ValueError, match="fallback"):
+        _frame(llm_fallbacks=["1"])
+
+
+def test_an_llm_ordering_that_is_not_a_permutation_raises():
+    with pytest.raises(ValueError, match="permutation"):
+        _frame(llm_orderings={"1": ["a", "a", "b"], "2": ["y", "x"]})
+
+
+def test_the_measured_handful_of_fallbacks_is_accepted():
+    check_fallback_share(["55755"], 4130)                 # fold 0, measured
+    check_fallback_share(["49855", "66028"], 2000)        # test sample, measured
+
+
+def test_a_scope_error_is_refused():
+    # The full test split against a cache that covers 2,000 of its queries.
+    missing = [str(i) for i in range(6956)]
+    with pytest.raises(ValueError, match="scope"):
+        check_fallback_share(missing, 8956)
+
+
+def test_the_fallback_ceiling_sits_between_the_measurement_and_a_scope_error():
+    assert 2 / 2000 <= MAX_FALLBACK_SHARE < 6956 / 8956
+
+
 def test_require_full_coverage_passes_a_complete_frame():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
-    require_full_coverage(frame)      # must not raise
+    require_full_coverage(_frame())      # must not raise
 
 
 def test_require_full_coverage_rejects_a_null_signal():
-    frame = build_signals(_windows(), _labels(), ce_scores=_ce(), llm_orderings=_llm())
+    frame = _frame()
     frame.loc[0, "ce_score"] = np.nan
     with pytest.raises(ValueError, match="incomplete"):
         require_full_coverage(frame)
@@ -229,6 +320,11 @@ def test_require_full_coverage_rejects_a_null_signal():
 
 def test_the_scopes_are_the_two_the_llm_actually_ran_on():
     assert SCOPES == ("fold0", "test-sample")
+
+
+def test_an_unknown_scope_is_refused_before_anything_is_read(tmp_path):
+    with pytest.raises(ValueError, match="scope"):
+        scope_windows("test", features_dir=tmp_path)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -299,6 +395,8 @@ def rerank(
 Add to `tests/test_cross_encoder.py`:
 
 ```python
+# --- Plan 7: the scores themselves, for the blend ---------------------------
+
 def test_window_scores_keys_on_query_and_document():
     from src.cross_encoder import window_scores
 
@@ -315,8 +413,7 @@ def test_rerank_and_window_scores_agree():
     from src.cross_encoder import window_scores
 
     q, d = _maps()
-    model = FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5})
-    scores = window_scores(model, _windows(), q, d)
+    scores = window_scores(FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5}), _windows(), q, d)
     ordering = rerank(FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5}), _windows(), q, d)
     assert ordering["1"] == sorted(
         ["a", "b", "c"], key=lambda doc: (-scores[("1", doc)], doc)
@@ -352,22 +449,35 @@ Four signals per (query, window document):
 The LLM has no score - it returns a permutation - so rank is the only signal it
 offers, and `llm_rr` is the reciprocal-rank form a fusion would want.
 
-**A cache miss is an error, not a fallback.** data/llm-rerank.json covers the
-4,130 fold-0 windows and the 2,000-query test sample. Over any other query set
-the lookup misses, and the runtime behaviour of src.llm_rerank - keep the
-Stage 2 order - would here mean labelling Stage 2's ordering `llm` and
-reporting the dilution as a blend effect. So the lookup returns its misses and
-the caller refuses to build.
+**A cache miss is counted, flagged and capped - never absorbed.**
+data/llm-rerank.json holds a permutation for 4,129 of the 4,130 fold-0 windows
+and 1,998 of the 2,000 test-sample windows. The three misses (fold-0 query
+55755, test queries 49855 and 66028 - two TV-series titles and a book) are
+windows whose LLM answer was malformed; malformed answers are deliberately not
+cached, and fold 0's failed twice. Plan 6 scored all three in Stage 2 order
+and counted them in `n_fallback`, so they carry that order here with
+`llm_fallback = True`, which is what lets the frame reproduce Plan 6's
+0.8814 and 0.8855 exactly.
+
+What must never happen is the *scope* error: over the full 8,956-query test
+split the lookup misses 6,956 windows, and quietly keeping the Stage 2 order
+would label Stage 2's ordering `llm` and report the dilution as a blend
+effect. So misses are returned rather than absorbed, `check_fallback_share`
+refuses more than MAX_FALLBACK_SHARE of them, and `build_signals` raises for
+any window that has neither an ordering nor a declared fallback.
 """
 
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
+
+# The same constant src.rrf uses, so a reciprocal rank means the same thing in
+# Stage 1 and Stage 4.
+from src.rrf import DEFAULT_K as RRF_K
 
 DEFAULT_DIR = Path("data/features")
 
@@ -382,13 +492,15 @@ SIGNAL_COLUMNS: tuple[str, ...] = (
     "ce_score",
     "llm_rank",
     "llm_rr",
+    "llm_fallback",
     "label_code",
     "gain",
     "qrel",
 )
 
-# What the learned combiner is allowed to see. Deliberately not `gain` or
-# `qrel`: those are the answer.
+# What the learned combiner is allowed to see. Deliberately not `gain`, `qrel`
+# or `label_code` - those are the answer - and not `llm_fallback`, which marks
+# the three windows the LLM malfunctioned on.
 BLEND_FEATURES: tuple[str, ...] = (
     "stage2_score",
     "stage2_rank",
@@ -397,9 +509,64 @@ BLEND_FEATURES: tuple[str, ...] = (
     "llm_rr",
 )
 
-# The same constant src.rrf uses, so a reciprocal rank means the same thing
-# in Stage 1 and Stage 4.
-RRF_K = 60
+# Measured 2026-09-23: 1 of 4,130 fold-0 windows (0.02%) and 2 of 2,000
+# test-sample windows (0.10%) have no cached permutation. The scope error this
+# guards against - the full test split - misses 6,956 of 8,956 (77.7%). The
+# ceiling sits 5x above the worst measured rate and >100x below a scope error.
+MAX_FALLBACK_SHARE = 0.005
+
+
+def scope_windows(
+    scope: str,
+    *,
+    k: int | None = None,
+    features_dir: Path = DEFAULT_DIR,
+    seed: int = 0,
+) -> tuple[list, pd.DataFrame]:
+    """The windows Plan 6 re-ranked for `scope`, and the judged matrix behind them.
+
+    The one place a scope becomes query ids. The blend report and the error
+    analysis rebuild their windows through here rather than re-deriving the
+    sample, so every reader of the signal frame sees the same candidate sets.
+    The test sample is drawn exactly as src/fine_rank_report.py drew it; the
+    data test pins that by reproducing Plan 6's per-arm NDCG from the frame.
+
+    The returned matrix carries `stage2_score` for every judged pair.
+    """
+    from src.fine_rank_report import TEST_SAMPLE
+    from src.ranker import REPORT_FOLD
+    from src.rerank_window import DEFAULT_K, windows
+    from src.stage2_scores import load_stage2
+
+    if scope not in SCOPES:
+        raise ValueError(
+            f"unknown scope {scope!r}; expected one of {SCOPES}. The LLM ran on "
+            "fold 0 and the 2,000-query test sample, nothing else."
+        )
+    k = DEFAULT_K if k is None else k
+    features_dir = Path(features_dir)
+
+    if scope == "fold0":
+        matrix = pd.read_parquet(features_dir / "train.parquet")
+        matrix = matrix.loc[matrix["fold"] == REPORT_FOLD]
+        split = "train"
+    else:
+        matrix = pd.read_parquet(features_dir / "test.parquet")
+        keep = matrix["query_id"].drop_duplicates().sample(
+            n=TEST_SAMPLE, random_state=seed
+        )
+        matrix = matrix.loc[matrix["query_id"].isin(set(keep))]
+        split = "test"
+    matrix = matrix.reset_index(drop=True)
+
+    stage2 = load_stage2(split, features_dir)[["query_id", "product_id", "stage2_score"]]
+    matrix = matrix.merge(stage2, on=["query_id", "product_id"], how="left")
+    if matrix["stage2_score"].isna().any():
+        raise ValueError(
+            f"{int(matrix['stage2_score'].isna().sum()):,} judged pairs have no "
+            f"Stage 2 score; re-run python -m src.stage2_scores --split {split}"
+        )
+    return windows(matrix[["query_id", "product_id", "stage2_score"]], k=k), matrix
 
 
 def llm_orderings_from_cache(
@@ -425,37 +592,79 @@ def llm_orderings_from_cache(
     return orderings, missing
 
 
+def check_fallback_share(missing: Collection[str], n_windows: int) -> None:
+    """Refuse a miss count that means the scope is wrong, not the LLM."""
+    if n_windows <= 0:
+        raise ValueError("no windows to check")
+    share = len(missing) / n_windows
+    if share > MAX_FALLBACK_SHARE:
+        raise ValueError(
+            f"{len(missing):,} of {n_windows:,} windows ({share:.1%}) have no "
+            f"cached LLM permutation, past the {MAX_FALLBACK_SHARE:.1%} a "
+            "handful of malformed answers explains. This is a scope error: the "
+            "LLM ran on fold 0 and the 2,000-query test sample only, and this "
+            "plan issues no API calls."
+        )
+
+
 def build_signals(
     windows_: Sequence,
     labels: pd.DataFrame,
     *,
     ce_scores: Mapping[tuple[str, str], float],
     llm_orderings: Mapping[str, Sequence[str]],
+    llm_fallbacks: Collection[str] = (),
 ) -> pd.DataFrame:
     """One row per window document, carrying every stage's signal and the label.
 
-    The tail is excluded: no Stage 3 arm looked at it, so no stage has an
-    opinion of it to blend, and including it would let the combiner reorder
-    documents the window never contained.
+    `labels` needs query_id, product_id, label_code, gain, qrel and
+    stage2_score. The tail is excluded: no Stage 3 arm looked at it, so no
+    stage has an opinion of it to blend, and including it would let the
+    combiner reorder documents the window never contained.
+
+    A window in `llm_fallbacks` keeps its Stage 2 order under `llm` and is
+    flagged - how Plan 6 scored a malformed answer. A window in neither
+    mapping raises.
     """
-    label_by = {
-        (str(q), str(p)): (int(c), float(g), int(r))
-        for q, p, c, g, r in zip(
-            labels["query_id"], labels["product_id"],
-            labels["label_code"], labels["gain"], labels["qrel"],
+    if "stage2_score" not in labels.columns:
+        raise KeyError(
+            "labels has no stage2_score column; a blend feature that is "
+            "silently NaN trains the combiner on nothing"
+        )
+    fallbacks = {str(q) for q in llm_fallbacks}
+    both = fallbacks & set(llm_orderings)
+    if both:
+        raise ValueError(
+            f"{sorted(both)[:3]} have an LLM ordering and a fallback flag; a "
+            "window is one or the other"
+        )
+
+    by_pair = {
+        (str(q), str(p)): (int(c), float(g), int(r), float(s))
+        for q, p, c, g, r, s in zip(
+            labels["query_id"], labels["product_id"], labels["label_code"],
+            labels["gain"], labels["qrel"], labels["stage2_score"],
         )
     }
-    stage2_by = {
-        (str(q), str(p)): float(s)
-        for q, p, s in zip(
-            labels["query_id"], labels["product_id"], labels["stage2_score"]
-        )
-    } if "stage2_score" in labels.columns else None
 
     rows: list[dict] = []
     for w in windows_:
-        order = list(llm_orderings.get(w.query_id, w.window))
+        if w.query_id in fallbacks:
+            order, fell_back = list(w.window), True
+        elif w.query_id in llm_orderings:
+            order, fell_back = list(llm_orderings[w.query_id]), False
+            if sorted(order) != sorted(w.window):
+                raise ValueError(
+                    f"query {w.query_id}: the LLM ordering is not a permutation "
+                    "of its window"
+                )
+        else:
+            raise KeyError(
+                f"no LLM ordering for query {w.query_id} and it is not a declared "
+                "fallback; keeping the Stage 2 order here would label it `llm`"
+            )
         llm_position = {doc: i for i, doc in enumerate(order, start=1)}
+
         for position, doc in enumerate(w.window, start=1):
             key = (w.query_id, doc)
             if key not in ce_scores:
@@ -463,24 +672,23 @@ def build_signals(
                     f"no cross-encoder score for {key}; a blend feature that "
                     "is silently NaN trains the combiner on nothing"
                 )
-            if key not in label_by:
+            if key not in by_pair:
                 raise KeyError(
                     f"no label for {key}; a window document with no judgement "
                     "cannot be trained on or scored"
                 )
-            code, gain, qrel = label_by[key]
+            code, gain, qrel, stage2_score = by_pair[key]
             rank = llm_position[doc]
             rows.append(
                 {
                     "query_id": w.query_id,
                     "product_id": doc,
-                    "stage2_score": (
-                        stage2_by[key] if stage2_by is not None else float("nan")
-                    ),
+                    "stage2_score": stage2_score,
                     "stage2_rank": position,
                     "ce_score": float(ce_scores[key]),
                     "llm_rank": rank,
                     "llm_rr": 1.0 / (RRF_K + rank),
+                    "llm_fallback": fell_back,
                     "label_code": code,
                     "gain": gain,
                     "qrel": qrel,
@@ -521,41 +729,23 @@ def _main() -> int:
         text_maps,
         window_scores,
     )
-    from src.fine_rank_report import TEST_SAMPLE
     from src.llm_rerank import DEFAULT_CACHE, RerankCache
-    from src.ranker import REPORT_FOLD
-    from src.rerank_window import DEFAULT_K, windows
-    from src.stage2_scores import load_stage2
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scope", default="fold0", choices=list(SCOPES))
-    parser.add_argument("--k", type=int, default=DEFAULT_K)
+    parser.add_argument("--k", type=int, default=None)
     parser.add_argument("--features-dir", type=Path, default=DEFAULT_DIR)
-    parser.add_argument("--model-dir", type=Path, default=Path("models/cross-encoder"))
+    parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    # The two scopes are exactly the two query sets Plan 6 ran the LLM over.
-    if args.scope == "fold0":
-        matrix = pd.read_parquet(args.features_dir / "train.parquet")
-        matrix = matrix.loc[matrix["fold"] == REPORT_FOLD]
-        split = "train"
-    else:
-        matrix = pd.read_parquet(args.features_dir / "test.parquet")
-        keep = matrix["query_id"].drop_duplicates().sample(
-            n=TEST_SAMPLE, random_state=args.seed
-        )
-        matrix = matrix.loc[matrix["query_id"].isin(set(keep))]
-        split = "test"
-    matrix = matrix.reset_index(drop=True)
-
-    scores = load_stage2(split)
-    joined = matrix[["query_id", "product_id"]].merge(
-        scores, on=["query_id", "product_id"]
+    ws, matrix = scope_windows(
+        args.scope, k=args.k, features_dir=args.features_dir, seed=args.seed
     )
-    ws = windows(joined, k=args.k)
-    print(f"{args.scope}: {len(ws):,} windows over {matrix['query_id'].nunique():,} queries")
+    print(f"{args.scope}: {len(ws):,} windows over {matrix['query_id'].nunique():,} "
+          f"queries, {sum(len(w.window) for w in ws):,} window documents")
 
     query_text, doc_text = text_maps(
         matrix,
@@ -567,34 +757,22 @@ def _main() -> int:
     llm_orderings, missing = llm_orderings_from_cache(
         ws, query_text, RerankCache(args.cache)
     )
+    check_fallback_share(missing, len(ws))
     if missing:
-        raise SystemExit(
-            f"{len(missing):,} of {len(ws):,} windows have no cached LLM "
-            f"permutation (first: {missing[:3]}). This plan issues no API "
-            "calls; run `python -m src.llm_rerank` for this scope first, or "
-            "the blend would label Stage 2's ordering `llm`."
-        )
+        print(f"  {len(missing)} window(s) have no cached permutation and keep the "
+              f"Stage 2 order, flagged llm_fallback, as Plan 6 scored them: {missing}")
 
-    model = load_reranker(args.model_dir / "lambda")
+    model = load_reranker(args.model_dir / "lambda", device=args.device)
     ce_scores = window_scores(model, ws, query_text, doc_text)
     del model
 
-    labels = matrix[["query_id", "product_id", "label_code", "gain", "qrel"]].copy()
-    labels["query_id"] = labels["query_id"].astype(str)
-    labels["product_id"] = labels["product_id"].astype(str)
-    labels = labels.merge(
-        joined[["query_id", "product_id", "stage2_score"]].astype(
-            {"query_id": str, "product_id": str}
-        ),
-        on=["query_id", "product_id"],
-    )
-
     frame = build_signals(
-        ws, labels, ce_scores=ce_scores, llm_orderings=llm_orderings
+        ws, matrix, ce_scores=ce_scores, llm_orderings=llm_orderings,
+        llm_fallbacks=missing,
     )
     require_full_coverage(frame)
 
-    path = args.features_dir / f"stage-signals-{args.scope}.parquet"
+    path = Path(args.features_dir) / f"stage-signals-{args.scope}.parquet"
     frame.to_parquet(path, index=False, compression="zstd")
     print(f"wrote {len(frame):,} rows over {frame['query_id'].nunique():,} queries to {path}")
     return 0
@@ -607,7 +785,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `python -m pytest tests/test_stage_signals.py tests/test_cross_encoder.py -q`
-Expected: PASS, 16 + 31 tests.
+Expected: PASS, 26 + 31 tests.
 
 - [ ] **Step 6: Dump both real signal frames**
 
@@ -618,27 +796,47 @@ python -m src.stage_signals --scope fold0
 python -m src.stage_signals --scope test-sample
 ```
 
-Expected: 4,130 windows over 4,130 fold-0 queries and 2,000 over 2,000 test
-queries, no cache misses, and roughly 33,000 and 16,000 rows (fold 0's median
-candidate count is 16, so most windows are full at `K = 10`).
+Expected: 4,130 windows over 4,130 fold-0 queries with **41,255** rows, and
+2,000 over 2,000 test queries with **19,974** rows — 99.3% and 99.2% of
+windows are full at `K = 10`, since the mean candidate count is 20. (This plan
+first predicted "roughly 33,000 and 16,000", which does not follow from its own
+median of 16.) Each run names its fallbacks: **1** on fold 0 (55755) and **2**
+on the test sample (49855, 66028), the windows Plan 6 counted in `n_fallback`.
 
-**If this reports cache misses, stop.** One miss on fold 0 is expected and
-documented — Plan 6 measured 4,129 of 4,130 cached, because the LLM's malformed
-responses are deliberately not cached so they retry. Either re-run
-`python -m src.llm_rerank --split train --folds 0` to fill it (a handful of
-calls, since the rest are cached), or record the count. Thousands of misses
-means the scope is wrong.
+**Do not fill them by calling the LLM.** Fold 0's has failed twice, and a
+test-sample call would be a second measurement of an arm already reported
+once. A different set of fallbacks, or any more than these three, means the
+cache or the scope changed — stop and find out which.
 
 - [ ] **Step 7: Write the data-marked test**
 
 Append to `tests/test_stage_signals.py`:
 
 ```python
+# --- the real frames --------------------------------------------------------
+
+_PLAN_6_RESULTS = {
+    "fold0": "docs/results/fine-rank.json",
+    "test-sample": "docs/results/fine-rank-test.json",
+}
+
+
+def _ordering(frame, column, ascending):
+    out = {}
+    for query_id, group in frame.groupby("query_id", sort=False):
+        pairs = sorted(
+            zip(group[column], group["product_id"]),
+            key=lambda sd: (sd[0] if ascending else -sd[0], sd[1]),
+        )
+        out[str(query_id)] = [doc for _, doc in pairs]
+    return out
+
+
 @pytest.mark.data
 def test_the_real_frames_are_complete():
     from src.stage_signals import load_signals
 
-    for scope, n_queries in [("fold0", 4130), ("test-sample", 2000)]:
+    for scope, n_queries, n_fallback in [("fold0", 4130, 1), ("test-sample", 2000, 2)]:
         frame = load_signals(scope)
         assert frame["query_id"].nunique() == n_queries
         require_full_coverage(frame)
@@ -646,14 +844,49 @@ def test_the_real_frames_are_complete():
         sizes = frame.groupby("query_id").size()
         assert sizes.max() <= 10
         assert sizes.min() >= 1
+        # The windows whose LLM answer was malformed, as Plan 6 counted them.
+        assert frame.groupby("query_id")["llm_fallback"].first().sum() == n_fallback
         # The three stages disagree; if any two are identical the frame is
         # carrying one stage's opinion twice under two names.
         assert not frame["ce_score"].equals(frame["stage2_score"])
         assert (frame["llm_rank"] != frame["stage2_rank"]).any()
+
+
+@pytest.mark.data
+def test_the_frames_reproduce_plan_6s_three_arms():
+    # The frame is only the stage scores if ordering by each column gives back
+    # the NDCG Plan 6 published for that stage. This also pins the test sample:
+    # a different 2,000 queries could not land on all three numbers.
+    from src.metrics import ndcg_per_query
+    from src.rank_report import qrels_from_frame
+    from src.rerank_window import spliced_run
+    from src.stage_signals import load_signals
+
+    for scope, path in _PLAN_6_RESULTS.items():
+        published = {
+            arm["name"]: arm["ndcg"]["point"]
+            for arm in json.loads(open(path, encoding="utf-8").read())["arms"]
+        }
+        frame = load_signals(scope)
+        windows_, matrix = scope_windows(scope)
+        qrels = qrels_from_frame(matrix)
+        for arm, column, ascending in [
+            ("stage2", "stage2_rank", True),
+            ("stage2+ce", "ce_score", False),
+            ("stage2+llm", "llm_rank", True),
+        ]:
+            run = spliced_run(windows_, _ordering(frame, column, ascending))
+            per_query = ndcg_per_query(run, qrels)
+            measured = sum(per_query.values()) / len(per_query)
+            assert measured == pytest.approx(published[arm], abs=5e-4), (scope, arm)
 ```
 
 Run: `python -m pytest tests/test_stage_signals.py -m data -q`
-Expected: PASS.
+Expected: PASS — both frames complete with 1 and 2 flagged fallbacks, and
+`stage2`, `stage2+ce` and `stage2+llm` each reproduce Plan 6's committed NDCG
+to within 0.0005 on both scopes. That second test is what makes the frame
+trustworthy: it is the stage scores only if ordering by each column gives back
+the number Plan 6 published for that stage.
 
 - [ ] **Step 8: Run the whole fast suite**
 
@@ -687,6 +920,7 @@ git commit -m "Persist every stage's signal for the blend and the error analysis
   - `src.blend.cross_fit_predict(frame, *, n_folds=2, seed=0, **kwargs) -> np.ndarray`
   - `src.blend.train_selector(frame, per_arm, *, seed=0) -> Any`
   - `src.blend.selector_ordering(selector, frame, arm_orderings) -> dict[str, list[str]]`
+  - `src.blend.cross_fit_select(frame, per_arm, arm_orderings, *, n_folds=2, seed=0) -> dict[str, list[str]]`
   - `src.blend.oracle_ordering(per_arm_per_query, arm_orderings) -> dict[str, list[str]]`
 
 **Review Focus 1 lives in `cross_fit_predict`.** Fold 0 is the only query set
@@ -713,6 +947,17 @@ query-level features — window size, the three arms' score spreads, their mutua
 rank agreement — to predict which arm to trust, and `selector_ordering` applies
 it. If it cannot beat the best single arm either, that is the plan's finding.
 
+**The selector leaks exactly as the combiner does, and the plan as first
+written only guarded the combiner.** Its training target is "which arm had the
+highest NDCG on this query" — the label in another form — and Phase 2 trained
+it on all of fold 0 and then scored fold 0 with it. A 120-round multiclass
+model over 4,130 queries fits its own training routes, so that fold-0 number
+would have been in-sample while the JSON beside it said "cross-fit".
+`cross_fit_select` routes each query with a selector trained on the other
+part, over the **same** query partition `cross_fit_predict` uses (both go
+through `_query_parts`), so the two learned arms' fold-0 numbers are
+comparable with each other.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `tests/test_blend.py`:
@@ -726,6 +971,7 @@ from src.blend import (
     DEFAULT_WEIGHTS,
     STRATEGIES,
     cross_fit_predict,
+    cross_fit_select,
     fixed_weight_ordering,
     oracle_ordering,
     orderings_from_scores,
@@ -931,6 +1177,42 @@ def test_the_selector_returns_a_permutation_from_one_of_the_arms():
         assert docs in [arm_orderings[arm][q] for arm in ("stage2", "ce", "llm")]
 
 
+def _selector_inputs(n_queries=40):
+    frame = _frame(n_queries=n_queries)
+    per_arm = {
+        arm: {q: float(np.random.default_rng(i).random()) for q in frame["query_id"].unique()}
+        for i, arm in enumerate(("stage2", "ce", "llm"))
+    }
+    arm_orderings = {
+        arm: orderings_from_scores(frame, column, ascending=ascending)
+        for arm, column, ascending in [
+            ("stage2", "stage2_rank", True),
+            ("ce", "ce_score", False),
+            ("llm", "llm_rank", True),
+        ]
+    }
+    return frame, per_arm, arm_orderings
+
+
+def test_cross_fit_select_routes_every_query_to_one_arms_ordering():
+    frame, per_arm, arm_orderings = _selector_inputs()
+    out = cross_fit_select(frame, per_arm, arm_orderings)
+    assert set(out) == set(frame["query_id"])
+    for q, docs in out.items():
+        assert docs in [arm_orderings[arm][q] for arm in ("stage2", "ce", "llm")]
+
+
+def test_cross_fit_select_uses_the_combiner_s_query_partition():
+    # Review Focus 1 for the selector. Its target is per-query NDCG - the
+    # label in another form - so a selector trained on all of fold 0 and
+    # scored on fold 0 reports its own training routes. Sharing the combiner's
+    # partition also keeps the two learned arms' fold-0 numbers comparable.
+    frame, per_arm, arm_orderings = _selector_inputs()
+    assert cross_fit_select(
+        frame, per_arm, arm_orderings, seed=4, _return_parts=True
+    ) == cross_fit_predict(frame, seed=4, _return_parts=True)
+
+
 def test_the_declared_strategies_are_the_three_the_plan_measures():
     assert STRATEGIES == ("fixed", "combiner", "selector")
 ```
@@ -1108,6 +1390,21 @@ def predict_combiner(
     return np.asarray(booster.predict(frame[list(features)]), dtype=np.float64)
 
 
+def _query_parts(frame: pd.DataFrame, n_folds: int, seed: int) -> list[list[str]]:
+    """A seeded partition of the frame's query ids into `n_folds` parts.
+
+    One function for both learned arms, so the combiner and the selector are
+    cross-fitted over the same split and their fold-0 numbers compare.
+    """
+    queries = np.array(sorted(pd.unique(frame["query_id"].astype(str))))
+    if len(queries) < n_folds:
+        raise ValueError(
+            f"{len(queries)} queries cannot be split into {n_folds} folds"
+        )
+    shuffled = queries[np.random.default_rng(seed).permutation(len(queries))]
+    return [list(part) for part in np.array_split(shuffled, n_folds)]
+
+
 def cross_fit_predict(
     frame: pd.DataFrame,
     *,
@@ -1128,13 +1425,7 @@ def cross_fit_predict(
     Partitioning is by `query_id`, never by row: four documents of one query on
     both sides of the split is the same leak in a different shape.
     """
-    queries = np.array(sorted(pd.unique(frame["query_id"].astype(str))))
-    if len(queries) < n_folds:
-        raise ValueError(
-            f"{len(queries)} queries cannot be split into {n_folds} folds"
-        )
-    shuffled = queries[np.random.default_rng(seed).permutation(len(queries))]
-    parts = [list(part) for part in np.array_split(shuffled, n_folds)]
+    parts = _query_parts(frame, n_folds, seed)
     if _return_parts:
         return parts
 
@@ -1259,6 +1550,33 @@ def selector_ordering(
     return out
 
 
+def cross_fit_select(
+    frame: pd.DataFrame,
+    per_arm: Mapping[str, Mapping[str, float]],
+    arm_orderings: Mapping[str, Mapping[str, Sequence[str]]],
+    *,
+    n_folds: int = 2,
+    seed: int = 0,
+    _return_parts: bool = False,
+):
+    """Out-of-fold selector routes: no query is routed by a selector that saw it.
+
+    The selector's target is which arm scored best on each query - the label
+    in another form - so it leaks on fold 0 exactly as the combiner would.
+    Same partition as cross_fit_predict, via _query_parts.
+    """
+    parts = _query_parts(frame, n_folds, seed)
+    if _return_parts:
+        return parts
+    ids = frame["query_id"].astype(str)
+    out: dict[str, list[str]] = {}
+    for part in parts:
+        held = ids.isin(set(part)).to_numpy()
+        selector = train_selector(frame.loc[~held], per_arm, seed=seed)
+        out.update(selector_ordering(selector, frame.loc[held], arm_orderings))
+    return out
+
+
 def oracle_ordering(
     per_arm_per_query: Mapping[str, Mapping[str, float]],
     arm_orderings: Mapping[str, Mapping[str, Sequence[str]]],
@@ -1301,10 +1619,10 @@ git commit -m "Add the fixed-weight, learned and selector blend strategies"
 Phase 2 does not start until all of these hold:
 
 - [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the real signal-frame completeness check.
+- [ ] `python -m pytest -m data` passes, including the real signal-frame completeness check and the reproduction of Plan 6's three arms from the frame.
 - [ ] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, cover 4,130 and 2,000 queries, and `require_full_coverage` passes on both.
-- [ ] `llm_orderings_from_cache` returns its misses, and `python -m src.stage_signals` refuses to write a frame with any.
-- [ ] `cross_fit_predict` partitions by `query_id` and produces scores that differ from an in-sample fit on the same frame.
+- [ ] `llm_orderings_from_cache` returns its misses; the frame flags exactly the 1 + 2 malformed-answer windows Plan 6 counted, and `check_fallback_share` refuses a scope error.
+- [ ] `cross_fit_predict` and `cross_fit_select` partition by `query_id` through the same `_query_parts`, and the combiner's scores differ from an in-sample fit on the same frame.
 - [ ] `src/blend.py` reads no file, imports no store and issues no API call.
 - [ ] `rerank` still returns orderings, and `window_scores` is the only way to see a logit.
 
