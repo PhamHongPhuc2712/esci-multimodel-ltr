@@ -27,7 +27,7 @@ interfaces are known.
 | 4 | [**Recall**](2026-09-20-recall/) | BM25 + dense + CLIP channels, RRF fusion, Recall@k harness, Stage 0 LLM query rewriting **(landed)** | Ablations 1 and 2 produce a table with bootstrap CIs | §4.0, §4.1, §8.4 |
 | 5 | [**Coarse Rank**](2026-09-21-coarse-rank/) | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
 | 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
-| 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
+| 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup **(landed)** | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 
 A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way:
 
@@ -105,11 +105,28 @@ A written plan gets its own directory and is split into phase files when a singl
   clear 100 queries; per-query image coverage averages 0.78. **No new paid API
   calls** — fold 0 and the test sample are already cached, bar three windows
   whose LLM answer was malformed, which Plan 6 scored in Stage 2 order and
-  this plan carries the same way, flagged. **Written, not yet executed.** Six
-  defects were corrected before any task ran — the cache-coverage claim, a
-  selector trained on the fold it reported, Ablation 2 read as fusion-vs-BM25
-  rather than as its ladder, and three smaller ones; see its README's
-  "Corrected before execution".
+  this plan carries the same way, flagged. Six defects were corrected before
+  any task ran — the cache-coverage claim, a selector trained on the fold it
+  reported, Ablation 2 read as fusion-vs-BM25 rather than as its ladder, and
+  three smaller ones; see its README's "Corrected before execution".
+  **Landed 2026-09-23, and Stage 4 does not beat its best input.** On the
+  frozen 2,000-query test sample the fixed-weight, combiner and selector arms
+  score **0.8843, 0.8849 and 0.8853** against the LLM's **0.8855** — all three
+  tie — while the oracle reaches **0.9101**; on fold 0 all three lose
+  significantly. The selector, corrected during execution to stop `argmax`
+  handing every tie to the weakest arm, routes 93.2% of queries to the LLM,
+  and its 281 departures hurt more often than they help (146 worse, 88
+  better): nothing label-free predicts which queries the LLM gets wrong. The
+  error analysis finds the LLM's gain significant in all 13 large categories;
+  images helping even where every candidate is imaged (+0.0065 [+0.0019,
+  +0.0112]), so through the signal and not only its presence; and the LLM's
+  damage concentrated on queries Stage 2 already ranked well. The §6 table
+  has ten rows — Ablations 2, 5 and 6 each split into the comparisons they
+  measured — and [`docs/RESULTS.md`](../../RESULTS.md) is the writeup, every
+  four-decimal figure in it checked against a committed results file. **The
+  project's best number is `stage2+llm` 0.8855 [0.8799, 0.8910] on the
+  2,000-query sample, above the 0.8562 `ESCI_baseline`; on the full test split
+  the coarse ranker's 0.8579 matches it.**
 
 Start at a plan's `README.md`.
 

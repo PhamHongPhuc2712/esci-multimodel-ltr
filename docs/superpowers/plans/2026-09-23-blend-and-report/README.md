@@ -250,16 +250,24 @@ reads parquet and trains LightGBM cannot be.
 
 This is the last plan; its gate is the project's.
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the signal-frame coverage assertion and the writeup's figure check.
-- [ ] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, every row carries a Stage 2 score, a cross-encoder score and an LLM rank, the only Stage 2 fallbacks are the 1 + 2 flagged windows Plan 6 counted, and ordering by each column reproduces Plan 6's `stage2`, `stage2+ce` and `stage2+llm` NDCG.
-- [ ] Stage 4 is reported against **each single stage alone**, as §4.4 requires, with paired bootstrap CIs, on fold 0 (cross-fitted) and on the frozen test sample.
-- [ ] All three Stage 4 strategies are reported — fixed weight, learned combiner, per-query selector — **and the oracle ceiling beside them**, or the plan states which was dropped and why.
-- [ ] If no Stage 4 arm beats the best single stage, that is written down as the result, in the table and in the writeup's summary sentence.
-- [ ] `docs/results/ablation-table.json` carries all seven ablations — Ablation 2 as its two ladder rungs — each with its **scope, `n`, metric and interval**, and no two rows are presented as comparable when their scopes differ.
-- [ ] The per-category breakdown reports only categories with ≥100 queries, collapses the rest, and carries `n` on every row.
-- [ ] The LLM failure-case analysis characterises the ~26% of queries the arm damages, not a hand-picked sample.
-- [ ] `docs/RESULTS.md` exists, states the project's best number with its scope and CI, compares it to the 0.8562 `ESCI_baseline` and the **measured** floor, and every headline figure in it is traceable to a committed `docs/results/*.json`.
-- [ ] `CLAUDE.md`'s Commands section lists the signal dump, the blend report, the error analysis and the ablation table.
+**Passed 2026-09-23.** No Stage 4 strategy beats the LLM listwise arm it
+contains: on the frozen 2,000-query test sample the fixed-weight, combiner and
+selector arms tie with it (0.8843, 0.8849, 0.8853 against 0.8855), while the
+per-query oracle reaches 0.9101. The project's best number stays
+`stage2+llm` **0.8855 [0.8799, 0.8910]** on that sample, above the 0.8562
+`ESCI_baseline`; on the full test split the coarse ranker's 0.8579
+[0.8551, 0.8611] matches it.
+
+- [x] `python -m pytest` passes with no failures and no new skips. — 705 passed (594 before this plan), 32 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including the signal-frame coverage assertion and the writeup's figure check. — 31 passed in 2m49s (24 before this plan).
+- [x] `data/features/stage-signals-{fold0,test-sample}.parquet` exist, every row carries a Stage 2 score, a cross-encoder score and an LLM rank, the only Stage 2 fallbacks are the 1 + 2 flagged windows Plan 6 counted, and ordering by each column reproduces Plan 6's `stage2`, `stage2+ce` and `stage2+llm` NDCG. — to float precision, all six arm × scope pairs.
+- [x] Stage 4 is reported against **each single stage alone**, as §4.4 requires, with paired bootstrap CIs, on fold 0 (cross-fitted) and on the frozen test sample. — `blend.json`, `blend-test.json`; the test sample was run once, behind `--final`.
+- [x] All three Stage 4 strategies are reported — fixed weight, learned combiner, per-query selector — **and the oracle ceiling beside them**, or the plan states which was dropped and why. — none dropped; the selector's routes are recorded too (93.2% to the LLM).
+- [x] If no Stage 4 arm beats the best single stage, that is written down as the result, in the table and in the writeup's summary sentence. — `any_blend_beats_best_single: false` in both files; `docs/RESULTS.md` §5 opens with it.
+- [x] `docs/results/ablation-table.json` carries all seven ablations — Ablation 2 as its two ladder rungs — each with its **scope, `n`, metric and interval**, and no two rows are presented as comparable when their scopes differ. — ten rows: Ablations 5 and 6 were split the same way during execution, each comparison found by arm name; the scope warning is part of the table.
+- [x] The per-category breakdown reports only categories with ≥100 queries, collapses the rest, and carries `n` on every row. — 13 categories plus `(other)`, each with a paired interval on the LLM's gain; the 55 uncategorised queries are counted.
+- [x] The LLM failure-case analysis characterises the ~26% of queries the arm damages, not a hand-picked sample. — all 1,089 (26.4%), contrasted on six attributes: the damage tracks a strong Stage 2 baseline (0.873 against 0.829), not a query type.
+- [x] `docs/RESULTS.md` exists, states the project's best number with its scope and CI, compares it to the 0.8562 `ESCI_baseline` and the **measured** floor, and every headline figure in it is traceable to a committed `docs/results/*.json`. — `tests/test_results_doc.py` checks every four-decimal figure against the committed JSON or the published §5 allowlist.
+- [x] `CLAUDE.md`'s Commands section lists the signal dump, the blend report, the error analysis and the ablation table.
 
 Then: the series is complete. See [`../README.md`](../README.md).
