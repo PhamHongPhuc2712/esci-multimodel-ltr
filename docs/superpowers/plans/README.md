@@ -139,6 +139,20 @@ two halves first existed and both were needed in one place. Its `description`
 coalesce takes description coverage from 52.2% to 89.2%, which is the single
 largest text gain the enrichment provides.
 
+**The full-test-split LLM run, 2026-09-24.** After the series closed, the LLM
+arm — measured by Plan 6 on a frozen 2,000-query sample — was run once over
+all 8,956 test queries with its configuration unchanged: 6,958 paid calls in
+2.3 hours, 3.16M prompt and 2.66M completion tokens
+(`docs/results/llm-rerank-test-full.json`). It lands at **0.8855 [0.8827,
+0.8883]**, the sample's point estimate with half its interval, and so **beats
+the 0.8562 `ESCI_baseline` on the same queries**
+(`docs/results/fine-rank-test-full.json`). Stage 4 on the whole split turns
+the sample's ties into significant losses — every blend below the LLM alone
+(`docs/results/blend-test-full.json`) — and Ablation 6 now shares the test
+split with Ablations 3, 4, 5 and 7. It added `--sample 0` and
+`--skip-cascade` to `src.fine_rank_report`, a `test` scope to
+`src.stage_signals`, and `--usage-out` to `src.llm_rerank`.
+
 ## Ablation ownership
 
 Every row of the spec's §6 table is owned by exactly one plan. No plan is

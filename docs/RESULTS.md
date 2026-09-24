@@ -24,28 +24,26 @@ same queries, with a 95% bootstrap interval over queries.
 ## 2. Headline
 
 **The best ranker in the project is the LLM listwise re-ranking of the coarse
-ranker's top 10: NDCG 0.8855 [0.8799, 0.8910] on a frozen random sample of
-2,000 test queries**, against a random floor of 0.7454 and the coarse ranker's
-own 0.8576 on the same sample — a gain of +0.0278 [+0.0236, +0.0325]
-(`fine-rank-test.json`).
+ranker's top 10: NDCG 0.8855 [0.8827, 0.8883] over all 8,956 queries of the
+test split**, against a random floor of 0.7468 and the coarse ranker's own
+0.8579 — a gain of +0.0276 [+0.0255, +0.0296] (`fine-rank-test-full.json`).
 
 That interval lies entirely above the **0.8562 `ESCI_baseline`** (a
 cross-encoder fine-tuned on the train split; published, `PROJECT_SPEC.md` §5),
-the target this project set itself. Two caveats keep it from being a clean
-win:
+the target this project set itself, and it is measured on the same 8,956
+queries. **The funnel beats the published baseline.** The caveat is cost: the
+baseline is one cross-encoder pass, while this is a three-stage funnel ending
+in an API call that takes 4.7 s for a single query.
 
-- **Scope.** The baseline was reported over all 8,956 test queries; this is a
-  2,000-query sample, because running the LLM over the rest of the split costs
-  more than two hours of paid calls (Section 8). The sample is representative
-  on the one arm measured both ways: the coarse ranker scores 0.8576 on it and
-  0.8579 on the full split.
-- **Cost.** The baseline is one cross-encoder pass. This is a three-stage
-  funnel ending in an API call that takes 4.7 s for a single query.
+The LLM arm was first measured on a frozen random sample of 2,000 test
+queries, because each query is a paid call: 0.8855 [0.8799, 0.8910]
+(`fine-rank-test.json`). The whole split was then run once, with the
+configuration unchanged. The point estimate did not move, and the interval
+halved.
 
-**On the full 8,956-query test split** the best measured number is the coarse
-LambdaMART ranker at **0.8579 [0.8551, 0.8611]** against a floor of 0.7468
-(`coarse-rank-test.json`). Its interval contains 0.8562, so it **matches** the
-target rather than beating it.
+Without the LLM, the best number is the coarse LambdaMART ranker at **0.8579
+[0.8551, 0.8611]** (`coarse-rank-test.json`). Its interval contains 0.8562, so
+it **matches** the target rather than beating it.
 
 The floor is computed every time, never quoted: 0.7467 on the full test split
 with this project's gains and discount (`sbert-title-test.json`), against the
@@ -89,17 +87,22 @@ behavioural values, categories, attributes and presence flags — trained with
 ESCI's own gain mapping. **0.8579 [0.8551, 0.8611]** on the full test split
 (`coarse-rank-test.json`).
 
-**Stage 3, fine rank** — re-ranking the coarse ranker's top 10 on the
-2,000-query sample, `fine-rank-test.json`:
+**Stage 3, fine rank** — re-ranking the coarse ranker's top 10 over the whole
+test split, `fine-rank-test-full.json`:
 
 | arm | NDCG | vs coarse-only | latency, one query |
 |---|---|---|---|
-| coarse only | 0.8576 | | — |
-| + cross-encoder, fine-tuned | 0.8619 | +0.0043 [+0.0002, +0.0086] | 22 ms |
-| **+ LLM listwise** | **0.8855** | **+0.0278 [+0.0236, +0.0325]** | 4,713 ms |
+| coarse only | 0.8579 | | — |
+| + cross-encoder, fine-tuned | 0.8616 | +0.0037 [+0.0016, +0.0058] | 20 ms |
+| **+ LLM listwise** | **0.8855** | **+0.0276 [+0.0255, +0.0296]** | 4,713 ms |
 
-The LLM costs 453 prompt and 381 completion tokens a query, 333 of them
-reasoning. It buys about six times the cross-encoder's gain for about two
+The LLM's single-query latency comes from the uncached run on the sample
+(`fine-rank-test.json`); the full-split report reads a warm cache and so
+cannot time it. The paid pass over the split (`llm-rerank-test-full.json`)
+made 6,958 calls in 2.3 hours at four in flight. They cost 3.16M prompt and
+2.66M completion tokens — 454 and 382 a call, 334 of them reasoning. Seven
+windows got no usable ranking on either attempt and keep the coarse order,
+counted. The LLM buys about seven times the cross-encoder's gain for over two
 hundred times its latency.
 
 **Stage 4, blend.** Nothing beats the LLM alone — Section 5.
@@ -118,11 +121,11 @@ B won.
 | 4 | behavioural values − text+presence indicators | NDCG | test | 8,956 | +0.0036 [+0.0023, +0.0051] | significant |
 | 5a | pointwise classifier − lambdarank | NDCG | test | 8,956 | -0.0085 [-0.0101, -0.0069] | significant |
 | 5b | pointwise regression − lambdarank | NDCG | test | 8,956 | -0.0096 [-0.0112, -0.0079] | significant |
-| 6a | coarse+cross-encoder − coarse-only | NDCG | test sample | 2,000 | +0.0043 [+0.0002, +0.0086] | significant |
-| 6b | coarse+LLM listwise − coarse-only | NDCG | test sample | 2,000 | +0.0278 [+0.0236, +0.0325] | significant |
+| 6a | coarse+cross-encoder − coarse-only | NDCG | test | 8,956 | +0.0037 [+0.0016, +0.0058] | significant |
+| 6b | coarse+LLM listwise − coarse-only | NDCG | test | 8,956 | +0.0276 [+0.0255, +0.0296] | significant |
 | 7 | learned fusion − fixed global weight | NDCG | test | 8,956 | -0.0011 [-0.0023, +0.0000] | ties |
 
-> These rows are **not comparable to each other**: they were measured on three different query populations with two different metrics. The scope and n columns say which.
+> Rows 1–2 and 3–7 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.
 
 The two contributions this project set out to measure:
 
@@ -138,33 +141,34 @@ The two contributions this project set out to measure:
 
 ## 5. Stage 4 — the blend
 
-**No blend beats the best stage it contains.** On the test sample all three
-strategies tie with the LLM alone; on fold 0 all three lose to it
-significantly (`blend-test.json`, `blend.json`).
+**No blend beats the best stage it contains.** On the whole test split all
+three strategies lose to the LLM alone, significantly, as they did on fold 0
+(`blend-test-full.json`, `blend.json`). On the 2,000-query sample they only
+tied (`blend-test.json`); the larger split resolves that tie as a loss.
 
-| arm | fold 0 (n=4,130) | vs LLM alone | test sample (n=2,000) | vs LLM alone |
+| arm | fold 0 (n=4,130) | vs LLM alone | test split (n=8,956) | vs LLM alone |
 |---|---|---|---|---|
-| coarse only | 0.8519 | | 0.8576 | |
-| + cross-encoder | 0.8587 | | 0.8619 | |
+| coarse only | 0.8519 | | 0.8579 | |
+| + cross-encoder | 0.8587 | | 0.8616 | |
 | **+ LLM** | **0.8814** | | **0.8855** | |
-| fixed-weight RRF, 1:1:4 | 0.8800 | −0.0014 [−0.0023, −0.0006] | 0.8843 | −0.0012 [−0.0026, +0.0000] |
-| learned combiner | 0.8793 | −0.0021 [−0.0033, −0.0010] | 0.8849 | −0.0006 [−0.0019, +0.0007] |
-| per-query selector | 0.8805 | −0.0009 [−0.0016, −0.0002] | 0.8853 | −0.0002 [−0.0007, +0.0002] |
-| *oracle: best arm per query* | *0.9076* | *+0.0262* | *0.9101* | *+0.0246 [+0.0222, +0.0272]* |
+| fixed-weight RRF, 1:1:4 | 0.8800 | −0.0014 [−0.0023, −0.0006] | 0.8844 | −0.0011 [−0.0016, −0.0004] |
+| learned combiner | 0.8793 | −0.0021 [−0.0033, −0.0010] | 0.8842 | −0.0013 [−0.0020, −0.0006] |
+| per-query selector | 0.8805 | −0.0009 [−0.0016, −0.0002] | 0.8849 | −0.0006 [−0.0009, −0.0003] |
+| *oracle: best arm per query* | *0.9076* | *+0.0262* | *0.9112* | *+0.0257 [+0.0243, +0.0269]* |
 
 Fold-0 numbers for the learned arms are cross-fitted, so no query is scored by
 a model that trained on it. The fixed weights were chosen on fold 0 itself, so
 that fold-0 row is optimistic — and it still lost.
 
 The headroom is real. Picking the best arm per query with the labels (the
-oracle, a ceiling rather than a method) would add +0.0246. The selector is the
-only strategy shaped to capture it, and fold 0 shows why it cannot
-(`blend.json`, `selector_routes`). It sends 93.2% of queries to the LLM. On the
-281 it sends elsewhere it is better 88 times and worse 146, a mean of −0.0128.
-Nothing visible without the labels — window size, how far apart each arm's
-scores are, how much the arms agree — predicts which queries the LLM will get
-wrong. So the best a selector can learn is "trust the LLM", and that *is* the
-LLM.
+oracle, a ceiling rather than a method) would add +0.0257. The selector is the
+only strategy shaped to capture it, and it cannot (`blend-test-full.json`,
+`selector_routes`). It sends 97.9% of test queries to the LLM. On the 184 it
+sends elsewhere it is better 53 times and worse 105, a mean of −0.0278; fold 0
+shows the same pattern (`blend.json`). Nothing visible without the labels —
+window size, how far apart each arm's scores are, how much the arms agree —
+predicts which queries the LLM will get wrong. So the best a selector can
+learn is "trust the LLM", and that *is* the LLM.
 
 ## 6. Error analysis
 
@@ -235,17 +239,18 @@ Measured losses and ties, reported as results:
   test, −0.0011 [−0.0023, +0.0000], and loses on fold 0, −0.0023 [−0.0040,
   −0.0008] (`coarse-rank.json`). The prior work's single global weight matched
   or beat the learned fusion on both.
-- **Zero-shot cross-encoders lose to the coarse ranker**, −0.0059 [−0.0097,
-  −0.0019] on the test sample. Fine-tuning is not an optimisation of that arm;
+- **Zero-shot cross-encoders lose to the coarse ranker**, −0.0063 [−0.0085,
+  −0.0041] on the test split. Fine-tuning is not an optimisation of that arm;
   it is the whole arm.
 - **The listwise loss does not earn its keep at Stage 3.** Fine-tuned with
-  `LambdaLoss` the cross-encoder gains +0.0043 [+0.0002, +0.0086]; with plain
-  binary cross-entropy +0.0040 [−0.0001, +0.0086], which trains several times
-  faster. That reverses Ablation 5, where lambdarank beat pointwise by +0.0085
-  to +0.0096 at the coarse stage.
+  `LambdaLoss` the cross-encoder scores 0.8616; with plain binary cross-entropy,
+  which trains several times faster, 0.8612 (`fine-rank-test-full.json`). That
+  reverses Ablation 5, where lambdarank beat pointwise by +0.0085 to +0.0096 at
+  the coarse stage.
 - **The cross-encoder → LLM cascade is redundant**: 0.8847 against the LLM
-  alone's 0.8855.
-- **No blend beats its best input (Section 5)**, while +0.0246 of headroom goes
+  alone's 0.8855 on the 2,000-query sample (`fine-rank-test.json`). It doubles
+  the LLM's calls, so the full-split run left it out.
+- **No blend beats its best input (Section 5)**, while +0.0257 of headroom goes
   unclaimed.
 - **The obvious reading of the behavioural ablation was wrong.** Subtracting
   the presence-flags-only arm reports the behavioural features at −0.0107,
@@ -261,14 +266,11 @@ Measured losses and ties, reported as results:
 - **Predict when the LLM is wrong, from the LLM.** Section 5 shows label-free
   features cannot. A signal from the model itself — ask twice with the window
   shuffled and measure how much the two answers agree — is the natural
-  candidate. It doubles the LLM's cost: another 453 + 381 tokens and about
+  candidate. It doubles the LLM's cost: about another 454 + 382 tokens and
   1.2 s of batched time a query.
 - **Distil the LLM into the cross-encoder**, to keep most of its gain at 22 ms.
   That needs LLM orderings for the 12,519 training-fold queries: about four
   hours of calls at the measured 1,179 ms a query (batched), and roughly 5.7M
   prompt plus 4.8M completion tokens.
-- **Run the LLM over the full test split**, so the headline is directly
-  comparable with 0.8562: the remaining 6,956 queries, about 2.3 hours and 3.2M
-  prompt plus 2.7M completion tokens.
 - **Delete the redundant image store.** `data/embeddings/rerank/` is a strict
   subset of the catalogue store and costs 0.40 GB.

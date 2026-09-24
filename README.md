@@ -21,13 +21,15 @@ are ranked, scored by full-list NDCG with gains E 1.0 / S 0.1 / C 0.01 / I 0.0.
 | zero-shot SBERT (published 0.8292, reproduced here) | 0.8294 | full test split |
 | `ESCI_baseline`, a fine-tuned cross-encoder (published, the target) | 0.8562 | full test split |
 | **coarse LambdaMART, 47 features** | **0.8579 [0.8551, 0.8611]** | full test split |
-| + fine-tuned cross-encoder on its top 10 | 0.8619 | 2,000-query test sample |
-| **+ LLM listwise re-ranking of its top 10** | **0.8855 [0.8799, 0.8910]** | 2,000-query test sample |
+| + fine-tuned cross-encoder on its top 10 | 0.8616 | full test split |
+| **+ LLM listwise re-ranking of its top 10** | **0.8855 [0.8827, 0.8883]** | full test split |
 
-The LLM arm is the best ranker in the project, and its interval clears the
-0.8562 target. It was measured on a frozen 2,000-query sample (floor 0.7454
-there), because the LLM is a paid API call at 4.7 s a query. On the full split,
-the coarse ranker **matches** the target: its interval contains 0.8562.
+**The funnel beats the published baseline on the same 8,956 queries.** The
+LLM arm's interval sits wholly above 0.8562, at the price of an API call that
+takes 4.7 s a query. Without the LLM, the coarse ranker **matches** the target:
+its interval contains 0.8562. The LLM arm was first measured on a frozen
+2,000-query sample (0.8855 [0.8799, 0.8910]); running the whole split once
+left the point estimate unchanged and halved the interval.
 
 ## What the ablations found
 
@@ -37,10 +39,10 @@ the coarse ranker **matches** the target: its interval contains 0.8562.
 | images, recall | …but barely help retrieval | +0.0048 Recall@100 |
 | behavioural features | help a little, once the scrape's presence artefact is controlled | +0.0036 [+0.0023, +0.0051] NDCG |
 | learning to rank | `lambdarank` beats pointwise classification | +0.0085 NDCG |
-| fine rank | the LLM buys about six times the cross-encoder's gain at about two hundred times its latency | +0.0278 vs +0.0043 NDCG |
+| fine rank | the LLM buys about seven times the cross-encoder's gain at over two hundred times its latency | +0.0276 vs +0.0037 NDCG |
 | query rewriting | an LLM rewrite of the query **ties** | +0.0048 [−0.0007, +0.0107] Recall@100 |
 | learned fusion | **ties** a single hand-tuned text/image weight | −0.0011 [−0.0023, +0.0000] NDCG |
-| blending | **no blend beats the LLM alone**, though a per-query oracle would add +0.0246 | best: −0.0002 [−0.0007, +0.0002] |
+| blending | **no blend beats the LLM alone** — all three lose to it, though a per-query oracle would add +0.0257 | best: −0.0006 [−0.0009, −0.0003] NDCG |
 
 Each row's scope, `n` and source are in the full table in
 [`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The ties and losses
@@ -93,8 +95,8 @@ curl -o data/esci-s/esci.json.zst https://esci-s.s3.amazonaws.com/esci.json.zst
 ```
 
 Then, in order. The validation folds are already frozen in `splits/`. A GPU is
-used where one is present. The two LLM steps need `OPENAI_API_KEY` and cache
-every call.
+used where one is present. The steps marked paid need `OPENAI_API_KEY`, and
+every LLM call is cached.
 
 ```bash
 python -m src.esci_s_etl && python -m src.combine        # enrichment corpus, joined tables
@@ -110,9 +112,12 @@ python -m src.cross_encoder --loss lambda && python -m src.cross_encoder --loss 
 python -m src.llm_rerank --split train --folds 0         # Stage 3 LLM (paid)
 python -m src.fine_rank_report --llm-latency-probe 40
 python -m src.fine_rank_report --split test --final --llm-latency-probe 40 --out docs/results/fine-rank-test.json
-for s in fold0 test-sample; do python -m src.stage_signals --scope $s; done
+python -m src.llm_rerank --split test --folds all --usage-out docs/results/llm-rerank-test-full.json   # (paid, ~2.3 h)
+python -m src.fine_rank_report --split test --final --sample 0 --skip-cascade --out docs/results/fine-rank-test-full.json
+for s in fold0 test-sample test; do python -m src.stage_signals --scope $s; done
 python -m src.blend_report --scope fold0
 python -m src.blend_report --scope test-sample --final --out docs/results/blend-test.json
+python -m src.blend_report --scope test --final --out docs/results/blend-test-full.json
 python -m src.error_analysis && python -m src.ablation_table
 ```
 

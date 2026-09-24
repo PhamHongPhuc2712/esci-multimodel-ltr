@@ -84,6 +84,14 @@ python -m src.blend_report --scope test-sample --final --out docs/results/blend-
 python -m src.error_analysis                      # per-category, image strata, LLM failures, ~20 s
 python -m src.ablation_table                      # the §6 table from the committed JSON
 
+# The whole test split (2026-09-24). One paid, resumable pass fills the cache;
+# every report after it reads the cache. --usage-out appends each run's tokens.
+python -m src.llm_rerank --split test --folds all --usage-out docs/results/llm-rerank-test-full.json   # ~2.3 h
+python -m src.fine_rank_report --split test --final --sample 0 --skip-cascade \
+    --out docs/results/fine-rank-test-full.json   # retries uncached windows once
+python -m src.stage_signals --scope test
+python -m src.blend_report --scope test --final --out docs/results/blend-test-full.json
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```
