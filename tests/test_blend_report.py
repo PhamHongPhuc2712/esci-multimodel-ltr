@@ -178,7 +178,8 @@ import json
 
 @pytest.mark.data
 def test_the_committed_blend_reports_answer_the_spec_question():
-    for path in ("docs/results/blend.json", "docs/results/blend-test.json"):
+    for path in ("docs/results/blend.json", "docs/results/blend-test.json",
+                 "docs/results/blend-test-full.json"):
         payload = json.loads(open(path).read())
         names = {arm["name"] for arm in payload["arms"]}
         # §4.4: the blend is compared against each single stage alone.

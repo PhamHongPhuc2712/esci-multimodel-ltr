@@ -197,6 +197,35 @@ class Usage:
         }
 
 
+_SUMMED = ("prompt_tokens", "completion_tokens", "reasoning_tokens",
+           "n_calls", "n_cached", "n_fallback")
+
+
+def append_usage(path: Path, record: Mapping) -> dict:
+    """Append one pass's usage to a committed record of runs, and total them.
+
+    A paid pass over thousands of windows can be interrupted; the cache makes
+    the resumption cheap, but it is a second run with its own tokens, and the
+    bill is the sum. Overwriting would publish only the last leg.
+    """
+    path = Path(path)
+    payload = (
+        json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"runs": []}
+    )
+    payload["runs"].append(dict(record))
+    totals = {
+        key: sum(int(run["usage"][key]) for run in payload["runs"]) for key in _SUMMED
+    }
+    calls = max(totals["n_calls"], 1)
+    totals["prompt_tokens_per_call"] = totals["prompt_tokens"] / calls
+    totals["completion_tokens_per_call"] = totals["completion_tokens"] / calls
+    totals["reasoning_tokens_per_call"] = totals["reasoning_tokens"] / calls
+    payload["totals"] = totals
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return payload
+
+
 def rerank_windows(
     windows_: Sequence,
     query_text: Mapping,
@@ -332,6 +361,9 @@ def _main() -> int:
     parser.add_argument("--sample", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--features-dir", type=Path, default=Path("data/features"))
+    parser.add_argument(
+        "--usage-out", type=Path, default=None,
+        help="append this pass's token usage to a JSON record (for committing the bill)")
     args = parser.parse_args()
 
     matrix = pd.read_parquet(args.features_dir / f"{args.split}.parquet")
@@ -378,6 +410,14 @@ def _main() -> int:
     )
     print(f"{usage.n_fallback:,} windows fell back to the Stage 2 order")
     print(f"cache written to {args.cache}")
+    if args.usage_out is not None:
+        payload = append_usage(args.usage_out, {
+            "split": args.split, "folds": args.folds, "sample": args.sample,
+            "k": args.k, "model": args.model, "n_windows": len(ws),
+            "usage": usage.to_dict(),
+        })
+        print(f"usage appended to {args.usage_out} "
+              f"({len(payload['runs'])} run(s), {payload['totals']['n_calls']:,} calls in total)")
     return 0
 
 

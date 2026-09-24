@@ -1,13 +1,17 @@
 """PROJECT_SPEC.md §6 as one table, assembled from the committed results.
 
-Seven ablations, owned by four plans, measured on **three different query
-populations with two different metrics**:
+Seven ablations, owned by four plans, measured on **two query populations
+with two different metrics**:
 
-    1, 2   Recall@100   4,130 fold-0 queries, full 1.2M-product corpus
-    3,4,5,7  NDCG       8,956 test queries
-    6        NDCG       2,000-query frozen test sample
+    1, 2       Recall@100   4,130 fold-0 queries, full 1.2M-product corpus
+    3 - 7      NDCG         8,956 test queries
 
-Printed as seven rows of one "delta" column with no scope, those read as
+Ablation 6 was first measured on a frozen 2,000-query test sample, because
+its LLM arm is a paid call; the table reads the 2026-09-24 run over the whole
+split instead (`fine-rank-test-full.json`), which put it on the same queries
+as 3, 4, 5 and 7. The sample's numbers stay committed in `fine-rank-test.json`.
+
+Printed as rows of one "delta" column with no scope, those read as
 comparable, and the summary sentence anyone writes from the table inherits the
 error. So `scope` and `n_queries` are required on every row, the renderer
 prints them, and the table carries the sentence that says they are not
@@ -31,14 +35,14 @@ DEFAULT_OUT = DEFAULT_DIR / "ablation-table.json"
 REQUIRED_FILES: tuple[str, ...] = (
     "recall",
     "coarse-rank-test",
-    "fine-rank-test",
-    "blend-test",
+    "fine-rank-test-full",
+    "blend-test-full",
 )
 
 _RECALL, _COARSE, _FINE = (
     "docs/results/recall.json",
     "docs/results/coarse-rank-test.json",
-    "docs/results/fine-rank-test.json",
+    "docs/results/fine-rank-test-full.json",
 )
 
 # One row per measured comparison, named "A − B" so the sign reads the same
@@ -66,17 +70,17 @@ ABLATIONS: tuple[dict, ...] = (
     {"number": 5, "label": "5b", "name": "pointwise regression − lambdarank", "metric": "NDCG",
      "scope": "test", "source": _COARSE, "owner": "Plan 5"},
     {"number": 6, "label": "6a", "name": "coarse+cross-encoder − coarse-only", "metric": "NDCG",
-     "scope": "test sample", "source": _FINE, "owner": "Plan 6"},
+     "scope": "test", "source": _FINE, "owner": "Plan 6"},
     {"number": 6, "label": "6b", "name": "coarse+LLM listwise − coarse-only", "metric": "NDCG",
-     "scope": "test sample", "source": _FINE, "owner": "Plan 6"},
+     "scope": "test", "source": _FINE, "owner": "Plan 6"},
     {"number": 7, "label": "7", "name": "learned fusion − fixed global weight", "metric": "NDCG",
      "scope": "test", "source": _COARSE, "owner": "Plan 5"},
 )
 
 _SCOPE_WARNING = (
-    "> These rows are **not comparable to each other**: they were measured on "
-    "three different query populations with two different metrics. The scope "
-    "and n columns say which."
+    "> Rows 1–2 and 3–7 are **not comparable to each other**: they were "
+    "measured on different query populations with different metrics. The "
+    "scope and n columns say which."
 )
 
 
@@ -182,7 +186,7 @@ def _main() -> int:
 
     results = load_results(args.results_dir)
     recall, coarse = results["recall"], results["coarse-rank-test"]
-    fine, blend = results["fine-rank-test"], results["blend-test"]
+    fine, blend = results["fine-rank-test-full"], results["blend-test-full"]
 
     by_label = {a["label"]: dict(a) for a in ABLATIONS}
 

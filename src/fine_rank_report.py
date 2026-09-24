@@ -108,6 +108,28 @@ def llm_latency(usage: Usage, n_windows: int) -> Latency | None:
     )
 
 
+def select_test_queries(
+    matrix, *, sample: int = TEST_SAMPLE, seed: int = 0
+) -> tuple:
+    """The test rows a report scores, and a label that says which.
+
+    `sample` > 0 draws the frozen sample exactly as every earlier report drew
+    it - distinct query ids, pandas `.sample(n, random_state=seed)` - so its
+    committed numbers keep describing the same queries. `sample=0` is the
+    whole split. The one place the test sample is drawn.
+    """
+    queries = matrix["query_id"].drop_duplicates()
+    if not sample:
+        return matrix.reset_index(drop=True), f"test, all {len(queries):,} queries"
+    if sample > len(queries):
+        raise ValueError(
+            f"sample of {sample:,} requested from {len(queries):,} test queries"
+        )
+    keep = set(queries.sample(n=sample, random_state=seed))
+    selected = matrix.loc[matrix["query_id"].isin(keep)].reset_index(drop=True)
+    return selected, f"test sample of {sample:,}"
+
+
 def check_same_queries(arms: Sequence) -> None:
     """Refuse a table whose arms cover different query sets."""
     if len(arms) < 2:
@@ -165,6 +187,13 @@ def _main() -> int:
     parser.add_argument("--final", action="store_true",
                         help="required with --split test")
     parser.add_argument(
+        "--sample", type=int, default=TEST_SAMPLE,
+        help="test queries to score; 0 scores the whole split")
+    parser.add_argument(
+        "--skip-cascade", action="store_true",
+        help="omit stage2+ce+llm: it doubles the LLM calls and Plan 6 measured "
+             "it indistinguishable from stage2+llm")
+    parser.add_argument(
         "--llm-latency-probe", type=int, default=0,
         help="measure LLM latency on N uncached windows (costs N API calls). "
              "A warm cache makes the arm's own pass unmeasurable, so this is "
@@ -182,11 +211,7 @@ def _main() -> int:
         matrix = matrix.loc[matrix["fold"] == REPORT_FOLD]
         label = f"fold {REPORT_FOLD}"
     else:
-        keep = matrix["query_id"].drop_duplicates().sample(
-            n=TEST_SAMPLE, random_state=args.seed
-        )
-        matrix = matrix.loc[matrix["query_id"].isin(set(keep))]
-        label = f"test sample of {TEST_SAMPLE:,}"
+        matrix, label = select_test_queries(matrix, sample=args.sample, seed=args.seed)
     matrix = matrix.reset_index(drop=True)
 
     scores = load_stage2(args.split)
@@ -254,24 +279,26 @@ def _main() -> int:
     )
     print(f"    {usage.n_fallback:,} windows fell back to the Stage 2 order")
 
-    # The cascade: the LLM re-ranks the cross-encoder's window order.
-    cascade_windows = [
-        Window(query_id=w.query_id,
-               window=tuple(ce_orderings.get(w.query_id, w.window)),
-               tail=w.tail)
-        for w in ws
-    ]
-    cascade_orderings, cascade_usage = rerank_windows(
-        cascade_windows, query_text, doc_text, call=openai_call(), cache=cache
-    )
-    record(
-        "stage2+ce+llm",
-        spliced_run(cascade_windows, cascade_orderings),
-        ArmCost(latency=llm_latency(cascade_usage, len(ws)),
-                usage=cascade_usage,
-                cost=cost_usd(cascade_usage, price_in=args.price_per_mtok_in,
-                              price_out=args.price_per_mtok_out)),
-    )
+    # The cascade: the LLM re-ranks the cross-encoder's window order. Its
+    # windows are ordered differently, so every one is a fresh paid call.
+    if not args.skip_cascade:
+        cascade_windows = [
+            Window(query_id=w.query_id,
+                   window=tuple(ce_orderings.get(w.query_id, w.window)),
+                   tail=w.tail)
+            for w in ws
+        ]
+        cascade_orderings, cascade_usage = rerank_windows(
+            cascade_windows, query_text, doc_text, call=openai_call(), cache=cache
+        )
+        record(
+            "stage2+ce+llm",
+            spliced_run(cascade_windows, cascade_orderings),
+            ArmCost(latency=llm_latency(cascade_usage, len(ws)),
+                    usage=cascade_usage,
+                    cost=cost_usd(cascade_usage, price_in=args.price_per_mtok_in,
+                                  price_out=args.price_per_mtok_out)),
+        )
 
     # A warm cache leaves the LLM arms with no measurable latency, so the
     # number comes from an explicit uncached probe or not at all.
@@ -348,6 +375,7 @@ def _main() -> int:
             "llm_model": DEFAULT_MODEL,
             "llm_max_completion_tokens": MAX_COMPLETION_TOKENS,
             "llm_concurrency": DEFAULT_CONCURRENCY,
+            "cascade": not args.skip_cascade,
         },
         "arms": [arm.to_dict() | {"cost": costs[arm.name].to_dict()} for arm in results],
         "ablation_6": comparisons,

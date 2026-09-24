@@ -7,6 +7,7 @@ from src.fine_rank_report import (
     TEST_SAMPLE,
     check_same_queries,
     cost_usd,
+    select_test_queries,
 )
 from src.cross_encoder import Latency
 from src.llm_rerank import Usage
@@ -190,3 +191,37 @@ def test_the_llm_arm_reports_latency_from_real_calls_not_cache_replay():
     # The LLM is orders of magnitude slower than the cross-encoder, and the
     # report must say so rather than flattering it.
     assert probe["latency"]["single_ms"] > by_name["stage2+ce"]["cost"]["latency"]["single_ms"] * 10
+
+
+# --- which test queries a report scores --------------------------------------
+
+def _test_matrix(n_queries=50):
+    import pandas as pd
+
+    return pd.DataFrame({
+        "query_id": [q for q in range(n_queries) for _ in range(3)],
+        "product_id": [f"p{q}_{i}" for q in range(n_queries) for i in range(3)],
+    })
+
+
+def test_the_sample_is_the_one_every_earlier_report_drew():
+    # Plan 6 drew it inline as drop_duplicates().sample(n, random_state=seed);
+    # the helper must reproduce that exactly or every committed sample number
+    # would describe different queries.
+    matrix = _test_matrix()
+    expected = set(matrix["query_id"].drop_duplicates().sample(n=10, random_state=0))
+    selected, label = select_test_queries(matrix, sample=10, seed=0)
+    assert set(selected["query_id"]) == expected
+    assert label == "test sample of 10"
+
+
+def test_a_sample_of_zero_is_the_whole_split():
+    matrix = _test_matrix()
+    selected, label = select_test_queries(matrix, sample=0, seed=0)
+    assert len(selected) == len(matrix)
+    assert label == "test, all 50 queries"
+
+
+def test_a_sample_larger_than_the_split_is_refused():
+    with pytest.raises(ValueError, match="sample"):
+        select_test_queries(_test_matrix(5), sample=10, seed=0)

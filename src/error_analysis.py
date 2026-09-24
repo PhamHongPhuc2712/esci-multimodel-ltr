@@ -286,7 +286,7 @@ def _main() -> int:
     # Plan 5's two fits: folds 2/3/4 when fold 0 is reported, every train fold
     # when test is. Fitting the narrow set for test lands 0.0020 low - more
     # than Ablation 4's whole honest effect (CLAUDE.md).
-    fit = train if args.scope == "test-sample" else folds(train, TRAIN_FOLDS)
+    fit = train if args.scope != "fold0" else folds(train, TRAIN_FOLDS)
     early = folds(train, [EARLY_STOP_FOLD])
     text_only = select_columns(["text", "esci_indicators", "retrieval"])
     with_image = select_columns(["text", "esci_indicators", "retrieval", "image"])

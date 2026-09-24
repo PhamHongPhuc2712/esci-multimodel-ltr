@@ -1,0 +1,282 @@
+{
+  "scope": "test",
+  "n_queries": 8956,
+  "n_judgements": 181701,
+  "floor": {
+    "mean": 0.7467608255561105,
+    "low": 0.7448155391132997,
+    "high": 0.7487712838912324,
+    "n_trials": 100
+  },
+  "esci_baseline_target": 0.8562,
+  "combiner_fitted_on": "fold 0",
+  "selector_fitted_on": "fold 0",
+  "selector_routes": {
+    "default_arm": "llm",
+    "share": {
+      "stage2": 0.003796337650736936,
+      "ce": 0.016748548459133542,
+      "llm": 0.9794551138901295
+    },
+    "n_deviations": 184,
+    "n_better": 53,
+    "n_worse": 105,
+    "n_same": 26,
+    "mean_delta": -0.02783915596911808
+  },
+  "fixed_weights": {
+    "stage2": 1.0,
+    "ce": 1.0,
+    "llm": 4.0
+  },
+  "fixed_weights_chosen_on": "fold 0 sweep",
+  "best_single_stage": "stage2+llm",
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.857868247029615,
+        "low": 0.8551287484668763,
+        "high": 0.8611095126231371
+      },
+      "lift_over_floor": {
+        "point": 0.11110742147350448,
+        "low": 0.10846836145759653,
+        "high": 0.11420653928567004
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8615798841565212,
+        "low": 0.8587866001079115,
+        "high": 0.8646633825474215
+      },
+      "lift_over_floor": {
+        "point": 0.11481905860041065,
+        "low": 0.11212428256675677,
+        "high": 0.11770258030835672
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.885512144908425,
+        "low": 0.8827036280052853,
+        "high": 0.8882521209733497
+      },
+      "lift_over_floor": {
+        "point": 0.1387513193523145,
+        "low": 0.13583808290429514,
+        "high": 0.14205268752862443
+      }
+    },
+    {
+      "name": "blend_fixed",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8844400112015326,
+        "low": 0.8816789505652857,
+        "high": 0.8870318237713963
+      },
+      "lift_over_floor": {
+        "point": 0.13767918564542223,
+        "low": 0.13484584156367818,
+        "high": 0.140832664970914
+      }
+    },
+    {
+      "name": "blend_combiner",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8841911211881062,
+        "low": 0.8814218718159357,
+        "high": 0.8870088191248487
+      },
+      "lift_over_floor": {
+        "point": 0.1374302956319957,
+        "low": 0.13451673099731615,
+        "high": 0.14057696689004937
+      }
+    },
+    {
+      "name": "blend_selector",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8849401926196444,
+        "low": 0.8821626268187115,
+        "high": 0.8876468781083999
+      },
+      "lift_over_floor": {
+        "point": 0.138179367063534,
+        "low": 0.13528572784881207,
+        "high": 0.14148061776935766
+      }
+    },
+    {
+      "name": "oracle_best_of_three",
+      "groups": [
+        "blend"
+      ],
+      "n_features": 0,
+      "objective": "blend",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.9111809912505516,
+        "low": 0.9087640000469811,
+        "high": 0.9137096985948153
+      },
+      "lift_over_floor": {
+        "point": 0.1644201656944413,
+        "low": 0.1616902611578726,
+        "high": 0.16765245323025563
+      }
+    }
+  ],
+  "against_best_single": [
+    {
+      "arm": "blend_fixed",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0010721337068922703,
+        "low": -0.001626048890514433,
+        "high": -0.00044336767941410686
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_combiner",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0013210237203187705,
+        "low": -0.0020026539417864436,
+        "high": -0.0006137235917000139
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_selector",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0005719522887804518,
+        "low": -0.0008537960910649355,
+        "high": -0.00030994210826543536
+      },
+      "significant": true
+    },
+    {
+      "arm": "oracle_best_of_three",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": 0.0256688463421268,
+        "low": 0.024325198278250915,
+        "high": 0.026936462075724518
+      },
+      "significant": true
+    }
+  ],
+  "against_stage2": [
+    {
+      "arm": "stage2+ce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0037116371269062046,
+        "low": 0.0015954204664529949,
+        "high": 0.005784184341451844
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02764389787881,
+        "low": 0.02552254645298886,
+        "high": 0.02963404018791079
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_fixed",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02657176417191773,
+        "low": 0.024595816888378186,
+        "high": 0.028289615804209217
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_combiner",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02632287415849123,
+        "low": 0.02432925500169109,
+        "high": 0.0282228643773941
+      },
+      "significant": true
+    },
+    {
+      "arm": "blend_selector",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.027071945590029546,
+        "low": 0.024950812682156986,
+        "high": 0.029097621663796036
+      },
+      "significant": true
+    },
+    {
+      "arm": "oracle_best_of_three",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.053312744220936806,
+        "low": 0.05138277758612302,
+        "high": 0.05502634898838647
+      },
+      "significant": true
+    }
+  ],
+  "any_blend_beats_best_single": false,
+  "seed": 0
+}

@@ -98,11 +98,11 @@ def test_a_missing_results_file_is_named(tmp_path):
 
 
 def test_results_load_by_stem(tmp_path):
-    for name in ("recall", "coarse-rank-test", "fine-rank-test", "blend-test"):
+    for name in ("recall", "coarse-rank-test", "fine-rank-test-full", "blend-test-full"):
         (tmp_path / f"{name}.json").write_text(json.dumps({"stem": name}))
     loaded = load_results(tmp_path)
     assert loaded["recall"]["stem"] == "recall"
-    assert set(loaded) >= {"recall", "coarse-rank-test", "fine-rank-test", "blend-test"}
+    assert set(loaded) >= {"recall", "coarse-rank-test", "fine-rank-test-full", "blend-test-full"}
 
 
 def test_ablation_1_is_read_from_the_paired_bootstrap_not_re_derived():
