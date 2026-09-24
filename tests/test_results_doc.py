@@ -83,8 +83,10 @@ def test_every_figure_in_the_writeup_comes_from_a_committed_result(doc):
 @pytest.mark.data
 @pytest.mark.parametrize("doc", DOCS, ids=lambda d: d.name)
 def test_the_writeup_states_the_headline_with_its_scope(doc):
-    # A 2,000-query sample number presented as a full-test number is the one
-    # scope error a reader cannot catch.
+    # The headline is a full-split number, and must say so: the LLM arm was
+    # first measured on a 2,000-query sample, and a sample figure passed off as
+    # the full split's is the one scope error a reader cannot catch. Both docs
+    # name the split's size beside the headline, and name the sample as one.
     text = doc.read_text(encoding="utf-8").lower()
-    assert "2,000" in text or "2000" in text
-    assert "sample" in text
+    assert "8,956" in text
+    assert "2,000-query sample" in text
