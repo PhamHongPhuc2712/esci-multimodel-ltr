@@ -10,6 +10,7 @@ from src.llm_rerank import (
     PROMPT,
     RerankCache,
     Usage,
+    append_usage,
     build_prompt,
     parse_permutation,
     rerank_windows,
@@ -293,3 +294,34 @@ def test_token_totals_survive_concurrent_workers():
     assert usage.n_calls == 200
     assert usage.prompt_tokens == 2000
     assert usage.completion_tokens == 4000
+
+
+# --- the bill of a paid pass, committed rather than printed ------------------
+
+def _run(pt, ct, calls):
+    return {"split": "test", "usage": Usage(
+        prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=ct // 2,
+        n_calls=calls, n_cached=0, n_fallback=1,
+    ).to_dict()}
+
+
+def test_append_usage_starts_a_record(tmp_path):
+    path = tmp_path / "usage.json"
+    payload = append_usage(path, _run(100, 50, 2))
+    assert len(payload["runs"]) == 1
+    assert payload["totals"]["prompt_tokens"] == 100
+    assert json.loads(path.read_text())["totals"]["n_calls"] == 2
+
+
+def test_append_usage_sums_a_resumed_pass(tmp_path):
+    # An interrupted pass resumes as a second run; the bill is both legs, and
+    # overwriting would publish only the last one.
+    path = tmp_path / "usage.json"
+    append_usage(path, _run(100, 50, 2))
+    payload = append_usage(path, _run(300, 150, 6))
+    assert len(payload["runs"]) == 2
+    assert payload["totals"]["prompt_tokens"] == 400
+    assert payload["totals"]["completion_tokens"] == 200
+    assert payload["totals"]["n_calls"] == 8
+    assert payload["totals"]["n_fallback"] == 2
+    assert payload["totals"]["prompt_tokens_per_call"] == pytest.approx(50.0)

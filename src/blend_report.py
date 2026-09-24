@@ -166,12 +166,12 @@ def _main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--final", action="store_true",
-                        help="required with --scope test-sample")
+                        help="required with either test scope")
     args = parser.parse_args()
 
-    if args.scope == "test-sample" and not args.final:
+    if args.scope != "fold0" and not args.final:
         raise SystemExit(
-            "refusing to touch the test sample without --final. The weights, "
+            "refusing to touch the test split without --final. The weights, "
             "the features and the round count are all chosen on fold 0."
         )
 

@@ -26,12 +26,14 @@ and counted them in `n_fallback`, so they carry that order here with
 `llm_fallback = True`, which is what lets the frame reproduce Plan 6's
 0.8814 and 0.8855 exactly.
 
-What must never happen is the *scope* error: over the full 8,956-query test
-split the lookup misses 6,956 windows, and quietly keeping the Stage 2 order
-would label Stage 2's ordering `llm` and report the dilution as a blend
-effect. So misses are returned rather than absorbed, `check_fallback_share`
-refuses more than MAX_FALLBACK_SHARE of them, and `build_signals` raises for
-any window that has neither an ordering nor a declared fallback.
+What must never happen is the *scope* error: over a query set the LLM never
+ran on - the full 8,956-query test split before its 2026-09-24 pass, or train
+folds 1-4 still - the lookup misses almost every window, and quietly keeping
+the Stage 2 order would label Stage 2's ordering `llm` and report the dilution
+as a blend effect. So misses are returned rather than absorbed,
+`check_fallback_share` refuses more than MAX_FALLBACK_SHARE of them, and
+`build_signals` raises for any window that has neither an ordering nor a
+declared fallback.
 """
 
 from __future__ import annotations
@@ -48,8 +50,10 @@ from src.rrf import DEFAULT_K as RRF_K
 
 DEFAULT_DIR = Path("data/features")
 
-# The two query sets the LLM actually ran on. Anything else has no llm_rank.
-SCOPES: tuple[str, ...] = ("fold0", "test-sample")
+# The query sets the LLM actually ran on: fold 0 and the frozen 2,000-query
+# test sample (Plan 6), then the whole test split (2026-09-24). Anything else
+# has no llm_rank.
+SCOPES: tuple[str, ...] = ("fold0", "test-sample", "test")
 
 SIGNAL_COLUMNS: tuple[str, ...] = (
     "query_id",
@@ -78,8 +82,9 @@ BLEND_FEATURES: tuple[str, ...] = (
 
 # Measured 2026-09-23: 1 of 4,130 fold-0 windows (0.02%) and 2 of 2,000
 # test-sample windows (0.10%) have no cached permutation. The scope error this
-# guards against - the full test split - misses 6,956 of 8,956 (77.7%). The
-# ceiling sits 5x above the worst measured rate and >100x below a scope error.
+# guards against - a query set the LLM never ran on, as the full test split was
+# before 2026-09-24 - missed 6,956 of 8,956 (77.7%). The ceiling sits 5x above
+# the worst measured rate and >100x below a scope error.
 MAX_FALLBACK_SHARE = 0.005
 
 
@@ -100,7 +105,7 @@ def scope_windows(
 
     The returned matrix carries `stage2_score` for every judged pair.
     """
-    from src.fine_rank_report import TEST_SAMPLE
+    from src.fine_rank_report import TEST_SAMPLE, select_test_queries
     from src.ranker import REPORT_FOLD
     from src.rerank_window import DEFAULT_K, windows
     from src.stage2_scores import load_stage2
@@ -108,7 +113,7 @@ def scope_windows(
     if scope not in SCOPES:
         raise ValueError(
             f"unknown scope {scope!r}; expected one of {SCOPES}. The LLM ran on "
-            "fold 0 and the 2,000-query test sample, nothing else."
+            "fold 0 and the test split, nothing else."
         )
     k = DEFAULT_K if k is None else k
     features_dir = Path(features_dir)
@@ -118,11 +123,13 @@ def scope_windows(
         matrix = matrix.loc[matrix["fold"] == REPORT_FOLD]
         split = "train"
     else:
-        matrix = pd.read_parquet(features_dir / "test.parquet")
-        keep = matrix["query_id"].drop_duplicates().sample(
-            n=TEST_SAMPLE, random_state=seed
+        # The sample is drawn by the helper every earlier report used, so the
+        # frame describes the same 2,000 queries; "test" is the whole split.
+        matrix, _ = select_test_queries(
+            pd.read_parquet(features_dir / "test.parquet"),
+            sample=TEST_SAMPLE if scope == "test-sample" else 0,
+            seed=seed,
         )
-        matrix = matrix.loc[matrix["query_id"].isin(set(keep))]
         split = "test"
     matrix = matrix.reset_index(drop=True)
 
@@ -169,8 +176,8 @@ def check_fallback_share(missing: Collection[str], n_windows: int) -> None:
             f"{len(missing):,} of {n_windows:,} windows ({share:.1%}) have no "
             f"cached LLM permutation, past the {MAX_FALLBACK_SHARE:.1%} a "
             "handful of malformed answers explains. This is a scope error: the "
-            "LLM ran on fold 0 and the 2,000-query test sample only, and this "
-            "plan issues no API calls."
+            "LLM ran on fold 0 and the test split only, and this module issues "
+            "no API calls."
         )
 
 

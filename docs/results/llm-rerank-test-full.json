@@ -1,0 +1,51 @@
+{
+  "runs": [
+    {
+      "split": "test",
+      "folds": "all",
+      "sample": 5,
+      "k": 10,
+      "model": "gpt-5.6-luna",
+      "n_windows": 5,
+      "usage": {
+        "prompt_tokens": 1913,
+        "completion_tokens": 1665,
+        "reasoning_tokens": 1473,
+        "seconds": 7.565207004547119,
+        "call_seconds": 26.209551331063267,
+        "n_calls": 4,
+        "n_cached": 1,
+        "n_fallback": 0
+      }
+    },
+    {
+      "split": "test",
+      "folds": "all",
+      "sample": null,
+      "k": 10,
+      "model": "gpt-5.6-luna",
+      "n_windows": 8956,
+      "usage": {
+        "prompt_tokens": 3154892,
+        "completion_tokens": 2656968,
+        "reasoning_tokens": 2323837,
+        "seconds": 8458.568955898285,
+        "call_seconds": 33813.08873368957,
+        "n_calls": 6954,
+        "n_cached": 2002,
+        "n_fallback": 12
+      }
+    }
+  ],
+  "totals": {
+    "prompt_tokens": 3156805,
+    "completion_tokens": 2658633,
+    "reasoning_tokens": 2325310,
+    "n_calls": 6958,
+    "n_cached": 2003,
+    "n_fallback": 12,
+    "prompt_tokens_per_call": 453.69430870939925,
+    "completion_tokens_per_call": 382.09729807415926,
+    "reasoning_tokens_per_call": 334.19229663696467
+  }
+}

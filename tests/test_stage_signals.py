@@ -222,13 +222,15 @@ def test_require_full_coverage_rejects_a_null_signal():
         require_full_coverage(frame)
 
 
-def test_the_scopes_are_the_two_the_llm_actually_ran_on():
-    assert SCOPES == ("fold0", "test-sample")
+def test_the_scopes_are_the_query_sets_the_llm_actually_ran_on():
+    # Fold 0 and the frozen sample (Plan 6), then the whole test split
+    # (2026-09-24). Train folds 1-4 have no LLM ordering and never will.
+    assert SCOPES == ("fold0", "test-sample", "test")
 
 
 def test_an_unknown_scope_is_refused_before_anything_is_read(tmp_path):
     with pytest.raises(ValueError, match="scope"):
-        scope_windows("test", features_dir=tmp_path)
+        scope_windows("train", features_dir=tmp_path)
 
 
 # --- the real frames --------------------------------------------------------
@@ -236,6 +238,7 @@ def test_an_unknown_scope_is_refused_before_anything_is_read(tmp_path):
 _PLAN_6_RESULTS = {
     "fold0": "docs/results/fine-rank.json",
     "test-sample": "docs/results/fine-rank-test.json",
+    "test": "docs/results/fine-rank-test-full.json",
 }
 
 
@@ -254,7 +257,11 @@ def _ordering(frame, column, ascending):
 def test_the_real_frames_are_complete():
     from src.stage_signals import load_signals
 
-    for scope, n_queries, n_fallback in [("fold0", 4130, 1), ("test-sample", 2000, 2)]:
+    # The whole split's 7 are the 2026-09-24 pass's malformed answers, retried
+    # once by the full-split report; 49855 and 66028 failed on the sample too.
+    for scope, n_queries, n_fallback in [
+        ("fold0", 4130, 1), ("test-sample", 2000, 2), ("test", 8956, 7),
+    ]:
         frame = load_signals(scope)
         assert frame["query_id"].nunique() == n_queries
         require_full_coverage(frame)
