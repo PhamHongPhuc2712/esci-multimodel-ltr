@@ -1,0 +1,257 @@
+{
+  "split": "train",
+  "scope": "fold0",
+  "n_queries": 4130,
+  "n_judgements": 82751,
+  "floor": {
+    "mean": 0.743749290760818,
+    "low": 0.740674758377043,
+    "high": 0.7465897379380034,
+    "n_trials": 100
+  },
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945205,
+        "high": 0.11184183460770253
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8586628405345903,
+        "low": 0.8536051256564455,
+        "high": 0.8634481987115363
+      },
+      "lift_over_floor": {
+        "point": 0.11491354977377234,
+        "low": 0.11069610239524458,
+        "high": 0.11894968519517485
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8814224315239989,
+        "low": 0.8767520992505652,
+        "high": 0.8858538470712275
+      },
+      "lift_over_floor": {
+        "point": 0.13767314076318082,
+        "low": 0.1333709847325301,
+        "high": 0.1417409078465728
+      }
+    },
+    {
+      "name": "stage2+ce_windows",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8554900059166592,
+        "low": 0.8505592116942093,
+        "high": 0.8602035531681733
+      },
+      "lift_over_floor": {
+        "point": 0.11174071515584122,
+        "low": 0.107355261687869,
+        "high": 0.11594485643621306
+      }
+    },
+    {
+      "name": "stage2+ce_bge",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8649522527950229,
+        "low": 0.8602916802519611,
+        "high": 0.8696291691445857
+      },
+      "lift_over_floor": {
+        "point": 0.12120296203420493,
+        "low": 0.116869767798456,
+        "high": 0.12522461349438788
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "stage2+ce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0067968002342362836,
+        "low": 0.003746473997611245,
+        "high": 0.009872226280145332
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02955639122364474,
+        "low": 0.026562658829945435,
+        "high": 0.032718611385769404
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_windows",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0036239656163051634,
+        "low": 0.0006296571046727473,
+        "high": 0.006740108094943134
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.013086212494668866,
+        "low": 0.009981004236232428,
+        "high": 0.016225900479983756
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_windows",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": -0.0031728346179311206,
+        "low": -0.004496396760002363,
+        "high": -0.0018610055253783524
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_windows",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.025932425607339576,
+        "low": -0.029144720604673952,
+        "high": -0.022634418358220852
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": 0.006289412260432582,
+        "low": 0.003750279528044601,
+        "high": 0.008865189851794658
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.016470178728975878,
+        "low": -0.019588802888610642,
+        "high": -0.013427558918669539
+      },
+      "significant": true
+    }
+  ],
+  "share_of_llm_gain": {
+    "stage2+ce": 0.229960423206164,
+    "stage2+ce_windows": 0.12261191120674228,
+    "stage2+ce_bge": 0.44275406952253377
+  },
+  "pairwise_accuracy": {
+    "stage2": 0.637315352347985,
+    "stage2+ce": 0.6557650933304486,
+    "stage2+llm": 0.7404415918460558,
+    "stage2+ce_windows": 0.6514381182466136,
+    "stage2+ce_bge": 0.6856212214089111
+  },
+  "latency": {
+    "stage2+ce": {
+      "single_ms": 19.019691380672157,
+      "batched_ms": 9.96501456014812,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_windows": {
+      "single_ms": 18.278433360392228,
+      "batched_ms": 10.376830539898947,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_bge": {
+      "single_ms": 70.22164368070662,
+      "batched_ms": 52.86111768102273,
+      "n_queries": 50,
+      "n_pairs": 499
+    }
+  },
+  "models": {
+    "stage2+ce_windows": "models/cross-encoder/windows",
+    "stage2+ce_bge": "models/cross-encoder/bge"
+  },
+  "training": {
+    "stage2+ce_windows": {
+      "target": "labels",
+      "init": "scratch",
+      "loss": "RankNetLoss",
+      "epochs": 1,
+      "batch_size": 16,
+      "seed": 0,
+      "n_windows": 12519,
+      "n_dropped": 0,
+      "minutes": 4.505783132712046
+    },
+    "stage2+ce_bge": {
+      "target": "labels",
+      "init": "BAAI/bge-reranker-base",
+      "loss": "RankNetLoss",
+      "epochs": 1,
+      "batch_size": 8,
+      "seed": 0,
+      "n_windows": 12519,
+      "n_dropped": 0,
+      "minutes": 21.945123255252838
+    }
+  },
+  "seed": 0
+}

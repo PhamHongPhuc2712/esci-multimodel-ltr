@@ -1,0 +1,267 @@
+{
+  "scope": "fold 0, cross-fitted in halves",
+  "n_queries": 4130,
+  "floor": {
+    "mean": 0.743749290760818,
+    "low": 0.740674758377043,
+    "high": 0.7465897379380034,
+    "n_trials": 100
+  },
+  "halves": {
+    "seed": 0,
+    "sizes": [
+      2065,
+      2065
+    ]
+  },
+  "teacher_missing": [
+    "55755"
+  ],
+  "config": {
+    "loss": "RankNetLoss",
+    "inits": {
+      "scratch": "cross-encoder/ms-marco-MiniLM-L6-v2",
+      "landed": "models/cross-encoder/lambda"
+    },
+    "epochs": {
+      "scratch": 2,
+      "landed": 1
+    },
+    "targets": [
+      "labels",
+      "llm",
+      "hybrid"
+    ]
+  },
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945205,
+        "high": 0.11184183460770253
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8586628405345903,
+        "low": 0.8536051256564455,
+        "high": 0.8634481987115363
+      },
+      "lift_over_floor": {
+        "point": 0.11491354977377234,
+        "low": 0.11069610239524458,
+        "high": 0.11894968519517485
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8814224315239989,
+        "low": 0.8767520992505652,
+        "high": 0.8858538470712275
+      },
+      "lift_over_floor": {
+        "point": 0.13767314076318082,
+        "low": 0.1333709847325301,
+        "high": 0.1417409078465728
+      }
+    },
+    {
+      "name": "pilot:scratch:labels",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8492555288264227,
+        "low": 0.8438549753496309,
+        "high": 0.8539139864856803
+      },
+      "lift_over_floor": {
+        "point": 0.10550623806560468,
+        "low": 0.10118133739638714,
+        "high": 0.10975514236850431
+      }
+    },
+    {
+      "name": "pilot:scratch:llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8499105810947599,
+        "low": 0.8447894729961097,
+        "high": 0.8547957776365166
+      },
+      "lift_over_floor": {
+        "point": 0.10616129033394195,
+        "low": 0.10179837808587822,
+        "high": 0.11047001378478172
+      }
+    },
+    {
+      "name": "pilot:scratch:hybrid",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8498520788401621,
+        "low": 0.8445596701354396,
+        "high": 0.854646467916662
+      },
+      "lift_over_floor": {
+        "point": 0.10610278807934412,
+        "low": 0.10175694049059307,
+        "high": 0.11046421186352968
+      }
+    },
+    {
+      "name": "pilot:landed:labels",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8581251400068779,
+        "low": 0.8531454897273619,
+        "high": 0.8629197494754687
+      },
+      "lift_over_floor": {
+        "point": 0.11437584924605997,
+        "low": 0.1102312153910631,
+        "high": 0.118505583215415
+      }
+    },
+    {
+      "name": "pilot:landed:llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8572363307998053,
+        "low": 0.8521847201417816,
+        "high": 0.8619398967549969
+      },
+      "lift_over_floor": {
+        "point": 0.11348704003898749,
+        "low": 0.10909660319721075,
+        "high": 0.11759524697734218
+      }
+    },
+    {
+      "name": "pilot:landed:hybrid",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8580936972949677,
+        "low": 0.853175899912919,
+        "high": 0.8627489327422481
+      },
+      "lift_over_floor": {
+        "point": 0.11434440653414966,
+        "low": 0.11016186740566804,
+        "high": 0.11859369294581243
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "pilot:scratch:llm",
+      "baseline": "pilot:scratch:labels",
+      "delta": {
+        "point": 0.0006550522683372818,
+        "low": -0.0008963678367340854,
+        "high": 0.002024081641217202
+      },
+      "significant": false
+    },
+    {
+      "arm": "pilot:scratch:hybrid",
+      "baseline": "pilot:scratch:labels",
+      "delta": {
+        "point": 0.000596550013739463,
+        "low": -0.0005954398140871131,
+        "high": 0.0016554891261576768
+      },
+      "significant": false
+    },
+    {
+      "arm": "pilot:landed:llm",
+      "baseline": "pilot:landed:labels",
+      "delta": {
+        "point": -0.0008888092070724724,
+        "low": -0.002333224007240119,
+        "high": 0.0004178499255023237
+      },
+      "significant": false
+    },
+    {
+      "arm": "pilot:landed:hybrid",
+      "baseline": "pilot:landed:labels",
+      "delta": {
+        "point": -3.1442711910305346e-05,
+        "low": -0.001035092451156612,
+        "high": 0.001000168523853426
+      },
+      "significant": false
+    }
+  ],
+  "gate": {
+    "rule": "Pay for the teacher's answers on folds 2/3/4 only if, in the fold-0 cross-fitted pilot, a teacher target (llm or hybrid) beats the labels target from the same starting point with a paired 95% interval wholly above zero. Written into Plan 8 before the committed pilot ran.",
+    "passed": false,
+    "choice": null,
+    "because": []
+  },
+  "seed": 0
+}
