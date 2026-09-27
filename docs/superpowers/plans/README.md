@@ -28,6 +28,7 @@ interfaces are known.
 | 5 | [**Coarse Rank**](2026-09-21-coarse-rank/) | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
 | 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
 | 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup **(landed)** | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
+| 8 | [**Distillation**](2026-09-27-distillation/) | Out-of-fold training windows, two free cross-encoder arms, a fold-0 pilot, and — only if its gate passes — a paid teacher pass and a distilled student **(written)** | A pre-registered pilot gate decides whether the paid pass runs; every trained arm reaches the test split once either way | §7.4 |
 
 A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way:
 
@@ -152,6 +153,28 @@ the sample's ties into significant losses — every blend below the LLM alone
 split with Ablations 3, 4, 5 and 7. It added `--sample 0` and
 `--skip-cascade` to `src.fine_rank_report`, a `test` scope to
 `src.stage_signals`, and `--usage-out` to `src.llm_rerank`.
+
+**Plan 8 — [Distillation](2026-09-27-distillation/), written 2026-09-27.** It
+asks whether the LLM's +0.0276 can be moved into a cross-encoder that answers
+in about 25 ms. The price would be about 4.2 h of paid calls to label the
+12,519 training-fold windows. It was written against scratch measurements that
+made no API call, and **two of them say its paid phase will not pay.** In a
+fold-0 pilot that trains the same student on the same queries with each
+target, the teacher's ordering ties the labels from scratch (+0.0009
+[−0.0006, +0.0022]) and loses to them from the landed model (−0.0016
+[−0.0031, −0.0003]). The teacher is better than every stage and still wrong
+on about a quarter of mixed-grade window pairs (0.7404 correct). So the paid
+pass sits behind a gate written before the committed pilot runs.
+
+Two findings shaped the plan whatever that gate says:
+- **The student's training windows must be carved out-of-fold.** Stage 2
+  scores its own training folds 0.9035 against fold 0's 0.8519, and only 34.5%
+  of those windows hold the same documents as out-of-fold ones.
+- **The spec's "hard negatives first" loses to the landed recipe,** by
+  −0.0031 whether trained with `LambdaLoss` or `RankNetLoss`.
+
+The free capacity arm, `bge-reranker-base`, has to train on windows. On whole
+query groups it would take over 17 h an epoch on this card.
 
 ## Ablation ownership
 
