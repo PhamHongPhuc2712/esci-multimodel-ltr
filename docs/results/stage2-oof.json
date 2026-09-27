@@ -1,0 +1,16 @@
+{
+  "fold0_ndcg": 0.8518660403003541,
+  "ndcg_out_of_fold": 0.8533618962149814,
+  "exact_on_top_out_of_fold": 0.7121175812764597,
+  "ndcg_in_sample": 0.9034828731817095,
+  "exact_on_top_in_sample": 0.8769071012061667,
+  "same_window_share": 0.34475597092419524,
+  "n_queries": 12519,
+  "k": 10,
+  "train_folds": [
+    2,
+    3,
+    4
+  ],
+  "seed": 0
+}
