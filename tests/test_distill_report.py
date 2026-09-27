@@ -216,3 +216,23 @@ def test_the_student_is_exactly_what_the_gate_chose():
     assert (record["init"], record["target"]) == (
         gate["choice"]["init"], gate["choice"]["target"]
     )
+
+
+def test_the_test_report_scores_exactly_the_fold_0_arms():
+    # An arm dropped after a bad fold-0 number, or added after a good test
+    # number, is selection on the test split.
+    fold0 = {arm["name"] for arm in _committed("distill.json")["arms"]}
+    test = {arm["name"] for arm in _committed("distill-test.json")["arms"]}
+    assert test == fold0
+
+
+def test_the_test_arms_sit_on_the_published_test_windows():
+    report = _committed("distill-test.json")
+    arms = {arm["name"]: arm["ndcg"]["point"] for arm in report["arms"]}
+    published = {
+        arm["name"]: arm["ndcg"]["point"]
+        for arm in _committed("fine-rank-test-full.json")["arms"]
+    }
+    assert report["n_queries"] == 8956
+    for name in REFERENCE_ARMS:
+        assert arms[name] == pytest.approx(published[name], abs=5e-4)
