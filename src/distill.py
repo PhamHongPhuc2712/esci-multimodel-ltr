@@ -282,6 +282,27 @@ def fine_tune_windows(
     return model
 
 
+def gate_choice(payload: Mapping) -> tuple[str, str]:
+    """The (init, target) the pilot's pre-registered gate chose for the student.
+
+    The student is not picked by hand: Phase 3 trains exactly what the gate
+    named, from the committed docs/results/distill-pilot.json.
+    """
+    gate = payload.get("gate") or {}
+    if not gate.get("passed"):
+        raise ValueError(
+            "the pilot's gate did not pass, so there is no student to train; "
+            "the free arms are the result"
+        )
+    choice = gate.get("choice") or {}
+    if choice.get("init") not in INITS or choice.get("target") not in ("llm", "hybrid"):
+        raise ValueError(
+            f"the gate chose {choice!r}, which is not a teacher target from a "
+            f"known start ({sorted(INITS)})"
+        )
+    return choice["init"], choice["target"]
+
+
 def training_windows(features_dir: Path = Path("data/features")) -> tuple[list, pd.DataFrame]:
     """The out-of-fold windows of folds 2/3/4, and the judged rows behind them."""
     from src.cross_encoder import check_training_folds
@@ -317,7 +338,11 @@ def _main() -> int:
     from src.stage_signals import check_fallback_share, llm_orderings_from_cache
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=list(TARGETS), required=True)
+    which = parser.add_mutually_exclusive_group(required=True)
+    which.add_argument("--target", choices=list(TARGETS))
+    which.add_argument(
+        "--from-gate", type=Path,
+        help="train what the pilot's gate chose (docs/results/distill-pilot.json)")
     parser.add_argument(
         "--init", default="scratch",
         help=f"one of {sorted(INITS)}, or any cross-encoder name or path "
@@ -332,6 +357,11 @@ def _main() -> int:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
+
+    if args.from_gate is not None:
+        args.init, args.target = gate_choice(
+            json.loads(args.from_gate.read_text(encoding="utf-8"))
+        )
 
     windows_, matrix = training_windows(args.features_dir)
     query_text, doc_text = text_maps(matrix, args.products, args.judgements)

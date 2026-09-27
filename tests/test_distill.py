@@ -6,6 +6,7 @@ from src.distill import (
     TARGETS,
     cross_fit_orderings,
     gains_from_frame,
+    gate_choice,
     pairwise_accuracy,
     split_halves,
     window_dataset,
@@ -263,3 +264,31 @@ def test_the_training_windows_are_carved_out_of_fold():
     carved = {w.query_id: set(w.window) for w in windows(in_sample, k=10)}
     same = sum(carved[w.query_id] == set(w.window) for w in windows_)
     assert same / len(windows_) == pytest.approx(0.345, abs=0.01)
+
+
+# --- the student trains what the gate chose (Phase 3) -----------------------
+
+def _pilot_payload(passed, choice):
+    return {"gate": {"passed": passed, "choice": choice, "because": [], "rule": "..."}}
+
+
+def test_the_student_trains_what_the_gate_chose():
+    payload = _pilot_payload(True, {"init": "landed", "target": "hybrid"})
+    assert gate_choice(payload) == ("landed", "hybrid")
+
+
+def test_a_gate_that_did_not_pass_trains_no_student():
+    with pytest.raises(ValueError, match="free arms are the result"):
+        gate_choice(_pilot_payload(False, None))
+
+
+def test_a_gate_without_a_gate_block_trains_no_student():
+    with pytest.raises(ValueError, match="did not pass"):
+        gate_choice({})
+
+
+def test_a_gate_choice_that_is_not_a_teacher_target_is_refused():
+    with pytest.raises(ValueError, match="teacher target"):
+        gate_choice(_pilot_payload(True, {"init": "landed", "target": "labels"}))
+    with pytest.raises(ValueError, match="teacher target"):
+        gate_choice(_pilot_payload(True, {"init": "bge", "target": "llm"}))
