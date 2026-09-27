@@ -214,6 +214,18 @@ def test_a_scorer_that_orders_the_training_half_is_caught():
         )
 
 
+def test_a_scorer_that_skips_part_of_its_half_is_caught():
+    # A skipped query would keep Stage 2's order through spliced_run and score
+    # as Stage 2 under the pilot arm's name.
+    many = [Window(query_id=str(i), window=("a",), tail=()) for i in range(4)]
+    with pytest.raises(AssertionError, match="did not order"):
+        cross_fit_orderings(
+            many, ({"0", "1"}, {"2", "3"}),
+            fit=lambda ws: None,
+            score=lambda m, ws: {ws[0].query_id: ["a"]},
+        )
+
+
 # --- the diagnostic ---------------------------------------------------------
 
 def test_pairwise_accuracy_of_the_ideal_order_is_one():

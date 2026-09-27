@@ -30,7 +30,7 @@ interfaces are known.
 | 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup **(landed)** | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 | 8 | [**Distillation**](2026-09-27-distillation/) | Out-of-fold training windows, two free cross-encoder arms, a fold-0 pilot, and — only if its gate passes — a paid teacher pass and a distilled student **(landed; gate not passed, no paid pass)** | A pre-registered pilot gate decides whether the paid pass runs; every trained arm reaches the test split once either way | §7.4 |
 
-A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way:
+A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way, and so is Plan 8, written after the series closed:
 
 - [`2026-09-19-evaluation-foundation/`](2026-09-19-evaluation-foundation/) — Plan 1, an index plus three phases: the metric, the data, then statistics and the baseline. **Landed.** Its gate passed with zero-shot SBERT at NDCG 0.8294 against a published 0.8292, a measured random floor of 0.7467, and a lift of +0.0827 [+0.0802, +0.0855].
 - [`2026-09-19-enrichment-corpus/`](2026-09-19-enrichment-corpus/) — Plan 2, an index plus two phases: the record, then the corpus. Written against the real `esci.json.zst`, not its README: the field-presence figures, the book/product key split, the multi-price strings and zstandard's silence on truncation were all measured first. **Landed.** 1,080,262-row corpus at 89.59% join coverage.
@@ -174,7 +174,8 @@ Two findings shaped the plan whatever that gate says:
   −0.0031 whether trained with `LambdaLoss` or `RankNetLoss`.
 
 The free capacity arm, `bge-reranker-base`, has to train on windows. On whole
-query groups it would take over 17 h an epoch on this card.
+query groups a scratch attempt ran under 0.2 queries a second — over 17 h an
+epoch — while another job held 4 GB of the card.
 
 **Landed 2026-09-28, and the gate did not pass.** In the committed pilot, all
 four teacher-against-labels comparisons tie, so no paid call was made and no
@@ -182,7 +183,7 @@ student was trained. The free capacity arm is the result: `bge-reranker-base`
 on the out-of-fold windows scores **0.8695 [0.8667, 0.8724]** on the full test
 split. That is +0.0079 [+0.0062, +0.0097] over the landed cross-encoder. It
 keeps 42% of the LLM's gain at 72.5 ms a query, and it beats the 0.8562
-`ESCI_baseline` with no API call. Hard negatives alone tie the coarse ranker.
+`ESCI_baseline` with no API call. The pilot shows the teacher did not beat the labels at pilot scale, where no target lifted its student. MiniLM trained on the windows alone ties the coarse ranker.
 `docs/RESULTS.md` §8 is the writeup.
 
 ## Ablation ownership

@@ -294,7 +294,7 @@ That is +0.0079 [+0.0062, +0.0097] over the landed cross-encoder, and 42% of
 the LLM's gain at 72.5 ms a query. It lies above the 0.8562 `ESCI_baseline`
 with no API call.
 
-- [x] `python -m pytest` passes with no failures and no new skips. — 785 passed (713 before this plan), 36 deselected, 0 skipped.
+- [x] `python -m pytest` passes with no failures and no new skips. — 786 passed (713 before this plan), 36 deselected, 0 skipped. 785 at landing, plus one test added after review.
 - [x] `python -m pytest -m data` passes, including the out-of-fold ordering's reproduction of 0.8534 and, if Phase 2 ran, the teacher's coverage of the training windows. — 35 passed. Phase 2 did not run, so the coverage test was never added.
 - [x] `docs/results/stage2-oof.json` records how far the in-sample training windows sit from the out-of-fold ones. — 0.9035 against 0.8534; 34.5% of windows unchanged.
 - [x] `docs/results/distill-pilot.json` holds all six pilot arms over the same 4,130 fold-0 queries, and its `gate` block equals `paid_run_gate` applied to its own `comparisons`. — Pinned by `test_the_committed_pilot_decided_its_gate_by_the_written_rule`.
@@ -305,3 +305,22 @@ with no API call.
 - [x] `CLAUDE.md`'s Commands section lists the out-of-fold dump, the window fine-tunes, both report modes and — if it ran — the paid pass. — The paid pass is omitted, because it did not run.
 
 Then: record Plan 8 in [`../README.md`](../README.md). — Done.
+
+**Reviewed after landing, 2026-09-28.** One fresh reviewer read the whole
+branch. It found no leakage and no wrong number, and it approved. It flagged
+prose that claimed more than the measurements, all now corrected in
+`docs/RESULTS.md`, `README.md` and the series README:
+- "the LLM is not a better teacher" now reads "not a better target at pilot
+  scale", since no target lifted the pilot's student at all;
+- the windows arm and the bge arm each differ from their comparator in more
+  than one respect — loss and batch, and batch — so neither delta is credited
+  to a single factor;
+- "hard negatives" no longer stands in for the contrastive recipe the spec
+  cites;
+- the whole-group bge failure is marked as measured under contention.
+
+It also found one silent-fallback gap. `cross_fit_orderings` rejected a scorer
+that ordered queries outside its half, but not one that skipped queries inside
+it. A skipped query would have scored as Stage 2 under a pilot arm's name. It
+now raises. No committed number was affected: the real scorer orders every
+window it is given.
