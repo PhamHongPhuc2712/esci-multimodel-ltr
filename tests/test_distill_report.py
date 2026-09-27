@@ -1,5 +1,9 @@
+import json
+from pathlib import Path
+
 import pytest
 
+from src.distill import INITS, TARGETS
 from src.distill_report import (
     FREE_ARMS,
     GATE_RULE,
@@ -175,3 +179,40 @@ def test_a_model_with_no_training_record_is_refused(tmp_path):
     # A directory someone copied in by hand could be any model at all.
     with pytest.raises(FileNotFoundError, match="python -m src.distill"):
         training_records({"stage2+ce_windows": tmp_path})
+
+
+def _committed(name):
+    return json.loads(Path("docs/results", name).read_text(encoding="utf-8"))
+
+
+def test_the_committed_pilot_decided_its_gate_by_the_written_rule():
+    pilot = _committed("distill-pilot.json")
+    assert pilot["gate"]["rule"] == GATE_RULE
+    assert pilot["gate"] == paid_run_gate(pilot["comparisons"])
+    names = {arm["name"] for arm in pilot["arms"]}
+    assert {pilot_arm(i, t) for i in INITS for t in TARGETS} <= names
+    assert {arm["n_queries"] for arm in pilot["arms"]} == {4130}
+
+
+def test_the_committed_fold_0_arms_sit_on_plan_6_s_windows():
+    arms = {a["name"]: a["ndcg"]["point"] for a in _committed("distill.json")["arms"]}
+    published = {a["name"]: a["ndcg"]["point"] for a in _committed("fine-rank.json")["arms"]}
+    for name in REFERENCE_ARMS:
+        assert arms[name] == pytest.approx(published[name], abs=5e-4)
+    assert set(FREE_ARMS) <= set(arms)
+
+
+def test_the_student_is_exactly_what_the_gate_chose():
+    # No gate, no student. A passed gate names one (init, target), and the
+    # student's own training record must say it was trained on that.
+    gate = _committed("distill-pilot.json")["gate"]
+    report = _committed("distill.json")
+    arms = {arm["name"] for arm in report["arms"]}
+    if not gate["passed"]:
+        assert "stage2+student" not in arms
+        return
+    assert "stage2+student" in arms
+    record = report["training"]["stage2+student"]
+    assert (record["init"], record["target"]) == (
+        gate["choice"]["init"], gate["choice"]["target"]
+    )
