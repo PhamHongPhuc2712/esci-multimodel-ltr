@@ -41,9 +41,12 @@ queries, because each query is a paid call: 0.8855 [0.8799, 0.8910]
 configuration unchanged. The point estimate did not move, and the interval
 halved.
 
-Without the LLM, the best number is the coarse LambdaMART ranker at **0.8579
-[0.8551, 0.8611]** (`coarse-rank-test.json`). Its interval contains 0.8562, so
-it **matches** the target rather than beating it.
+Without the LLM, the coarse LambdaMART ranker alone scores **0.8579 [0.8551,
+0.8611]** (`coarse-rank-test.json`). Its interval contains 0.8562, so it
+**matches** the target rather than beating it. Re-ranking its top 10 with a
+larger fine-tuned cross-encoder, `bge-reranker-base`, reaches **0.8695
+[0.8667, 0.8724]** with no API call at all (`distill-test.json`, Section 8).
+That also lies wholly above the target, at 72.5 ms a query.
 
 The floor is computed every time, never quoted: 0.7467 on the full test split
 with this project's gains and discount (`sbert-title-test.json`), against the
@@ -94,6 +97,7 @@ test split, `fine-rank-test-full.json`:
 |---|---|---|---|
 | coarse only | 0.8579 | | — |
 | + cross-encoder, fine-tuned | 0.8616 | +0.0037 [+0.0016, +0.0058] | 20 ms |
+| + larger cross-encoder (`bge-reranker-base`), fine-tuned — Section 8 | 0.8695 | +0.0116 [+0.0095, +0.0138] | 72.5 ms |
 | **+ LLM listwise** | **0.8855** | **+0.0276 [+0.0255, +0.0296]** | 4,713 ms |
 
 The LLM's single-query latency comes from the uncached run on the sample
@@ -252,6 +256,12 @@ Measured losses and ties, reported as results:
   the LLM's calls, so the full-split run left it out.
 - **No blend beats its best input (Section 5)**, while +0.0257 of headroom goes
   unclaimed.
+- **The LLM is not a better teacher than the labels (Section 8).** Trained on
+  the same queries, a cross-encoder given the LLM's ordering ties one given the
+  labels from both starting points, so the paid distillation was not run.
+- **Hard negatives alone lose.** Training on only the top-10 windows costs the
+  MiniLM cross-encoder −0.0035 [−0.0045, −0.0026] against training on every
+  judged pair.
 - **The obvious reading of the behavioural ablation was wrong.** Subtracting
   the presence-flags-only arm reports the behavioural features at −0.0107,
   worse than useless (`coarse-rank-test.json`). That subtraction assumes the
@@ -261,16 +271,82 @@ Measured losses and ties, reported as results:
   take 3.48 GB against the spec's 1.0 GB (`recall.json`), 0.40 GB of it a
   redundant image store.
 
-## 8. What would come next
+## 8. Distilling the LLM
+
+**The distillation was not run. On fold 0, the LLM's ordering taught a
+cross-encoder no more than the labels did. What did move the needle was free:
+a larger cross-encoder trained on the labels.** Plan 8 set out to keep most of
+the LLM's +0.0276 at cross-encoder latency. Doing that means paying the LLM to
+rank the 12,519 training-fold windows, which is about 4.2 hours of calls
+(projected, 5.7M prompt plus 4.8M completion tokens).
+
+It spent that only behind a gate, written into code before it was measured. A
+teacher target had to beat the true labels on the same queries with an
+interval wholly above zero. Fold 0 already had the LLM's answers cached, so
+the pilot trained the same student there, cross-fitted in halves: the labels,
+the LLM's ordering, or the labels with the LLM breaking ties inside a grade.
+It did this from the public checkpoint and from the cross-encoder already
+trained (`distill-pilot.json`):
+
+| starting from | LLM ordering − labels | labels, LLM tie-breaks − labels |
+|---|---|---|
+| the public checkpoint | +0.0007 [−0.0009, +0.0020] | +0.0006 [−0.0006, +0.0017] |
+| the trained cross-encoder | −0.0009 [−0.0023, +0.0004] | −0.0000 [−0.0010, +0.0010] |
+
+All four tie, so no paid call was made. The teacher is better than every
+stage but still noisy. On mixed-grade window pairs the LLM orders 0.7451 the
+right way round, against 0.6589 for the cross-encoder and 0.6442 for the
+coarse ranker (`distill-test.json`). The labels are right on all of them, and
+they already exist for every training query. The teacher adds a noisier
+target, not more data.
+
+**The training windows had to be carved afresh.** The coarse ranker was
+trained on the same folds a student would train on. Its own ordering of those
+folds scores 0.9035, puts an Exact product on top of 87.7% of windows, and
+shares only 34.5% of its windows with an ordering from models that never saw
+those folds. That ordering scores 0.8534 with 71.2% Exact on top, close to
+fold 0's 0.8519 (`stage2-oof.json`). A student trained on the in-sample
+windows would have learned from an easier problem than the one it meets. Both
+free arms below train on the out-of-fold windows.
+
+On all 8,956 test queries, measured once (`distill-test.json`):
+
+| arm | NDCG | vs the cross-encoder | share of the LLM's gain | latency, single / batched |
+|---|---|---|---|---|
+| coarse only | 0.8579 [0.8551, 0.8611] | | 0% | — |
+| + cross-encoder (MiniLM, whole query groups) | 0.8616 [0.8588, 0.8647] | | 13% | 19.7 / 9.5 ms |
+| + MiniLM, top-10 windows only | 0.8581 [0.8552, 0.8612] | −0.0035 [−0.0045, −0.0026] | 1% | 21.5 / 11.3 ms |
+| **+ `bge-reranker-base`, top-10 windows only** | **0.8695 [0.8667, 0.8724]** | **+0.0079 [+0.0062, +0.0097]** | **42%** | **72.5 / 53.4 ms** |
+| + LLM listwise | 0.8855 [0.8827, 0.8883] | | 100% | 4,713 ms |
+
+- **Hard negatives lose.** `PROJECT_SPEC.md` §7.4 cites contrastive
+  fine-tuning on hard negatives as matching distillation. Training the same
+  MiniLM on only the coarse ranker's top-10 windows ties the coarse ranker
+  (+0.0002 [−0.0019, +0.0024]) and loses to the recipe that trains on every
+  judged pair.
+- **Capacity pays.** `bge-reranker-base` trains on exactly those windows, with
+  the same loss and labels, so the backbone is the only difference. It lands
+  +0.0116 [+0.0095, +0.0138] over the coarse ranker: three times the MiniLM
+  cross-encoder's gain and 42% of the LLM's, at 72.5 ms rather than 4.7 s. It
+  was confirmed on fold 0 first: 0.8650, +0.0063 [+0.0038, +0.0089] over the
+  cross-encoder (`distill.json`).
+
+It trained in 22 minutes on the RTX 3080. The whole-query-group recipe the
+MiniLM uses does not fit this card at that size, so the bge arm pays the
+windows-only penalty the MiniLM measured and still wins.
+
+## 9. What would come next
 
 - **Predict when the LLM is wrong, from the LLM.** Section 5 shows label-free
   features cannot. A signal from the model itself — ask twice with the window
   shuffled and measure how much the two answers agree — is the natural
   candidate. It doubles the LLM's cost: about another 454 + 382 tokens and
   1.2 s of batched time a query.
-- **Distil the LLM into the cross-encoder**, to keep most of its gain at 22 ms.
-  That needs LLM orderings for the 12,519 training-fold queries: about four
-  hours of calls at the measured 1,179 ms a query (batched), and roughly 5.7M
-  prompt plus 4.8M completion tokens.
+- **A larger student, on labels, on whole query groups.** Section 8 found the
+  cross-encoder's limit is capacity, not its teacher. `bge-reranker-base`
+  keeps 42% of the LLM's gain while training on windows alone, a recipe that
+  costs the smaller model. Training it on every judged pair needs a card with
+  room for whole query groups. Past that, `bge-reranker-large` is the next
+  size up.
 - **Delete the redundant image store.** `data/embeddings/rerank/` is a strict
   subset of the catalogue store and costs 0.40 GB.

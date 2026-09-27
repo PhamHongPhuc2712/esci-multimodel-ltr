@@ -92,6 +92,16 @@ python -m src.fine_rank_report --split test --final --sample 0 --skip-cascade \
 python -m src.stage_signals --scope test
 python -m src.blend_report --scope test --final --out docs/results/blend-test-full.json
 
+# Distillation (Plan 8, 2026-09-28). The pilot's gate decides whether the paid
+# teacher pass runs; it did not pass, so no student exists.
+python -m src.stage2_scores --split train --out-of-fold   # -> data/features/stage2-train-oof.parquet, ~20 s
+python -m src.distill --target labels --out models/cross-encoder/windows   # 4.5 min
+python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 8 --out models/cross-encoder/bge   # 22 min, 11 GB
+python -m src.distill_report                      # every arm on fold 0, ~5 min
+python -m src.distill_report --pilot              # the cross-fitted pilot and the gate
+python -m src.distill_report --split test --final --arms stage2+ce_windows stage2+ce_bge \
+    --out docs/results/distill-test.json
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```

@@ -286,14 +286,22 @@ reads the signal frame and writes JSON cannot be tested that way.
 
 ## Plan Gate
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes, including the out-of-fold ordering's reproduction of 0.8534 and, if Phase 2 ran, the teacher's coverage of the training windows.
-- [ ] `docs/results/stage2-oof.json` records how far the in-sample training windows sit from the out-of-fold ones.
-- [ ] `docs/results/distill-pilot.json` holds all six pilot arms over the same 4,130 fold-0 queries, and its `gate` block equals `paid_run_gate` applied to its own `comparisons`.
-- [ ] The paid pass ran **only if** that gate passed, and only after the user approved the dry run's figures. Its bill is in `docs/results/llm-rerank-train-oof.json`. Or the gate did not pass, and no call was made.
-- [ ] `docs/results/distill.json` and `distill-test.json` report every trained arm beside Stage 2, the landed cross-encoder and the LLM, with paired intervals against all three, the share of the LLM's gain each keeps, pairwise accuracy, and single-query and batched latency. The reference arms reproduce Plan 6's published numbers.
-- [ ] The test split was touched once, behind `--final`.
-- [ ] `docs/RESULTS.md` reports the outcome, whether or not a student was trained, and every figure in it is in a committed results file (`tests/test_results_doc.py`).
-- [ ] `CLAUDE.md`'s Commands section lists the out-of-fold dump, the window fine-tunes, both report modes and — if it ran — the paid pass.
+**Passed 2026-09-28. The pre-registered gate on the paid pass did not pass,
+so no teacher call was made and no student was trained.** The free capacity
+arm is the result. `bge-reranker-base`, fine-tuned on the out-of-fold windows
+with the labels, scores **0.8695 [0.8667, 0.8724]** on the full test split.
+That is +0.0079 [+0.0062, +0.0097] over the landed cross-encoder, and 42% of
+the LLM's gain at 72.5 ms a query. It lies above the 0.8562 `ESCI_baseline`
+with no API call.
 
-Then: record Plan 8 in [`../README.md`](../README.md).
+- [x] `python -m pytest` passes with no failures and no new skips. — 785 passed (713 before this plan), 36 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including the out-of-fold ordering's reproduction of 0.8534 and, if Phase 2 ran, the teacher's coverage of the training windows. — 35 passed. Phase 2 did not run, so the coverage test was never added.
+- [x] `docs/results/stage2-oof.json` records how far the in-sample training windows sit from the out-of-fold ones. — 0.9035 against 0.8534; 34.5% of windows unchanged.
+- [x] `docs/results/distill-pilot.json` holds all six pilot arms over the same 4,130 fold-0 queries, and its `gate` block equals `paid_run_gate` applied to its own `comparisons`. — Pinned by `test_the_committed_pilot_decided_its_gate_by_the_written_rule`.
+- [x] The paid pass ran **only if** that gate passed, and only after the user approved the dry run's figures. Its bill is in `docs/results/llm-rerank-train-oof.json`. Or the gate did not pass, and no call was made. — **The gate did not pass, and no call was made.** All four comparisons tie. Task 4 left `src/llm_rerank.py` unchanged.
+- [x] `docs/results/distill.json` and `distill-test.json` report every trained arm beside Stage 2, the landed cross-encoder and the LLM, with paired intervals against all three, the share of the LLM's gain each keeps, pairwise accuracy, and single-query and batched latency. The reference arms reproduce Plan 6's published numbers. — 0.8519 / 0.8587 / 0.8814 on fold 0, and 0.8579 / 0.8616 / 0.8855 on test. Timed on an idle GPU.
+- [x] The test split was touched once, behind `--final`. — `test_the_test_report_scores_exactly_the_fold_0_arms` pins that the same two arms went to both.
+- [x] `docs/RESULTS.md` reports the outcome, whether or not a student was trained, and every figure in it is in a committed results file (`tests/test_results_doc.py`). — The new §8, plus the headline, the Stage 3 table and §7 and §9 corrected for the capacity arm.
+- [x] `CLAUDE.md`'s Commands section lists the out-of-fold dump, the window fine-tunes, both report modes and — if it ran — the paid pass. — The paid pass is omitted, because it did not run.
+
+Then: record Plan 8 in [`../README.md`](../README.md). — Done.

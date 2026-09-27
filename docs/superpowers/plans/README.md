@@ -28,7 +28,7 @@ interfaces are known.
 | 5 | [**Coarse Rank**](2026-09-21-coarse-rank/) | Query×product feature extraction, LightGBM `lambdarank`, pointwise A/B | Ablations 3, 4, 5, 7 produce a table with bootstrap CIs | §4.2, §8.5 |
 | 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
 | 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup **(landed)** | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
-| 8 | [**Distillation**](2026-09-27-distillation/) | Out-of-fold training windows, two free cross-encoder arms, a fold-0 pilot, and — only if its gate passes — a paid teacher pass and a distilled student **(written)** | A pre-registered pilot gate decides whether the paid pass runs; every trained arm reaches the test split once either way | §7.4 |
+| 8 | [**Distillation**](2026-09-27-distillation/) | Out-of-fold training windows, two free cross-encoder arms, a fold-0 pilot, and — only if its gate passes — a paid teacher pass and a distilled student **(landed; gate not passed, no paid pass)** | A pre-registered pilot gate decides whether the paid pass runs; every trained arm reaches the test split once either way | §7.4 |
 
 A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way:
 
@@ -175,6 +175,15 @@ Two findings shaped the plan whatever that gate says:
 
 The free capacity arm, `bge-reranker-base`, has to train on windows. On whole
 query groups it would take over 17 h an epoch on this card.
+
+**Landed 2026-09-28, and the gate did not pass.** In the committed pilot, all
+four teacher-against-labels comparisons tie, so no paid call was made and no
+student was trained. The free capacity arm is the result: `bge-reranker-base`
+on the out-of-fold windows scores **0.8695 [0.8667, 0.8724]** on the full test
+split. That is +0.0079 [+0.0062, +0.0097] over the landed cross-encoder. It
+keeps 42% of the LLM's gain at 72.5 ms a query, and it beats the 0.8562
+`ESCI_baseline` with no API call. Hard negatives alone tie the coarse ranker.
+`docs/RESULTS.md` §8 is the writeup.
 
 ## Ablation ownership
 
