@@ -45,11 +45,12 @@ left the point estimate unchanged and halved the interval.
 | query rewriting | an LLM rewrite of the query **ties** | +0.0048 [−0.0007, +0.0107] Recall@100 |
 | learned fusion | **ties** a single hand-tuned text/image weight | −0.0011 [−0.0023, +0.0000] NDCG |
 | blending | **no blend beats the LLM alone** — all three lose to it, though a per-query oracle would add +0.0257 | best: −0.0006 [−0.0009, −0.0003] NDCG |
-| distillation | **the LLM is not a better teacher than the labels**, so the paid labelling was not run | ties from both starting points on fold 0 |
-| model size, fine rank | a larger cross-encoder (`bge-reranker-base`) beats the small one, keeping 42% of the LLM's gain at 72.5 ms | +0.0079 [+0.0062, +0.0097] NDCG |
+| distillation | in a fold-0 pilot the LLM's ordering was **not a better training target than the labels**, so the paid labelling was not run | ties from both starting points |
+| model size, fine rank | a larger cross-encoder (`bge-reranker-base`, trained on the top-10 windows) beats the landed small one, keeping 42% of the LLM's gain at 72.5 ms | +0.0079 [+0.0062, +0.0097] NDCG |
 
-Each row's scope, `n` and source are in the full table in
-[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The ties and losses
+Each ablation row's scope, `n` and source are in the full table in
+[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The last two rows
+come from [its Section 8](docs/RESULTS.md#8-distilling-the-llm). The ties and losses
 are reported as results.
 
 ## The funnel

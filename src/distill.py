@@ -189,11 +189,19 @@ def cross_fit_orderings(
     out: dict[str, list[str]] = {}
     for train_ids, score_ids in ((first, second), (second, first)):
         model = fit([w for w in windows_ if w.query_id in train_ids])
-        scored = score(model, [w for w in windows_ if w.query_id in score_ids])
+        to_score = [w for w in windows_ if w.query_id in score_ids]
+        scored = score(model, to_score)
         outside = set(scored) - score_ids
         if outside:
             raise AssertionError(
                 f"the scorer ordered {len(outside)} queries outside its half"
+            )
+        # A skipped query would keep Stage 2's order through spliced_run and
+        # be scored as Stage 2 under the pilot arm's name.
+        skipped = {w.query_id for w in to_score} - set(scored)
+        if skipped:
+            raise AssertionError(
+                f"the scorer did not order {len(skipped)} queries of its half"
             )
         out.update({q: list(order) for q, order in scored.items()})
     return out

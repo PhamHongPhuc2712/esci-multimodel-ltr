@@ -256,12 +256,14 @@ Measured losses and ties, reported as results:
   the LLM's calls, so the full-split run left it out.
 - **No blend beats its best input (Section 5)**, while +0.0257 of headroom goes
   unclaimed.
-- **The LLM is not a better teacher than the labels (Section 8).** Trained on
-  the same queries, a cross-encoder given the LLM's ordering ties one given the
-  labels from both starting points, so the paid distillation was not run.
-- **Hard negatives alone lose.** Training on only the top-10 windows costs the
-  MiniLM cross-encoder −0.0035 [−0.0045, −0.0026] against training on every
-  judged pair.
+- **The LLM's ordering did not beat the labels as a training target, at pilot
+  scale (Section 8).** Trained on the same fold-0 queries, a cross-encoder given
+  the LLM's ordering ties one given the labels from both starting points, so
+  the paid distillation was not run. The pilot is weak evidence beyond that:
+  no target lifted its student at all.
+- **The windows-only recipe loses.** The top-10 windows alone, with `RankNetLoss`
+  at batch 16, costs the MiniLM cross-encoder −0.0035 [−0.0045, −0.0026]
+  against the landed recipe: every judged pair, `LambdaLoss`, batch 8.
 - **The obvious reading of the behavioural ablation was wrong.** Subtracting
   the presence-flags-only arm reports the behavioural features at −0.0107,
   worse than useless (`coarse-rank-test.json`). That subtraction assumes the
@@ -273,16 +275,18 @@ Measured losses and ties, reported as results:
 
 ## 8. Distilling the LLM
 
-**The distillation was not run. On fold 0, the LLM's ordering taught a
-cross-encoder no more than the labels did. What did move the needle was free:
+**The distillation was not run. In a fold-0 pilot, the LLM's ordering taught
+a cross-encoder no more than the labels did. What did move the needle was free:
 a larger cross-encoder trained on the labels.** Plan 8 set out to keep most of
 the LLM's +0.0276 at cross-encoder latency. Doing that means paying the LLM to
 rank the 12,519 training-fold windows, which is about 4.2 hours of calls
 (projected, 5.7M prompt plus 4.8M completion tokens).
 
-It spent that only behind a gate, written into code before it was measured. A
-teacher target had to beat the true labels on the same queries with an
-interval wholly above zero. Fold 0 already had the LLM's answers cached, so
+It spent that only behind a gate, written into code before the committed
+pilot ran. A teacher target had to beat the true labels on the same queries
+with an interval wholly above zero. The rule was not written blind: two
+scratch pilots of the same comparison, run while the plan was being designed,
+had already tied or lost, and the plan says so. Fold 0 already had the LLM's answers cached, so
 the pilot trained the same student there, cross-fitted in halves: the labels,
 the LLM's ordering, or the labels with the LLM breaking ties inside a grade.
 It did this from the public checkpoint and from the cross-encoder already
@@ -293,8 +297,13 @@ trained (`distill-pilot.json`):
 | the public checkpoint | +0.0007 [−0.0009, +0.0020] | +0.0006 [−0.0006, +0.0017] |
 | the trained cross-encoder | −0.0009 [−0.0023, +0.0004] | −0.0000 [−0.0010, +0.0010] |
 
-All four tie, so no paid call was made. The teacher is better than every
-stage but still noisy. On mixed-grade window pairs the LLM orders 0.7451 the
+All four tie, so no paid call was made. That decides the spend, not the
+general question. At 2,065 training queries a half, no target lifted its
+student: every arm from the public checkpoint (0.8493–0.8499) sits below the
+coarse ranker's 0.8519, and every arm from the trained model sits below that
+model unchanged, 0.8587. A pilot where nothing helps cannot rank targets
+finely, and a teacher could still pay off at a scale this one did not test.
+The teacher is better than every stage but still noisy. On mixed-grade window pairs the LLM orders 0.7451 the
 right way round, against 0.6589 for the cross-encoder and 0.6442 for the
 coarse ranker (`distill-test.json`). The labels are right on all of them, and
 they already exist for every training query. The teacher adds a noisier
@@ -319,21 +328,28 @@ On all 8,956 test queries, measured once (`distill-test.json`):
 | **+ `bge-reranker-base`, top-10 windows only** | **0.8695 [0.8667, 0.8724]** | **+0.0079 [+0.0062, +0.0097]** | **42%** | **72.5 / 53.4 ms** |
 | + LLM listwise | 0.8855 [0.8827, 0.8883] | | 100% | 4,713 ms |
 
-- **Hard negatives lose.** `PROJECT_SPEC.md` §7.4 cites contrastive
-  fine-tuning on hard negatives as matching distillation. Training the same
-  MiniLM on only the coarse ranker's top-10 windows ties the coarse ranker
-  (+0.0002 [−0.0019, +0.0024]) and loses to the recipe that trains on every
-  judged pair.
-- **Capacity pays.** `bge-reranker-base` trains on exactly those windows, with
-  the same loss and labels, so the backbone is the only difference. It lands
-  +0.0116 [+0.0095, +0.0138] over the coarse ranker: three times the MiniLM
+- **The windows-only recipe loses.** The MiniLM backbone trained on only the
+  coarse ranker's top-10 windows ties the coarse ranker (+0.0002 [−0.0019,
+  +0.0024]) and loses to the landed recipe. That comparison changes three
+  things at once — the windows, the loss (`RankNetLoss` against `LambdaLoss`)
+  and the batch (16 against 8) — so it does not isolate the windows. A scratch
+  run before the plan put `LambdaLoss` on the same windows at the same score,
+  but that run is not committed. It is also not the contrastive hard-negative
+  training that `PROJECT_SPEC.md` §7.4 cites as matching distillation. It only
+  shows that the obvious cheap version of it does not help here.
+- **A larger backbone pays.** `bge-reranker-base` trains on the same windows,
+  with the same loss and labels, at batch 8 rather than 16. It lands +0.0116
+  [+0.0095, +0.0138] over the coarse ranker: three times the MiniLM
   cross-encoder's gain and 42% of the LLM's, at 72.5 ms rather than 4.7 s. It
-  was confirmed on fold 0 first: 0.8650, +0.0063 [+0.0038, +0.0089] over the
-  cross-encoder (`distill.json`).
+  was measured on fold 0 first: 0.8650, +0.0063 [+0.0038, +0.0089] over the
+  cross-encoder (`distill.json`). Its gain over the MiniLM windows arm mixes
+  the backbone with a batch half the size, and so twice the optimiser steps;
+  this plan does not separate the two.
 
-It trained in 22 minutes on the RTX 3080. The whole-query-group recipe the
-MiniLM uses does not fit this card at that size, so the bge arm pays the
-windows-only penalty the MiniLM measured and still wins.
+It trained in 22 minutes on the RTX 3080. It could not use the whole-query-group
+recipe: a scratch attempt ran under 0.2 queries a second while another job held
+4 GB of the card, and it was not retried on the idle card. Whether the bge arm
+pays the same windows-only penalty as the MiniLM is untested.
 
 ## 9. What would come next
 
@@ -342,11 +358,12 @@ windows-only penalty the MiniLM measured and still wins.
   shuffled and measure how much the two answers agree — is the natural
   candidate. It doubles the LLM's cost: about another 454 + 382 tokens and
   1.2 s of batched time a query.
-- **A larger student, on labels, on whole query groups.** Section 8 found the
-  cross-encoder's limit is capacity, not its teacher. `bge-reranker-base`
-  keeps 42% of the LLM's gain while training on windows alone, a recipe that
-  costs the smaller model. Training it on every judged pair needs a card with
-  room for whole query groups. Past that, `bge-reranker-large` is the next
-  size up.
+- **A larger student, on labels, on whole query groups.** In Section 8 a
+  larger backbone paid where the teacher did not, at the scale measured.
+  `bge-reranker-base` keeps 42% of the LLM's gain while training on windows
+  alone. Two things are untried: training it on every judged pair, which needs
+  the card to itself or a bigger one, and matching its batch to the MiniLM's,
+  which would separate backbone from recipe. Past that, `bge-reranker-large` is
+  the next size up.
 - **Delete the redundant image store.** `data/embeddings/rerank/` is a strict
   subset of the catalogue store and costs 0.40 GB.
