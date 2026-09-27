@@ -33,6 +33,8 @@ measured rates, that is 5,679,799 prompt + 4,783,476 completion tokens
 
 ## Task 4: Label the training windows with the teacher
 
+> **Skipped: the Phase 1 gate did not pass (docs/results/distill-pilot.json).** No teacher call was made, and `src/llm_rerank.py` was left unchanged: its `--oof` and `--dry-run` guards exist only to protect a pass that is not going to run.
+
 **Files:**
 - Modify: `src/llm_rerank.py` (add `check_oof_scope`, `pass_plan`, `project_usage`; add `--oof`, `--dry-run`, `--projection-from` to `_main`; record `oof` in the usage record)
 - Modify: `tests/test_llm_rerank.py`

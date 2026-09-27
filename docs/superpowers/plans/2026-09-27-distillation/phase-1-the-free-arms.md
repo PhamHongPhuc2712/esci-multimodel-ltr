@@ -575,6 +575,10 @@ git add src/stage2_scores.py tests/test_stage2_scores.py docs/results/stage2-oof
 git commit -m "Score the training folds out-of-fold so a student trains on test-like windows"
 ```
 
+**Landed 2026-09-27 (dcab0da).** The dump reproduced the scratch figures
+exactly: 0.8534 out-of-fold, 0.9035 in-sample, 34.5% of windows unchanged. It
+took 17 s.
+
 ---
 
 ## Task 2: Window targets and the window fine-tune
@@ -1292,6 +1296,9 @@ ordering's windows.
 git add src/distill.py tests/test_distill.py
 git commit -m "Add window targets, the cross-fit and the RankNet window fine-tune for distillation"
 ```
+
+**Landed 2026-09-27 (cc56c0a).** 28 passed, and the data test found 12,519
+windows, 34.5% of them the in-sample set.
 
 ---
 
@@ -2158,17 +2165,36 @@ git add tests/test_distill_report.py docs/results/distill.json docs/results/dist
 git commit -m "Report the free distillation arms and decide the pilot's gate on fold 0"
 ```
 
+**Landed 2026-09-28 (16a4b6c, 14ceba7).** By the time the arms trained, the
+other project's GPU job had finished, so these timings are on an idle card.
+
+- **The windows arm** trained in 4.5 min, not 9.5, and scores 0.8555, as the
+  scratch run did.
+- **The capacity arm** trained in 21.9 min, not 62, and is this plan's result:
+  0.8650 on fold 0, +0.0063 [+0.0038, +0.0089] over the landed
+  cross-encoder. It needed no teacher.
+- **The pilot's committed halves** differ from the scratch ones, as the plan
+  said they would. The scratch pilot's one significant loss (`landed:llm`)
+  becomes a tie, −0.0009 [−0.0023, +0.0004]. Nothing wins, so the gate does
+  not pass.
+
 ---
 
 ## Phase 1 Gate
 
-- [ ] `python -m pytest` passes with no failures and no new skips. — 783 passed (713 before this plan), 36 deselected.
-- [ ] `python -m pytest -m data` passes, including the out-of-fold ordering's 0.8534 and the training windows' 34.5% overlap with the in-sample ones.
-- [ ] `data/features/stage2-train-oof.parquet` holds 250,485 rows over 12,519 queries, none flagged in-sample, and `docs/results/stage2-oof.json` records the shift from the in-sample ordering.
-- [ ] `docs/results/distill.json` reports `stage2+ce_windows` and `stage2+ce_bge` beside the three reference arms. The reference arms reproduce Plan 6. Each new arm has paired intervals against all three, its share of the LLM's gain, its pairwise accuracy, its latency and its training record.
-- [ ] `docs/results/distill-pilot.json` holds six pilot arms over the same 4,130 queries, and its `gate` equals `paid_run_gate(comparisons)`.
-- [ ] **The gate's verdict is recorded here, in this file, before Phase 2 is opened:**
-  - **not passed** → Phase 2 and Task 5 are skipped. Mark them `Skipped: the Phase 1 gate did not pass (docs/results/distill-pilot.json)` and go straight to [Task 6](phase-3-the-student-and-the-report.md#task-6-the-test-split-once-and-the-writeup).
-  - **passed** → [Phase 2](phase-2-the-teacher.md), whose first step is showing the user the dry run.
+**Passed 2026-09-28. The paid-run gate did not pass.**
 
-Then: [Phase 2 — The Teacher](phase-2-the-teacher.md), or Task 6.
+- [x] `python -m pytest` passes with no failures and no new skips. — 783 passed (713 before this plan), 36 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes, including the out-of-fold ordering's 0.8534 and the training windows' 34.5% overlap with the in-sample ones. — 35 passed (33 before this plan).
+- [x] `data/features/stage2-train-oof.parquet` holds 250,485 rows over 12,519 queries, none flagged in-sample, and `docs/results/stage2-oof.json` records the shift from the in-sample ordering. — 0.8534 out-of-fold against 0.9035 in-sample; Exact on top 71.2% against 87.7%; 34.5% of windows unchanged.
+- [x] `docs/results/distill.json` reports `stage2+ce_windows` and `stage2+ce_bge` beside the three reference arms. The reference arms reproduce Plan 6. Each new arm has paired intervals against all three, its share of the LLM's gain, its pairwise accuracy, its latency and its training record. — The reference arms are 0.8519 / 0.8587 / 0.8814.
+  - `stage2+ce_windows`: 0.8555, −0.0032 [−0.0045, −0.0019] against the landed cross-encoder.
+  - `stage2+ce_bge`: **0.8650, +0.0063 [+0.0038, +0.0089]** against the landed cross-encoder. It keeps 44.3% of the LLM's gain (the landed arm keeps 23.0%) at 70.2 ms single-query, against 19.0 ms for the landed arm.
+- [x] `docs/results/distill-pilot.json` holds six pilot arms over the same 4,130 queries, and its `gate` equals `paid_run_gate(comparisons)`.
+- [x] **The gate's verdict is recorded here, in this file, before Phase 2 is opened:** **not passed.** Every teacher-against-labels comparison ties:
+  - from scratch: `llm` +0.0007 [−0.0009, +0.0020], `hybrid` +0.0006 [−0.0006, +0.0017];
+  - from the landed model: `llm` −0.0009 [−0.0023, +0.0004], `hybrid` −0.0000 [−0.0010, +0.0010].
+
+  Phase 2 and Task 5 are skipped. No API call was made.
+
+Then: [Task 6](phase-3-the-student-and-the-report.md#task-6-the-test-split-once-and-the-writeup).

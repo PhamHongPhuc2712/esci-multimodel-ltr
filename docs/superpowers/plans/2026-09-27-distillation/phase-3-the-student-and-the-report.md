@@ -30,6 +30,8 @@ the signal frame.
 
 ## Task 5: Train the student the gate chose
 
+> **Skipped: the Phase 1 gate did not pass (docs/results/distill-pilot.json).** There is no student.
+
 **Skip this task if the [Phase 1 gate](phase-1-the-free-arms.md#phase-1-gate)
 recorded `not passed`.** Mark it `Skipped: the Phase 1 gate did not pass` and
 go to Task 6.
