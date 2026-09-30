@@ -84,7 +84,12 @@ def top1_accuracy(image_vectors: np.ndarray, text_vectors: np.ndarray) -> float:
 def _main() -> int:
     from src.clip_encoder import load_encoder
     from src.coverage import rerank_product_ids
-    from src.embed_images import DEFAULT_PRODUCTS, DEFAULT_STORE_ROOT, product_image_urls
+    from src.embed_images import (
+        DEFAULT_PRODUCTS,
+        DEFAULT_STORE_ROOT,
+        STORE_NAME,
+        product_image_urls,
+    )
     from src.embedding_store import open_store
     from src.image_fetch import fetch_many
 
@@ -99,7 +104,8 @@ def _main() -> int:
     args = parser.parse_args()
 
     frame = product_image_urls(args.scope, products_path=args.products)
-    store = open_store(args.store_root / args.scope)
+    # The scope picks the products; every scope reads the one store.
+    store = open_store(args.store_root / STORE_NAME)
     n_products = (
         len(rerank_product_ids())
         if args.scope == "rerank"

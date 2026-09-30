@@ -44,9 +44,10 @@ python -m src.esci_s_etl                      # -> data/esci-s/corpus.parquet
 python -m src.coverage --split test           # join coverage + missingness bias
 python -m src.combine                         # -> data/combined/{products,judgements}.parquet
 
-# Image embeddings (network-bound; resumable, 1.8-7.3 h for the rerank scope)
-python -m src.embed_images --scope rerank     # -> data/embeddings/rerank/
-python -m src.image_report --scope rerank     # coverage + semantic gate
+# Image embeddings (network-bound; resumable). One store for every scope:
+# data/embeddings/catalogue/. The scope picks the products, never the store.
+python -m src.embed_images                    # --scope catalogue by default, ~6 h
+python -m src.image_report --scope rerank     # coverage over the re-ranking products + semantic gate
 
 # Retrieval channels (build once; every consumer memory-maps the result)
 python -m src.bm25_index                      # -> data/bm25/, ~5 min, 18 GB peak
@@ -144,11 +145,15 @@ and test (84.6%) and roughly label-balanced, so the both-splits premise holds.
 **Measured end to end: 0.7753** over the 482,105 re-ranking products, 0.7668 over
 the 1,215,854-product catalogue — both confirming ~75%, not 91.5%.
 
-**The `rerank` image store is redundant.** Measured 2026-09-21: 0 of its
-361,875 URLs are absent from `data/embeddings/catalogue/`, and both give the
-same judged-product coverage (373,639 products, 77.50%). Plan 5 reads the
-catalogue store only; deleting `data/embeddings/rerank/` recovers 0.40 GB
-without losing a vector.
+**There is one image store, `data/embeddings/catalogue/`.** The separate
+`rerank` store was a strict subset of it: 0 of its 361,875 URLs are absent from
+the catalogue store, re-checked on 2026-09-30, when it was deleted to recover
+0.40 GB. Both give the same judged-product coverage, 373,639 products or 77.50%,
+re-measured through the catalogue store after the deletion. `src.embed_images`
+and `src.image_report` now open `STORE_NAME` ("catalogue") for every scope.
+This matters because `open_store` on a missing directory returns an *empty*
+store rather than raising. A CLI still opening `data/embeddings/rerank/` would
+report 0% image coverage with no error.
 
 **Measured ESCI-S join coverage is 89.59%** of the 482,105 Task 1 English
 re-ranking products (431,930 matched), and 88.85% of the catalogue. The 91.5%
@@ -292,10 +297,10 @@ supplied it.
   only the 482,105 *judged* products is drawing from a pool that contains every
   relevant product and none of the ~450K non-judged distractors, so its recall
   is inflated and not comparable to a channel searching the whole corpus. This
-  is easy to do by accident: `src/embed_images.py --scope rerank` builds
-  exactly such a store. Recall work must use `--scope catalogue` — and so
-  should everything else, since the rerank store turned out to be a strict
-  subset of it (see above), so there is no reason to keep both.
+  is easy to do by accident: `src/embed_images.py --scope rerank` used to
+  build exactly such a store. Recall work must use the catalogue store. Since
+  2026-09-30 it is the only store (see above), and `src.image_channel` refuses
+  an empty one.
   Measured on 200 validation queries, the rerank-scope image channel reported
   R@100 = 0.2370 — that number is an artefact of its pool, not a retrieval
   result.
@@ -325,9 +330,9 @@ supplied it.
 482,105 unique products for re-ranking (362,005 distinct image URLs, 3.8 GB of
 transfer); **1,215,854** for full-corpus recall (887,041 distinct URLs, 9.1 GB).
 Measured after the real runs: 361,875 and 886,730 vectors actually stored, at a
-0.035% fetch-failure rate. The two scopes write to *separate* stores
-(`data/embeddings/{rerank,catalogue}/`), so running both costs both — 0.38 GB
-plus 0.98 GB. Downloads: ESCI examples 48.9 MB +
-products 1.03 GB, ESCI-S 3.37 GB. ESCI-S is **single-frame zstd** — no random
+0.035% fetch-failure rate. The two scopes used to write to *separate*
+stores, 0.38 GB and 0.98 GB. Since 2026-09-30 both write the one catalogue
+store, so a `--scope rerank` run fetches nothing already there. Downloads:
+ESCI examples 48.9 MB + products 1.03 GB, ESCI-S 3.37 GB. ESCI-S is **single-frame zstd** — no random
 access, no resumable ranged decompression, so filter to `us`, drop error rows,
 normalise book fields, and write Parquet all in one streaming pass.
