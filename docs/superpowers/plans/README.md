@@ -29,6 +29,7 @@ interfaces are known.
 | 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
 | 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup **(landed)** | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 | 8 | [**Distillation**](2026-09-27-distillation/) | Out-of-fold training windows, two free cross-encoder arms, a fold-0 pilot, and — only if its gate passes — a paid teacher pass and a distilled student **(landed; gate not passed, no paid pass)** | A pre-registered pilot gate decides whether the paid pass runs; every trained arm reaches the test split once either way | §7.4 |
+| 9 | [**Capacity, One Factor at a Time**](2026-09-30-capacity/) | Gradient checkpointing for bge; two more bge arms so each comparison changes one thing — backbone, batch or recipe; the best no-API cross-encoder chosen on fold 0 **(written)** | Every pair in the grid measured on fold 0 and on the test split once, with the training records matching the recipes the pairs claim | §7.4, §7.5 |
 
 A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way, and so is Plan 8, written after the series closed:
 
@@ -185,6 +186,17 @@ split. That is +0.0079 [+0.0062, +0.0097] over the landed cross-encoder. It
 keeps 42% of the LLM's gain at 72.5 ms a query, and it beats the 0.8562
 `ESCI_baseline` with no API call. The pilot shows the teacher did not beat the labels at pilot scale, where no target lifted its student. MiniLM trained on the windows alone ties the coarse ranker.
 `docs/RESULTS.md` §8 is the writeup.
+
+**Plan 9 — [Capacity, One Factor at a Time](2026-09-30-capacity/), written
+2026-09-30.** Plan 8's bge arm beat the landed cross-encoder while differing
+from it in backbone, data, loss and batch at once; its review said so. This
+plan adds two arms so that each comparison changes exactly one of them: bge
+with the landed recipe unchanged, and bge on the windows at the MiniLM windows
+arm's batch. Both needed a measurement first. Without gradient checkpointing,
+bge on whole query groups spills past the 3080's 16 GB and runs under 0.27
+queries a second, and gradient accumulation does not help. With it, the
+landed recipe runs 66 minutes an epoch at a 6.3 GB peak. The best of the four
+arms on fold 0 becomes the project's no-API Stage 3.
 
 ## Ablation ownership
 
