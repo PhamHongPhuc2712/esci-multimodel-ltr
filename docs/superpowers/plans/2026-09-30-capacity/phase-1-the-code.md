@@ -576,6 +576,16 @@ git add src/cross_encoder.py src/distill.py tests/test_cross_encoder.py
 git commit -m "Add gradient checkpointing and a training record to both cross-encoder fine-tunes"
 ```
 
+**Landed 2026-09-30 (fc1c16d).** 37, 33 and 26 passed, and 793 in the suite.
+The smoke step printed a `.../lambda` path and `windows, checkpointing on:
+True`. It ran while another project's GPU job held 7.8 GB of the card, so its
+timings are not comparable to the plan's: 10.4 s and 3.2 s of training inside
+2 min 19 s end to end. Peak allocated memory was 5.83 GB on the windows, as
+measured before the plan, but 7.03 GB on whole groups against the plan's
+6.29 GB. The smoke step's 16 queries are not typical: 13 of them hold 38–40
+documents, against a mean of 20 and a 99th percentile of 42. Phase 2's
+whole-group run should start on an idle card.
+
 ---
 
 ## Task 2: The capacity preset
@@ -980,12 +990,16 @@ git add src/distill_report.py tests/test_distill_report.py
 git commit -m "Add the capacity preset: four cross-encoder arms whose comparisons each change one thing"
 ```
 
+**Landed 2026-09-30 (0337d18).** 36 passed, and 803 in the suite.
+
 ---
 
 ## Phase 1 Gate
 
-- [ ] `python -m pytest` passes with no failures and no new skips. — 803 passed (787 before this plan), 36 deselected.
-- [ ] Task 1's smoke step printed a checkpoint path and `windows, checkpointing on: True`.
-- [ ] `python -m src.distill_report --capacity --arms stage2+ce_bge` exits refusing the hand-picked list before reading any data.
+**Passed 2026-09-30.**
+
+- [x] `python -m pytest` passes with no failures and no new skips. — 803 passed (787 before this plan), 36 deselected, 0 skipped.
+- [x] Task 1's smoke step printed a checkpoint path and `windows, checkpointing on: True`.
+- [x] `python -m src.distill_report --capacity --arms stage2+ce_bge` exits refusing the hand-picked list before reading any data. — exit 1 in 0.07 s: `--capacity sets its own arms; do not pass --arms with it`.
 
 Then: [Phase 2 — The Runs and the Writeup](phase-2-the-runs-and-the-writeup.md).
