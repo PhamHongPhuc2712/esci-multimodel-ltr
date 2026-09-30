@@ -5,14 +5,19 @@ import pytest
 
 from src.distill import INITS, TARGETS
 from src.distill_report import (
+    CAPACITY_ARMS,
+    CAPACITY_PAIRS,
     FREE_ARMS,
     GATE_RULE,
     MODEL_ARMS,
     PILOT_EPOCHS,
     REFERENCE_ARMS,
+    TRAIN_COMMANDS,
+    best_model_arm,
     check_reference,
     check_split,
     paid_run_gate,
+    pair_comparisons,
     pilot_arm,
     resolve_model_arms,
     share_of_teacher_gain,
@@ -236,3 +241,85 @@ def test_the_test_arms_sit_on_the_published_test_windows():
     assert report["n_queries"] == 8956
     for name in REFERENCE_ARMS:
         assert arms[name] == pytest.approx(published[name], abs=5e-4)
+
+
+# --- Plan 9: the capacity preset --------------------------------------------
+
+def test_every_model_arm_has_a_command_that_trains_it():
+    assert set(TRAIN_COMMANDS) == set(MODEL_ARMS)
+
+
+def test_the_capacity_arms_are_model_arms_and_not_the_student():
+    assert set(CAPACITY_ARMS) <= set(MODEL_ARMS)
+    assert "stage2+student" not in CAPACITY_ARMS
+
+
+def test_every_capacity_comparison_is_between_scored_arms():
+    scored = set(CAPACITY_ARMS) | set(REFERENCE_ARMS)
+    for (arm, baseline), isolates in CAPACITY_PAIRS.items():
+        assert {arm, baseline} <= scored
+        assert arm != baseline
+        assert isolates
+
+
+def test_the_commands_differ_where_the_pairs_say_they_do():
+    # The pairs claim what differs between two arms; the commands are what
+    # actually trains them, so they must agree.
+    bge, b16 = TRAIN_COMMANDS["stage2+ce_bge"], TRAIN_COMMANDS["stage2+ce_bge_b16"]
+    assert "--batch-size 8" in bge and "--batch-size 16" in b16
+    assert "BAAI/bge-reranker-base" in bge and "BAAI/bge-reranker-base" in b16
+    groups = TRAIN_COMMANDS["stage2+ce_bge_groups"]
+    assert "src.cross_encoder --loss lambda" in groups
+    assert "--batch-size" not in groups            # the landed recipe's own 8
+    assert "--gradient-checkpointing" in groups and "--gradient-checkpointing" in b16
+
+
+def _arm(name, per_query):
+    from src.rank_report import evaluate_arm
+
+    return evaluate_arm(
+        name, per_query, {q: 0.5 for q in per_query}, groups=("retrieval",),
+        n_features=0, objective="rerank", best_iteration=0,
+    )
+
+
+def test_a_pair_comparison_records_what_it_isolates():
+    by_name = {
+        "a": _arm("a", {"1": 0.9, "2": 0.8, "3": 0.7}),
+        "b": _arm("b", {"1": 0.8, "2": 0.8, "3": 0.7}),
+    }
+    [row] = pair_comparisons(by_name, {("a", "b"): "the backbone"})
+    assert (row["arm"], row["baseline"]) == ("a", "b")
+    assert row["isolates"] == "the backbone"
+    assert row["delta"]["point"] == pytest.approx(0.1 / 3)
+
+
+def test_a_pair_naming_an_unscored_arm_raises():
+    with pytest.raises(KeyError, match="not among the scored arms"):
+        pair_comparisons({"a": _arm("a", {"1": 0.9})}, {("a", "b"): "anything"})
+
+
+def test_the_best_model_arm_is_the_highest_scoring_candidate():
+    points = {"stage2+ce_bge": 0.865, "stage2+ce_bge_groups": 0.870}
+    assert best_model_arm(points, list(points)) == "stage2+ce_bge_groups"
+
+
+def test_the_best_model_arm_is_never_a_reference_arm():
+    # The LLM outscores every cross-encoder, and it is not a no-API arm.
+    points = {"stage2+llm": 0.881, "stage2+ce_bge": 0.865}
+    assert best_model_arm(points, ["stage2+ce_bge"]) == "stage2+ce_bge"
+
+
+def test_no_scored_candidate_raises():
+    with pytest.raises(ValueError, match="no candidate"):
+        best_model_arm({"stage2": 0.85}, ["stage2+ce_bge"])
+
+
+def test_capacity_refuses_a_hand_picked_arm_list(monkeypatch):
+    import sys
+
+    from src.distill_report import _main
+
+    monkeypatch.setattr(sys, "argv", ["distill_report", "--capacity", "--arms", "stage2+ce_bge"])
+    with pytest.raises(SystemExit, match="--capacity"):
+        _main()

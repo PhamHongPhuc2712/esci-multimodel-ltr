@@ -11,6 +11,10 @@ Three modes, one module, because all three score the same windows the same way:
     (docs/results/distill.json).
   * ``--split test --final``: the same arms on all 8,956 test queries, once
     (docs/results/distill-test.json).
+  * ``--capacity``: Plan 9's preset. Four cross-encoder arms whose pairwise
+    comparisons each change one thing - backbone, batch or recipe - on fold 0
+    (docs/results/capacity.json) or, with ``--split test --final``, on test
+    (docs/results/capacity-test.json).
 
 The reference arms are read from Plan 7's signal frame and checked against
 the NDCG Plan 6 published for them, so every arm here is scored on exactly the
@@ -30,8 +34,36 @@ MODEL_ARMS: dict[str, Path] = {
     "stage2+ce_windows": Path("models/cross-encoder/windows"),
     "stage2+ce_bge": Path("models/cross-encoder/bge"),
     "stage2+student": Path("models/cross-encoder/student"),
+    "stage2+ce_bge_b16": Path("models/cross-encoder/bge-b16"),
+    "stage2+ce_bge_groups": Path("models/cross-encoder/bge-groups/lambda"),
 }
 FREE_ARMS: tuple[str, ...] = ("stage2+ce_windows", "stage2+ce_bge")
+
+# Plan 9. Plan 8's bge arm beat the landed cross-encoder, but it differed from
+# it in backbone, data, loss and batch at once. These four arms, with the
+# landed cross-encoder, make every comparison below change exactly one of them.
+CAPACITY_ARMS: tuple[str, ...] = (
+    "stage2+ce_windows",
+    "stage2+ce_bge",
+    "stage2+ce_bge_b16",
+    "stage2+ce_bge_groups",
+)
+# (arm, baseline) -> the one thing that differs. Every model arm is also
+# compared with Stage 2, the landed cross-encoder and the LLM, which is where
+# bge_groups against the landed cross-encoder - the backbone under the landed
+# recipe - comes from.
+CAPACITY_PAIRS: dict[tuple[str, str], str] = {
+    ("stage2+ce_bge_b16", "stage2+ce_windows"): "the backbone, on windows at batch 16",
+    ("stage2+ce_bge", "stage2+ce_bge_b16"): "the batch, 8 against 16, for bge on windows",
+    ("stage2+ce_bge_groups", "stage2+ce_bge"): (
+        "the recipe for bge: whole groups and LambdaLoss against windows and "
+        "RankNet, both at batch 8"
+    ),
+}
+CAPACITY_OUT: dict[str, Path] = {
+    "train": Path("docs/results/capacity.json"),
+    "test": Path("docs/results/capacity-test.json"),
+}
 
 TRAIN_COMMANDS: dict[str, str] = {
     "stage2+ce_windows": (
@@ -44,6 +76,14 @@ TRAIN_COMMANDS: dict[str, str] = {
     "stage2+student": (
         "python -m src.distill --from-gate docs/results/distill-pilot.json "
         "--out models/cross-encoder/student"
+    ),
+    "stage2+ce_bge_b16": (
+        "python -m src.distill --target labels --init BAAI/bge-reranker-base "
+        "--batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16"
+    ),
+    "stage2+ce_bge_groups": (
+        "python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base "
+        "--gradient-checkpointing --out-dir models/cross-encoder/bge-groups"
     ),
 }
 
@@ -147,6 +187,38 @@ def training_records(models: Mapping[str, Path]) -> dict[str, dict]:
             )
         out[name] = json.loads(record.read_text(encoding="utf-8"))
     return out
+
+
+def pair_comparisons(
+    by_name: Mapping, pairs: Mapping[tuple[str, str], str], *, seed: int = 0
+) -> list[dict]:
+    """Paired comparisons between arms, each labelled with what it isolates."""
+    from src.rank_report import compare
+
+    rows = []
+    for (arm, baseline), isolates in pairs.items():
+        missing = [name for name in (arm, baseline) if name not in by_name]
+        if missing:
+            raise KeyError(
+                f"{missing} not among the scored arms; a comparison that "
+                "silently drops is a table missing its point"
+            )
+        rows.append(compare(by_name[arm], by_name[baseline], seed=seed)
+                    | {"isolates": isolates})
+    return rows
+
+
+def best_model_arm(points: Mapping[str, float], candidates: Sequence[str]) -> str:
+    """The candidate with the highest NDCG.
+
+    Plan 9 reads it from the fold-0 file only: that arm becomes the project's
+    no-API Stage 3. The test file records it too, but a choice made there
+    would be selection on the test split.
+    """
+    scored = [name for name in candidates if name in points]
+    if not scored:
+        raise ValueError("no candidate arm was scored")
+    return max(scored, key=lambda name: points[name])
 
 
 def check_split(split: str, final: bool) -> None:
@@ -313,6 +385,7 @@ def _arms(args) -> int:
 
     check_split(args.split, args.final)
     models = resolve_model_arms(args.arms)
+    pairs = CAPACITY_PAIRS if args.capacity else {}
     training = training_records(models)
     scope, windows_, matrix, frame, query_text, doc_text = _scope(args.split, args.seed)
     qrels = qrels_from_frame(matrix)
@@ -352,6 +425,7 @@ def _arms(args) -> int:
     for name in models:
         comparisons.append(compare(by_name[name], ce, seed=args.seed))
         comparisons.append(compare(by_name[name], llm, seed=args.seed))
+    comparisons.extend(pair_comparisons(by_name, pairs, seed=args.seed))
     shares = {
         name: share_of_teacher_gain(by_name[name].ndcg.point, stage2.ndcg.point,
                                     llm.ndcg.point)
@@ -379,9 +453,12 @@ def _arms(args) -> int:
         "latency": latency,
         "models": {name: str(path) for name, path in models.items()},
         "training": training,
+        "best_model_arm": best_model_arm(
+            {arm.name: arm.ndcg.point for arm in results}, list(models)
+        ),
         "seed": args.seed,
     }
-    out = args.out or DEFAULT_OUT[args.split]
+    out = args.out or (CAPACITY_OUT if args.capacity else DEFAULT_OUT)[args.split]
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"\nwritten to {out}")
@@ -396,14 +473,21 @@ def _main() -> int:
                         help="the fold-0 cross-fitted pilot and the gate")
     parser.add_argument("--split", default="train", choices=["train", "test"])
     parser.add_argument("--final", action="store_true", help="required with --split test")
-    parser.add_argument("--arms", nargs="+", default=list(FREE_ARMS),
-                        choices=list(MODEL_ARMS))
+    parser.add_argument("--arms", nargs="+", default=None, choices=list(MODEL_ARMS),
+                        help=f"default {list(FREE_ARMS)}; --capacity sets its own")
+    parser.add_argument("--capacity", action="store_true",
+                        help="Plan 9: the four capacity arms and the comparisons "
+                             "that each isolate one factor")
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--floor-trials", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
 
+    if args.capacity and args.arms is not None:
+        raise SystemExit("--capacity sets its own arms; do not pass --arms with it")
+    if args.arms is None:
+        args.arms = list(CAPACITY_ARMS if args.capacity else FREE_ARMS)
     if args.pilot:
         if args.split != "train":
             raise SystemExit("the pilot trains on fold 0; it never touches the test split")
