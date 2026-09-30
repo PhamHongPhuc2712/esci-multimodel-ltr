@@ -27,6 +27,7 @@ surface into a 22M-parameter model's weights and then scores on it.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -49,6 +50,12 @@ DEFAULT_EPOCHS = 1
 DEFAULT_LEARNING_RATE = 2e-5
 
 LOSSES: tuple[str, ...] = ("lambda", "bce")
+LOSS_NAMES: dict[str, str] = {"lambda": "LambdaLoss", "bce": "BinaryCrossEntropyLoss"}
+
+# Written beside every model this module's CLI or src.distill's trains, so a
+# results file can say what trained each arm. src.distill_report refuses a
+# model directory without one.
+TRAINING_RECORD = "training.json"
 
 _WHITESPACE = re.compile(r"\s+")
 
@@ -141,6 +148,57 @@ def pairwise_dataset(
     }
 
 
+def enable_gradient_checkpointing(model) -> None:
+    """Recompute activations during backward instead of storing them.
+
+    bge-reranker-base on whole query groups at batch 8 spills past the 3080's
+    16 GB and crawls under 0.27 queries/s; with this it peaks at 6.3 GB and
+    runs 3.18 queries/s (measured 2026-09-30). The step's arithmetic is
+    unchanged - only when activations are computed. It is switched on the
+    wrapped transformers model because CrossEncoderTrainingArguments'
+    `gradient_checkpointing=True` raises inside sentence-transformers 6.1.
+    Non-reentrant, which is what current PyTorch recommends.
+    """
+    model.model.gradient_checkpointing_enable(
+        gradient_checkpointing_kwargs={"use_reentrant": False}
+    )
+    if not model.model.is_gradient_checkpointing:
+        raise RuntimeError(
+            "gradient checkpointing did not switch on; training would spill "
+            "past GPU memory rather than fail"
+        )
+
+
+def training_record(
+    *,
+    loss: str,
+    backbone: str,
+    epochs: int,
+    batch_size: int,
+    seed: int,
+    gradient_checkpointing: bool,
+    n_queries: int,
+    n_pairs: int,
+    minutes: float,
+) -> dict:
+    """What trained a whole-group fine-tune, in the shape src.distill writes."""
+    if loss not in LOSSES:
+        raise ValueError(f"unknown loss {loss!r}; expected one of {LOSSES}")
+    return {
+        "target": "labels",
+        "init": backbone,
+        "loss": LOSS_NAMES[loss],
+        "data": "every judged pair of folds 2/3/4, whole query groups",
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "seed": seed,
+        "gradient_checkpointing": gradient_checkpointing,
+        "n_queries": n_queries,
+        "n_pairs": n_pairs,
+        "minutes": minutes,
+    }
+
+
 def fine_tune(
     matrix: pd.DataFrame,
     query_text: Mapping,
@@ -155,6 +213,7 @@ def fine_tune(
     learning_rate: float = DEFAULT_LEARNING_RATE,
     device: str = "auto",
     seed: int = 0,
+    gradient_checkpointing: bool = False,
 ) -> Path:
     """Fine-tune and save. `matrix` must contain only training folds."""
     from datasets import Dataset
@@ -178,6 +237,8 @@ def fine_tune(
     model = CrossEncoder(
         backbone, num_labels=1, device=resolved, max_length=max_length
     )
+    if gradient_checkpointing:
+        enable_gradient_checkpointing(model)
     if loss == "lambda":
         dataset = Dataset.from_dict(listwise_dataset(matrix, query_text, doc_text))
         objective = LambdaLoss(model)
@@ -396,6 +457,9 @@ def _main() -> int:
     parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--gradient-checkpointing", action="store_true",
+        help="recompute activations in backward; bge-reranker-base needs it on 16 GB")
     args = parser.parse_args()
 
     matrix = pd.read_parquet(
@@ -423,8 +487,24 @@ def _main() -> int:
         epochs=args.epochs,
         device=args.device,
         seed=args.seed,
+        gradient_checkpointing=args.gradient_checkpointing,
     )
-    print(f"trained in {(time.time() - started) / 60:.1f} min -> {target}")
+    minutes = (time.time() - started) / 60
+    record = training_record(
+        loss=args.loss,
+        backbone=args.backbone,
+        epochs=args.epochs,
+        batch_size=args.batch_size or DEFAULT_BATCH_SIZE[args.loss],
+        seed=args.seed,
+        gradient_checkpointing=args.gradient_checkpointing,
+        n_queries=int(matrix["query_id"].nunique()),
+        n_pairs=len(matrix),
+        minutes=minutes,
+    )
+    (target / TRAINING_RECORD).write_text(
+        json.dumps(record, indent=2) + "\n", encoding="utf-8"
+    )
+    print(f"trained in {minutes:.1f} min -> {target}")
     return 0
 
 

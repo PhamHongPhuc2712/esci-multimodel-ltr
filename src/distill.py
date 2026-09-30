@@ -38,7 +38,9 @@ from src.cross_encoder import (
     DEFAULT_BACKBONE,
     DEFAULT_MAX_LENGTH,
     DEFAULT_MODEL_DIR,
+    TRAINING_RECORD,
     _lookup,
+    enable_gradient_checkpointing,
 )
 
 TARGETS: tuple[str, ...] = ("labels", "llm", "hybrid")
@@ -53,9 +55,6 @@ INITS: dict[str, str] = {
 WINDOW_BATCH_SIZE = 16
 WINDOW_EPOCHS = 1
 WINDOW_LEARNING_RATE = 2e-5
-
-# Written beside every model `python -m src.distill` trains.
-TRAINING_RECORD = "training.json"
 
 
 def gains_from_frame(matrix: pd.DataFrame) -> dict[tuple[str, str], float]:
@@ -247,6 +246,7 @@ def fine_tune_windows(
     max_length: int = DEFAULT_MAX_LENGTH,
     device: str = "auto",
     seed: int = 0,
+    gradient_checkpointing: bool = False,
 ):
     """Fine-tune a cross-encoder with RankNet on (query, docs, labels) windows."""
     import tempfile
@@ -265,6 +265,8 @@ def fine_tune_windows(
         raise ValueError("an empty training set; nothing to fine-tune on")
     resolved = resolve_device(device)
     model = CrossEncoder(str(init), num_labels=1, device=resolved, max_length=max_length)
+    if gradient_checkpointing:
+        enable_gradient_checkpointing(model)
     with tempfile.TemporaryDirectory() as scratch:
         arguments = CrossEncoderTrainingArguments(
             output_dir=scratch,
@@ -364,6 +366,9 @@ def _main() -> int:
     parser.add_argument("--judgements", type=Path, default=Path("data/combined/judgements.parquet"))
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--gradient-checkpointing", action="store_true",
+        help="recompute activations in backward; bge-reranker-base at batch 16 needs it")
     args = parser.parse_args()
 
     if args.from_gate is not None:
@@ -400,6 +405,7 @@ def _main() -> int:
         dataset, init=INITS.get(args.init, args.init), out_dir=args.out,
         epochs=args.epochs, batch_size=args.batch_size,
         device=args.device, seed=args.seed,
+        gradient_checkpointing=args.gradient_checkpointing,
     )
     minutes = (time.time() - started) / 60
     # What trained this model, beside it: the report records it with the
@@ -407,6 +413,7 @@ def _main() -> int:
     (args.out / TRAINING_RECORD).write_text(json.dumps({
         "target": args.target, "init": args.init, "loss": "RankNetLoss",
         "epochs": args.epochs, "batch_size": args.batch_size, "seed": args.seed,
+        "gradient_checkpointing": args.gradient_checkpointing,
         "n_windows": len(dataset["query"]), "n_dropped": len(dropped),
         "minutes": minutes,
     }, indent=2) + "\n", encoding="utf-8")
