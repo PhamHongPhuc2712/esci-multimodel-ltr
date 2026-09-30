@@ -361,7 +361,9 @@ pays the same windows-only penalty as the MiniLM is untested.
 - **A larger student, on labels, on whole query groups.** In Section 8 a
   larger backbone paid where the teacher did not, at the scale measured.
   `bge-reranker-base` keeps 42% of the LLM's gain while training on windows
-  alone. Two things are untried: training it on every judged pair, which needs
-  the card to itself or a bigger one, and matching its batch to the MiniLM's,
-  which would separate backbone from recipe. Past that, `bge-reranker-large` is
-  the next size up.
+  alone. Two things are untried. One is training it on every judged pair with
+  the landed recipe. That fits the 3080 with gradient checkpointing: measured
+  at about 66 minutes an epoch and a 6.3 GB peak. Without checkpointing it
+  spills past 16 GB. The other is matching its batch to the MiniLM's, which
+  would separate backbone from recipe. Past that, `bge-reranker-large` is the
+  next size up.
