@@ -5,10 +5,13 @@ from src.cross_encoder import (
     DEFAULT_BACKBONE,
     DEFAULT_MAX_LENGTH,
     LOSSES,
+    TRAINING_RECORD,
     check_training_folds,
     document_text,
+    enable_gradient_checkpointing,
     listwise_dataset,
     pairwise_dataset,
+    training_record,
 )
 from src.ranker import EARLY_STOP_FOLD, REPORT_FOLD, TRAIN_FOLDS
 
@@ -285,3 +288,72 @@ def test_window_scores_of_nothing_is_nothing():
     from src.cross_encoder import window_scores
 
     assert window_scores(FakeModel(), [], *_maps()) == {}
+
+
+# --- Plan 9: memory, and saying what trained a model ------------------------
+
+class _WrappedModel:
+    """Stands in for the transformers model a CrossEncoder wraps."""
+
+    def __init__(self, switches_on=True):
+        self.switches_on = switches_on
+        self.is_gradient_checkpointing = False
+        self.kwargs = None
+
+    def gradient_checkpointing_enable(self, gradient_checkpointing_kwargs=None):
+        self.kwargs = gradient_checkpointing_kwargs
+        self.is_gradient_checkpointing = self.switches_on
+
+
+class _CrossEncoder:
+    def __init__(self, switches_on=True):
+        self.model = _WrappedModel(switches_on)
+
+
+def test_gradient_checkpointing_is_switched_on_the_wrapped_model():
+    model = _CrossEncoder()
+    enable_gradient_checkpointing(model)
+    assert model.model.is_gradient_checkpointing
+    assert model.model.kwargs == {"use_reentrant": False}
+
+
+def test_a_checkpointing_switch_that_does_not_take_raises():
+    # Without it bge-reranker-base spills past 16 GB and crawls at under 0.27
+    # queries/s instead of failing - a nine-hour run nobody asked for.
+    with pytest.raises(RuntimeError, match="checkpointing"):
+        enable_gradient_checkpointing(_CrossEncoder(switches_on=False))
+
+
+def _record(**overrides):
+    fields = dict(
+        loss="lambda", backbone="BAAI/bge-reranker-base", epochs=1, batch_size=8,
+        seed=0, gradient_checkpointing=True, n_queries=12_519, n_pairs=250_485,
+        minutes=66.0,
+    )
+    return training_record(**(fields | overrides))
+
+
+def test_the_training_record_names_the_recipe():
+    record = _record()
+    assert record["target"] == "labels"
+    assert record["init"] == "BAAI/bge-reranker-base"
+    assert record["loss"] == "LambdaLoss"
+    assert record["batch_size"] == 8
+    assert record["gradient_checkpointing"] is True
+    assert "whole query groups" in record["data"]
+
+
+def test_the_training_record_names_the_pairwise_loss_too():
+    assert _record(loss="bce")["loss"] == "BinaryCrossEntropyLoss"
+
+
+def test_a_training_record_for_an_unknown_loss_is_refused():
+    with pytest.raises(ValueError, match="loss"):
+        _record(loss="hinge")
+
+
+def test_both_fine_tunes_write_the_same_record_file():
+    # src.distill_report reads this one name from every model directory.
+    from src.distill import TRAINING_RECORD as window_record
+
+    assert TRAINING_RECORD == window_record == "training.json"
