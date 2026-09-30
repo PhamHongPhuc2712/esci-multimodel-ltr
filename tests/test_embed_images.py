@@ -8,6 +8,7 @@ from PIL import Image
 from src.clip_encoder import EMBEDDING_DIM
 from src.embed_images import (
     DEFAULT_CHUNK,
+    STORE_NAME,
     embed_urls,
     pending_urls,
     product_image_urls,
@@ -171,3 +172,11 @@ def test_product_image_urls_rejects_an_unknown_scope(tmp_path):
     path = _products(tmp_path, [{"product_id": "a", "s_image_url": "u1"}])
     with pytest.raises(ValueError, match="scope"):
         product_image_urls("everything", products_path=path)
+
+
+def test_every_scope_reads_and_writes_the_catalogue_store():
+    # The rerank store was a strict subset of the catalogue one (0 of its
+    # 361,875 URLs missing) and was deleted on 2026-09-30. A scope that still
+    # opened data/embeddings/rerank/ would get an empty store back from
+    # open_store, and image_report would print 0% image coverage without error.
+    assert STORE_NAME == "catalogue"

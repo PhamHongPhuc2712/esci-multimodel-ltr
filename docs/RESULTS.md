@@ -270,8 +270,8 @@ Measured losses and ties, reported as results:
   presence effects add up, and they do not. The +0.0036 in the table comes from
   a control arm instead.
 - **Storage is over budget.** The BM25 index and the three embedding stores
-  take 3.48 GB against the spec's 1.0 GB (`recall.json`), 0.40 GB of it a
-  redundant image store.
+  took 3.48 GB against the spec's 1.0 GB (`recall.json`). 0.40 GB of that was
+  a redundant image store, since deleted; the rest is still over.
 
 ## 8. Distilling the LLM
 
@@ -365,5 +365,3 @@ pays the same windows-only penalty as the MiniLM is untested.
   the card to itself or a bigger one, and matching its batch to the MiniLM's,
   which would separate backbone from recipe. Past that, `bge-reranker-large` is
   the next size up.
-- **Delete the redundant image store.** `data/embeddings/rerank/` is a strict
-  subset of the catalogue store and costs 0.40 GB.

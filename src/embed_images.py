@@ -42,6 +42,12 @@ DEFAULT_CHUNK = 512
 
 SCOPES = ("rerank", "catalogue")
 
+# The one image store. The rerank scope's URLs were a strict subset of the
+# catalogue's (0 of 361,875 missing, re-checked 2026-09-30), so its separate
+# store was deleted; a scope now picks the products, never the store. Opening
+# data/embeddings/rerank/ would return an empty store rather than raise.
+STORE_NAME = "catalogue"
+
 
 @dataclass
 class RunStats:
@@ -153,7 +159,7 @@ def embed_urls(
 
 def _main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scope", default="rerank", choices=list(SCOPES))
+    parser.add_argument("--scope", default="catalogue", choices=list(SCOPES))
     parser.add_argument("--products", type=Path, default=DEFAULT_PRODUCTS)
     parser.add_argument("--store-root", type=Path, default=DEFAULT_STORE_ROOT)
     parser.add_argument("--chunk", type=int, default=DEFAULT_CHUNK)
@@ -166,7 +172,7 @@ def _main() -> int:
     args = parser.parse_args()
 
     frame = product_image_urls(args.scope, products_path=args.products)
-    store = open_store(args.store_root / args.scope, dim=EMBEDDING_DIM)
+    store = open_store(args.store_root / STORE_NAME, dim=EMBEDDING_DIM)
     todo = pending_urls(frame, store)
     if args.limit is not None:
         todo = todo[: args.limit]
@@ -203,7 +209,7 @@ def _main() -> int:
     )
     print()
     print(json.dumps(stats.to_dict(), indent=2))
-    print(f"store now holds {len(store):,} vectors at {args.store_root / args.scope}")
+    print(f"store now holds {len(store):,} vectors at {args.store_root / STORE_NAME}")
     return 0
 
 
