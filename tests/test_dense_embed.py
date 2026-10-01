@@ -125,3 +125,50 @@ def test_the_real_dense_store_covers_the_corpus():
     assert len(store) == 1_215_854
     sample = np.asarray(store.vectors()[:256], dtype=np.float32)
     assert np.allclose(np.linalg.norm(sample, axis=1), 1.0, atol=1e-3)
+
+
+# --- which encoder wrote a store ---------------------------------------------
+
+def test_a_store_remembers_the_encoder_that_wrote_it(tmp_path):
+    from src.dense_embed import check_model_record, write_model_record
+
+    write_model_record(tmp_path, "BAAI/bge-small-en-v1.5", max_seq=256)
+    check_model_record(tmp_path, "BAAI/bge-small-en-v1.5")  # no raise
+
+
+def test_querying_a_store_with_another_encoder_raises(tmp_path):
+    # bge-small and all-MiniLM-L12-v2 are both 384-d, so the dimension check
+    # passes and every query returns real-looking products from the wrong
+    # space. Nothing else would catch it.
+    from src.dense_embed import check_model_record, write_model_record
+
+    write_model_record(tmp_path, "BAAI/bge-small-en-v1.5", max_seq=256)
+    with pytest.raises(ValueError, match="bge-small"):
+        check_model_record(tmp_path, "sentence-transformers/all-MiniLM-L12-v2")
+
+
+def test_the_landed_store_has_no_record_and_belongs_to_the_default_model(tmp_path):
+    # data/embeddings/dense was written before stores recorded their encoder.
+    from src.dense_embed import DEFAULT_MODEL, check_model_record
+
+    store = _store(tmp_path)
+    encode_texts, _ = _fake_encode()
+    embed_products(_products(2), store, encode_texts)
+    check_model_record(store.directory, DEFAULT_MODEL)  # no raise
+    with pytest.raises(ValueError, match="no record"):
+        check_model_record(store.directory, "models/retriever/bge-base")
+
+
+def test_an_empty_store_accepts_any_encoder(tmp_path):
+    from src.dense_embed import check_model_record
+
+    check_model_record(tmp_path / "fresh", "models/retriever/bge-base")  # no raise
+
+
+def test_the_record_carries_the_token_budget(tmp_path):
+    import json
+
+    from src.dense_embed import MODEL_RECORD, write_model_record
+
+    write_model_record(tmp_path, "m", max_seq=256)
+    assert json.loads((tmp_path / MODEL_RECORD).read_text()) == {"model": "m", "max_seq": 256}

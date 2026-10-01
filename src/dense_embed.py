@@ -16,6 +16,7 @@ gate 6 points.
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -39,6 +40,51 @@ MAX_SEQ_TOKENS = 128
 DEFAULT_FIELDS = ("product_title", "description", "product_bullet_point")
 
 DEFAULT_CHUNK = 8192
+
+# Which encoder wrote a store, beside its vectors. Two encoders can share a
+# width - all-MiniLM-L12-v2 and bge-small-en-v1.5 are both 384-d - and a store
+# queried by the wrong one passes every dimension check and returns
+# real-looking products from another vector space.
+MODEL_RECORD = "model.json"
+
+
+def write_model_record(store_dir: Path, model_name: str, *, max_seq: int) -> None:
+    """Record the encoder and token budget a store was written with."""
+    store_dir = Path(store_dir)
+    store_dir.mkdir(parents=True, exist_ok=True)
+    (store_dir / MODEL_RECORD).write_text(
+        json.dumps({"model": str(model_name), "max_seq": int(max_seq)}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def check_model_record(store_dir: Path, model_name: str) -> None:
+    """Raise unless `model_name` is the encoder that wrote the store.
+
+    A store with vectors and no record predates the record: it is Plan 4's
+    data/embeddings/dense, written by DEFAULT_MODEL, and only that model may
+    read it. An empty store has no vectors to disagree with.
+    """
+    from src.embedding_store import VECTORS_NAME
+
+    store_dir = Path(store_dir)
+    record_path = store_dir / MODEL_RECORD
+    if record_path.exists():
+        recorded = json.loads(record_path.read_text(encoding="utf-8"))["model"]
+        if recorded != str(model_name):
+            raise ValueError(
+                f"the store at {store_dir} was written by {recorded!r}, not "
+                f"{model_name!r}; queries from another encoder land in a "
+                "different vector space and nothing else would notice"
+            )
+        return
+    vectors = store_dir / VECTORS_NAME
+    if vectors.exists() and vectors.stat().st_size > 0 and str(model_name) != DEFAULT_MODEL:
+        raise ValueError(
+            f"the store at {store_dir} has no record of its encoder, so it is "
+            f"Plan 4's, written by {DEFAULT_MODEL!r}; refusing to read it with "
+            f"{model_name!r}"
+        )
 
 
 def embed_products(
@@ -108,17 +154,23 @@ def open_channel(
 
     from src.clip_encoder import resolve_device
 
-    store = open_store(store_dir, dim=DENSE_DIM)
+    check_model_record(store_dir, model_name)
+    resolved = resolve_device(device)
+    model = SentenceTransformer(model_name, device=resolved)
+    store = open_store(store_dir, dim=_embedding_dim(model))
     if len(store) == 0:
         raise FileNotFoundError(
             f"the dense store at {store_dir} is empty; run python -m src.dense_embed"
         )
-    resolved = resolve_device(device)
-    return DenseChannel(
-        store=store,
-        model=SentenceTransformer(model_name, device=resolved),
-        device=resolved,
+    return DenseChannel(store=store, model=model, device=resolved)
+
+
+def _embedding_dim(model: Any) -> int:
+    """The encoder's output width, across sentence-transformers versions."""
+    getter = getattr(model, "get_embedding_dimension", None) or getattr(
+        model, "get_sentence_embedding_dimension"
     )
+    return int(getter())
 
 
 def _main() -> int:
@@ -135,6 +187,13 @@ def _main() -> int:
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--max-seq", type=int, default=None,
+        help="token budget per document; default is the model's own")
+    parser.add_argument(
+        "--half", action="store_true",
+        help="encode in float16: 2.5x faster on the 3080, cosine to float32 "
+             ">= 0.99975 - the store keeps float16 anyway")
     args = parser.parse_args()
 
     fields = tuple(args.fields.split(","))
@@ -142,9 +201,16 @@ def _main() -> int:
     if args.limit is not None:
         frame = frame.head(args.limit)
 
-    store = open_store(args.store, dim=DENSE_DIM)
+    check_model_record(args.store, args.model)
     resolved = resolve_device(args.device)
     model = SentenceTransformer(args.model, device=resolved)
+    if args.max_seq is not None:
+        model.max_seq_length = args.max_seq
+    if args.half:
+        model.half()
+    store = open_store(args.store, dim=_embedding_dim(model))
+    if len(store) == 0 or (Path(args.store) / MODEL_RECORD).exists():
+        write_model_record(args.store, args.model, max_seq=model.max_seq_length)
     print(
         f"{len(frame):,} products, {len(store):,} already embedded; "
         f"encoding on {resolved}, {model.max_seq_length} tokens per document"
