@@ -9,8 +9,9 @@ against those sources.
 ## 1. What this is
 
 A five-stage product search funnel on the Amazon ESCI Shopping Queries Dataset
-(Task 1, English): LLM query rewriting, hybrid recall (BM25 + dense text + CLIP
-image, fused with RRF), a LightGBM LambdaMART coarse ranker over 47 features,
+(Task 1, English): LLM query rewriting, hybrid recall (BM25, an off-the-shelf
+and an ESCI-fine-tuned dense retriever, and CLIP image, fused with RRF), a
+LightGBM LambdaMART coarse ranker over 47 features,
 fine re-ranking of its top 10 by a fine-tuned cross-encoder or an LLM listwise
 call, and a blend stage. ESCI is enriched with images, prices, ratings,
 categories and attributes from the ESCI-S scrape.
@@ -85,6 +86,41 @@ catalogue, `recall.json`:
 | CLIP image | 0.1971 |
 | RRF of all three | **0.5551** |
 | RRF of all three, LLM-rewritten query | 0.5599 (ties; see Ablation 1) |
+
+**A fine-tuned retriever (Plan 10).** None of those three channels was ever
+trained on ESCI. Plan 10 fine-tuned `bge-base-en-v1.5` on folds 2/3/4: each
+training query against its Exact products, every other product in the batch a
+negative, reading 256 tokens of product text. It runs as a fourth channel
+beside Plan 4's three. RRF's constant and the four channel weights were chosen
+on fold 1, never on the surface they are reported on: k = 60, with weights
+fine-tuned dense 1, off-the-shelf dense 0.5, BM25 1, image 0.5
+(`recall-fusion-sweep.json`).
+
+| Recall over the full catalogue | fold 0, @100 | test, @10 | test, @100 | test, @1000 |
+|---|---|---|---|---|
+| Plan 4's fusion | 0.5551 | 0.2629 | 0.5606 | 0.7922 |
+| the fine-tuned retriever alone | 0.5672 | 0.2645 | 0.5589 | 0.8081 |
+| Plan 4's fusion with the fine-tuned retriever swapped in | 0.6000 | 0.2810 | 0.6010 | 0.8284 |
+| **four channels, tuned fusion** | **0.6187** | **0.2974** | **0.6172** | **0.8382** |
+
+Fold 0 is from `recall-tuned.json` and test from `recall-tuned-test.json`.
+Test covers all 8,956 queries, measured once, and one query with no Exact
+product is skipped and counted.
+
+- **On test, the tuned recall stage gains +0.0567 [+0.0534, +0.0598] at @100**
+  and +0.0460 [+0.0434, +0.0488] at @1000 over Plan 4's fusion. Fold 0
+  agrees: +0.0636 [+0.0587, +0.0685].
+- **The fine-tuned retriever alone** beats the off-the-shelf one by +0.1030
+  [+0.0978, +0.1082] at @100. On its own it roughly matches the whole
+  three-channel fusion at @100, and passes it at @1000.
+- **Of the +0.0567:**
+  - +0.0405 [+0.0374, +0.0435] is the fine-tuned retriever replacing the old
+    one;
+  - +0.0162 [+0.0139, +0.0186] is keeping the old one as a fourth channel and
+    tuning the weights.
+- **What this does to the ranking numbers: nothing.** ESCI Task 1 ranks each
+  query's judged candidates, so recall changes which products a deployed funnel
+  would hand the ranker, not any NDCG above.
 
 **Stage 2, coarse rank.** LightGBM `lambdarank` over 47 query × product features
 in eight groups — retrieval scores, text overlap, image similarity, ESCI-S
@@ -278,9 +314,16 @@ Measured losses and ties, reported as results:
   worse than useless (`coarse-rank-test.json`). That subtraction assumes the
   presence effects add up, and they do not. The +0.0036 in the table comes from
   a control arm instead.
+- **Hard negatives did not help the retriever (Plan 10).** ESCI's own
+  Irrelevant and Complement judgements are natural hard negatives: Amazon's
+  search retrieved them, and a human said no. Adding one per training pair
+  tied plain in-batch negatives on fold 1, for both backbones tried, at three
+  times the training time. The scratch figures are in Plan 10's README; the
+  committed retriever uses in-batch negatives only.
 - **Storage is over budget.** The BM25 index and the three embedding stores
   took 3.48 GB against the spec's 1.0 GB (`recall.json`). 0.40 GB of that was
-  a redundant image store, since deleted; the rest is still over.
+  a redundant image store, since deleted. Plan 10's 768-dimensional retriever
+  store added 1.88 GB more.
 
 ## 8. Distilling the LLM
 

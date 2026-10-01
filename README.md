@@ -33,12 +33,17 @@ target: its interval contains 0.8562. A larger cross-encoder on its top 10
 2,000-query sample (0.8855 [0.8799, 0.8910]); running the whole split once
 left the point estimate unchanged and halved the interval.
 
+Retrieval is measured on its own, as Recall@100 of Exact products over the
+whole 1.2M-product catalogue. With a dense retriever fine-tuned on ESCI it
+reaches **0.6172** on the test split, up from 0.5606 for the untuned channels.
+
 ## What the ablations found
 
 | | finding | delta |
 |---|---|---|
 | images, coarse rank | CLIP image features help the ranker | +0.0075 [+0.0059, +0.0090] NDCG |
 | images, recall | …but barely help retrieval | +0.0048 Recall@100 |
+| recall, fine-tuned retriever | a dense retriever fine-tuned on ESCI, fused as a fourth channel at weights chosen on fold 1, lifts retrieval on the test split | +0.0567 [+0.0534, +0.0598] Recall@100 |
 | behavioural features | help a little, once the scrape's presence artefact is controlled | +0.0036 [+0.0023, +0.0051] NDCG |
 | learning to rank | `lambdarank` beats pointwise classification | +0.0085 NDCG |
 | fine rank | the LLM buys about seven times the cross-encoder's gain at over two hundred times its latency | +0.0276 vs +0.0037 NDCG |
@@ -49,16 +54,17 @@ left the point estimate unchanged and halved the interval.
 | model size, fine rank | with everything else held fixed, the larger backbone (`bge-reranker-base` against MiniLM) is what pays; the batch ties and the training recipe adds little | +0.0112 [+0.0094, +0.0130] NDCG |
 
 Each ablation row's scope, `n` and source are in the full table in
-[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The last two rows
-come from [its Section 8](docs/RESULTS.md#8-distilling-the-llm). The ties and losses
-are reported as results.
+[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The fine-tuned
+retriever row comes from [its Section 3](docs/RESULTS.md#3-the-funnel-stage-by-stage),
+and the last two rows from [its Section 8](docs/RESULTS.md#8-distilling-the-llm).
+The ties and losses are reported as results.
 
 ## The funnel
 
 | stage | what | measured by |
 |---|---|---|
 | 0 | LLM query rewriting (`gpt-5.6-luna`), cached | Recall@100 lift |
-| 1 | BM25 + dense text (SBERT) + CLIP image, fused with RRF, over the 1.2M-product catalogue | Recall@100 |
+| 1 | BM25 + two dense retrievers (off-the-shelf SBERT, and `bge-base` fine-tuned on ESCI) + CLIP image, fused with RRF at weights chosen on fold 1, over the 1.2M-product catalogue | Recall@100 |
 | 2 | LightGBM `lambdarank` over 47 query × product features: retrieval scores, text overlap, image similarity, ESCI-S behavioural values, categories, attributes | NDCG |
 | 3 | fine-tuned `ms-marco-MiniLM-L6-v2` cross-encoder, or an LLM listwise call, re-ranking Stage 2's top 10 | NDCG, latency, tokens |
 | 4 | fixed-weight RRF, a learned combiner, or a per-query selector over the three stages | NDCG against each stage alone |
@@ -132,6 +138,9 @@ python -m src.distill_report --split test --final --arms stage2+ce_windows stage
 python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16   # Plan 9
 python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base --gradient-checkpointing --out-dir models/cross-encoder/bge-groups
 python -m src.distill_report --capacity && python -m src.distill_report --capacity --split test --final
+python -m src.dense_finetune                             # Plan 10: the fine-tuned retriever
+python -m src.dense_embed --model models/retriever/bge-base --store data/embeddings/dense-ft --half --max-seq 256
+python -m src.tuned_recall_report --sweep && python -m src.tuned_recall_report && python -m src.tuned_recall_report --split test --final
 ```
 
 Every configuration is chosen on a validation fold carved from train by query.
@@ -145,6 +154,6 @@ Each test measurement sits behind `--final` and was run once.
 | `tests/` | one test module per source module; `-m data` runs against the real datasets |
 | `docs/results/` | every committed measurement, as JSON |
 | `docs/RESULTS.md` | the writeup |
-| `docs/superpowers/plans/` | the nine implementation plans, with what each measured and corrected |
+| `docs/superpowers/plans/` | the ten implementation plans, with what each measured and corrected |
 | `PROJECT_SPEC.md` | motivation, funnel design, baselines and the ablation plan |
 | `splits/` | the frozen validation folds and their checksum |
