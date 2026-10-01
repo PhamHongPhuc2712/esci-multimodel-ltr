@@ -104,3 +104,38 @@ def test_the_sweep_never_touches_test(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["tuned_recall_report", "--sweep", "--split", "test", "--final"])
     with pytest.raises(SystemExit, match="fold 1"):
         _main()
+
+
+# --- the committed record -------------------------------------------------------
+
+def _committed(name):
+    from pathlib import Path
+
+    return json.loads(Path("docs/results", name).read_text(encoding="utf-8"))
+
+
+def _recall(report, arm, k):
+    return next(a for a in report["arms"] if a["name"] == arm)["recall"][str(k)]["recall"]
+
+
+def test_the_committed_sweep_chose_its_best_row_on_fold_1():
+    sweep = _committed("recall-fusion-sweep.json")
+    assert sweep["fold"] == 1
+    assert len(sweep["grid"]) == len(SWEEP_GRID)
+    assert sweep["chosen"] == best_config(sweep["grid"])
+    assert list(sweep["published"]["weights"]) == list(PUBLISHED_FUSION[1])
+
+
+def test_the_fold_0_report_uses_the_fold_1_choice():
+    sweep, report = _committed("recall-fusion-sweep.json"), _committed("recall-tuned.json")
+    assert report["scope"] == "fold 0" and report["n_queries"] == 4130
+    assert report["fusion"]["k"] == sweep["chosen"]["k"]
+    assert report["fusion"]["weights"] == sweep["chosen"]["weights"]
+
+
+def test_the_fold_0_report_reproduces_plan_4_s_published_fusion():
+    report, plan4 = _committed("recall-tuned.json"), _committed("recall.json")
+    for k in (100, 1000):
+        assert _recall(report, "published fusion", k) == pytest.approx(
+            _recall(plan4, "dense+bm25+image", k), abs=1e-4)
+    assert report["retriever"]["training"]["folds"] == [2, 3, 4]

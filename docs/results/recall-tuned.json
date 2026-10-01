@@ -1,0 +1,384 @@
+{
+  "split": "train",
+  "scope": "fold 0",
+  "relevance": "E",
+  "n_queries": 4130,
+  "retrieval_depth": 1000,
+  "channels": [
+    "dense_ft",
+    "dense_base",
+    "bm25",
+    "image"
+  ],
+  "fusion": {
+    "k": 60,
+    "weights": [
+      1.0,
+      0.5,
+      1.0,
+      0.5
+    ],
+    "chosen_on": "fold 1"
+  },
+  "arms": [
+    {
+      "name": "dense_ft",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.273884586727177,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.47749398685415706,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.5671716277963902,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.753371146125162,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.8111386519980212,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "dense_base",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.20688095352966918,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.3805955012812772,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.4608466571482182,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.6461994703160969,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7163539509028279,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "bm25",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.24061807633868096,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.41207929066368804,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.4890337008136076,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.6621179732464174,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7249196684637425,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "image",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.08054137152442259,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.15410514787914456,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.1970557111337606,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.3206591106628772,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.38781970732012544,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "published fusion",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.2656828664563354,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.4726230334790718,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.5551137216724819,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.7324813007066627,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.7909954820961267,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "fine-tuned dense swapped in",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.28537838970227075,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.5164485840000457,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.5999877830645757,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.7754226280298843,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.830094692480681,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    },
+    {
+      "name": "tuned fusion",
+      "recall": {
+        "10": {
+          "k": 10,
+          "recall": 0.30221659071638335,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "50": {
+          "k": 50,
+          "recall": 0.5298882098612325,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "100": {
+          "k": 100,
+          "recall": 0.618734911447436,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "500": {
+          "k": 500,
+          "recall": 0.7877196092122101,
+          "n_queries": 4130,
+          "n_skipped": 0
+        },
+        "1000": {
+          "k": 1000,
+          "recall": 0.8371261942898197,
+          "n_queries": 4130,
+          "n_skipped": 0
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "dense_ft",
+      "baseline": "dense_base",
+      "k": 100,
+      "delta": {
+        "point": 0.10632497064817208,
+        "low": 0.09878254120164522,
+        "high": 0.11393477862521674
+      },
+      "significant": true
+    },
+    {
+      "arm": "dense_ft",
+      "baseline": "dense_base",
+      "k": 1000,
+      "delta": {
+        "point": 0.09478470109519319,
+        "low": 0.08796557796277527,
+        "high": 0.10200517245808437
+      },
+      "significant": true
+    },
+    {
+      "arm": "fine-tuned dense swapped in",
+      "baseline": "published fusion",
+      "k": 100,
+      "delta": {
+        "point": 0.044874061392093954,
+        "low": 0.040140783303965456,
+        "high": 0.049383334963203414
+      },
+      "significant": true
+    },
+    {
+      "arm": "fine-tuned dense swapped in",
+      "baseline": "published fusion",
+      "k": 1000,
+      "delta": {
+        "point": 0.03909921038455431,
+        "low": 0.03517153451821259,
+        "high": 0.042846977997112505
+      },
+      "significant": true
+    },
+    {
+      "arm": "tuned fusion",
+      "baseline": "fine-tuned dense swapped in",
+      "k": 100,
+      "delta": {
+        "point": 0.018747128382860297,
+        "low": 0.015060447227280688,
+        "high": 0.02199060883814187
+      },
+      "significant": true
+    },
+    {
+      "arm": "tuned fusion",
+      "baseline": "fine-tuned dense swapped in",
+      "k": 1000,
+      "delta": {
+        "point": 0.0070315018091388105,
+        "low": 0.004995949054306836,
+        "high": 0.00911407641637473
+      },
+      "significant": true
+    },
+    {
+      "arm": "tuned fusion",
+      "baseline": "published fusion",
+      "k": 100,
+      "delta": {
+        "point": 0.06362118977495425,
+        "low": 0.05870619484952807,
+        "high": 0.0685344425970938
+      },
+      "significant": true
+    },
+    {
+      "arm": "tuned fusion",
+      "baseline": "published fusion",
+      "k": 1000,
+      "delta": {
+        "point": 0.04613071219369312,
+        "low": 0.04228472928057953,
+        "high": 0.049946331357074034
+      },
+      "significant": true
+    }
+  ],
+  "retriever": {
+    "model": "models/retriever/bge-base",
+    "store": "data/embeddings/dense-ft",
+    "training": {
+      "base": "BAAI/bge-base-en-v1.5",
+      "loss": "CachedMultipleNegativesRankingLoss",
+      "positives": "Exact",
+      "negatives": "in-batch",
+      "folds": [
+        2,
+        3,
+        4
+      ],
+      "epochs": 1,
+      "batch_size": 256,
+      "mini_batch_size": 32,
+      "learning_rate": 3e-05,
+      "max_seq": 256,
+      "seed": 0,
+      "n_pairs": 108627,
+      "n_queries": 12519,
+      "minutes": 22.108721939722695
+    }
+  }
+}
