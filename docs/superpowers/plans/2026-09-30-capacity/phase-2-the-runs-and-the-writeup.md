@@ -123,6 +123,33 @@ Expected: PASS — 39 passed.
 Write the fold-0 `best_model_arm`, and its NDCG, into this file under this
 step. Task 4 must not start until it is written here.
 
+**The fold-0 choice, recorded 2026-10-01: `stage2+ce_bge_groups`, NDCG 0.8661
+[0.8612, 0.8707]** (`docs/results/capacity.json`). It is +0.0074 [+0.0051,
++0.0100] over the landed cross-encoder.
+
+**Landed 2026-10-01.** Both arms trained while another project's GPU job
+(an index build) shared the card, so their recorded minutes are not the
+plan's:
+- `bge-b16` took 35.1 min against the plan's 22. Its record says
+  `RankNetLoss`, batch 16, checkpointing on, 12,519 windows and none dropped.
+- `bge-groups` took 56.7 min against the plan's 66, at 3.72 queries/s. Its
+  record says `LambdaLoss`, batch 8, checkpointing on, 12,519 queries and
+  250,485 pairs. GPU memory held between 8.9 and 12.5 GB *including* the
+  other job, so the run never spilled.
+
+The report ran on an idle card in about 10 minutes:
+- **Reproduced.** The reference arms gave 0.8519 / 0.8587 / 0.8814, and
+  Plan 8's arms 0.8555 / 0.8650. Tests: 39 passed.
+- **The pairs, on fold 0:**
+  - backbone: +0.0098 [+0.0074, +0.0124];
+  - batch: −0.0004 [−0.0016, +0.0010], a tie;
+  - recipe: +0.0011 [−0.0004, +0.0027], a tie.
+- **One latency is off.** The landed cross-encoder timed 31.2 ms single
+  against Plan 8's 19.0. Its batched figure matched, 9.5 against 10.0 ms, and
+  every bge arm timed as fast as or faster than before. The landed model is
+  the first one the report times, so this looks like warm-up. The writeup
+  quotes the landed arm's test latency, not this one.
+
 ```bash
 git add tests/test_distill_report.py docs/results/capacity.json docs/superpowers/plans/2026-09-30-capacity/phase-2-the-runs-and-the-writeup.md
 git commit -m "Report the four capacity arms on fold 0 and choose the no-API cross-encoder there"

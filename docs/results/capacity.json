@@ -1,0 +1,434 @@
+{
+  "split": "train",
+  "scope": "fold0",
+  "n_queries": 4130,
+  "n_judgements": 82751,
+  "floor": {
+    "mean": 0.743749290760818,
+    "low": 0.740674758377043,
+    "high": 0.7465897379380034,
+    "n_trials": 100
+  },
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945205,
+        "high": 0.11184183460770253
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8586628405345903,
+        "low": 0.8536051256564455,
+        "high": 0.8634481987115363
+      },
+      "lift_over_floor": {
+        "point": 0.11491354977377234,
+        "low": 0.11069610239524458,
+        "high": 0.11894968519517485
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8814224315239989,
+        "low": 0.8767520992505652,
+        "high": 0.8858538470712275
+      },
+      "lift_over_floor": {
+        "point": 0.13767314076318082,
+        "low": 0.1333709847325301,
+        "high": 0.1417409078465728
+      }
+    },
+    {
+      "name": "stage2+ce_windows",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8554900059166592,
+        "low": 0.8505592116942093,
+        "high": 0.8602035531681733
+      },
+      "lift_over_floor": {
+        "point": 0.11174071515584122,
+        "low": 0.107355261687869,
+        "high": 0.11594485643621306
+      }
+    },
+    {
+      "name": "stage2+ce_bge",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8649522527950229,
+        "low": 0.8602916802519611,
+        "high": 0.8696291691445857
+      },
+      "lift_over_floor": {
+        "point": 0.12120296203420493,
+        "low": 0.116869767798456,
+        "high": 0.12522461349438788
+      }
+    },
+    {
+      "name": "stage2+ce_bge_b16",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8653116855611219,
+        "low": 0.8604867727619409,
+        "high": 0.8698523066481819
+      },
+      "lift_over_floor": {
+        "point": 0.1215623948003039,
+        "low": 0.11736211834679157,
+        "high": 0.12548761580930468
+      }
+    },
+    {
+      "name": "stage2+ce_bge_groups",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.866096887302874,
+        "low": 0.8611989088152913,
+        "high": 0.870678920519895
+      },
+      "lift_over_floor": {
+        "point": 0.12234759654205597,
+        "low": 0.11794328752401459,
+        "high": 0.12621763211609777
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "stage2+ce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0067968002342362836,
+        "low": 0.003746473997611245,
+        "high": 0.009872226280145332
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02955639122364474,
+        "low": 0.026562658829945435,
+        "high": 0.032718611385769404
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_windows",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0036239656163051634,
+        "low": 0.0006296571046727473,
+        "high": 0.006740108094943134
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.013086212494668866,
+        "low": 0.009981004236232428,
+        "high": 0.016225900479983756
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_b16",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.013445645260767847,
+        "low": 0.010483994257444928,
+        "high": 0.01659104691729708
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.014230847002519911,
+        "low": 0.011371709442645931,
+        "high": 0.0173916836210234
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_windows",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": -0.0031728346179311206,
+        "low": -0.004496396760002363,
+        "high": -0.0018610055253783524
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_windows",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.025932425607339576,
+        "low": -0.029144720604673952,
+        "high": -0.022634418358220852
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": 0.006289412260432582,
+        "low": 0.003750279528044601,
+        "high": 0.008865189851794658
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.016470178728975878,
+        "low": -0.019588802888610642,
+        "high": -0.013427558918669539
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_b16",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": 0.006648845026531564,
+        "low": 0.00417344034132249,
+        "high": 0.009330276751409221
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_b16",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.016110745962876896,
+        "low": -0.019516609994130383,
+        "high": -0.01304389854856014
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": 0.0074340467682836265,
+        "low": 0.005096218625225211,
+        "high": 0.009977096706674597
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.015325544221124832,
+        "low": -0.018586910169261874,
+        "high": -0.012215770046301143
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_b16",
+      "baseline": "stage2+ce_windows",
+      "delta": {
+        "point": 0.009821679644462686,
+        "low": 0.007371706637659223,
+        "high": 0.012415706691188026
+      },
+      "significant": true,
+      "isolates": "the backbone, on windows at batch 16"
+    },
+    {
+      "arm": "stage2+ce_bge",
+      "baseline": "stage2+ce_bge_b16",
+      "delta": {
+        "point": -0.00035943276609898327,
+        "low": -0.001623361319132026,
+        "high": 0.0010263091933323386
+      },
+      "significant": false,
+      "isolates": "the batch, 8 against 16, for bge on windows"
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2+ce_bge",
+      "delta": {
+        "point": 0.0011446345078510456,
+        "low": -0.0004440260598102856,
+        "high": 0.0026523092092197676
+      },
+      "significant": false,
+      "isolates": "the recipe for bge: whole groups and LambdaLoss against windows and RankNet, both at batch 8"
+    }
+  ],
+  "share_of_llm_gain": {
+    "stage2+ce": 0.229960423206164,
+    "stage2+ce_windows": 0.12261191120674228,
+    "stage2+ce_bge": 0.44275406952253377,
+    "stage2+ce_bge_b16": 0.4549149846822817,
+    "stage2+ce_bge_groups": 0.48148120976066544
+  },
+  "pairwise_accuracy": {
+    "stage2": 0.637315352347985,
+    "stage2+ce": 0.6557650933304486,
+    "stage2+llm": 0.7404415918460558,
+    "stage2+ce_windows": 0.6514381182466136,
+    "stage2+ce_bge": 0.6856212214089111,
+    "stage2+ce_bge_b16": 0.6826764744768566,
+    "stage2+ce_bge_groups": 0.6834577338669936
+  },
+  "latency": {
+    "stage2+ce": {
+      "single_ms": 31.22314278007252,
+      "batched_ms": 9.45252656005323,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_windows": {
+      "single_ms": 19.891174339863937,
+      "batched_ms": 9.176569819974247,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_bge": {
+      "single_ms": 63.592934379994404,
+      "batched_ms": 52.24771025998052,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_bge_b16": {
+      "single_ms": 63.24051630013855,
+      "batched_ms": 52.1559814401553,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_bge_groups": {
+      "single_ms": 61.771096579905134,
+      "batched_ms": 52.45904613984749,
+      "n_queries": 50,
+      "n_pairs": 499
+    }
+  },
+  "models": {
+    "stage2+ce_windows": "models/cross-encoder/windows",
+    "stage2+ce_bge": "models/cross-encoder/bge",
+    "stage2+ce_bge_b16": "models/cross-encoder/bge-b16",
+    "stage2+ce_bge_groups": "models/cross-encoder/bge-groups/lambda"
+  },
+  "training": {
+    "stage2+ce_windows": {
+      "target": "labels",
+      "init": "scratch",
+      "loss": "RankNetLoss",
+      "epochs": 1,
+      "batch_size": 16,
+      "seed": 0,
+      "n_windows": 12519,
+      "n_dropped": 0,
+      "minutes": 4.505783132712046
+    },
+    "stage2+ce_bge": {
+      "target": "labels",
+      "init": "BAAI/bge-reranker-base",
+      "loss": "RankNetLoss",
+      "epochs": 1,
+      "batch_size": 8,
+      "seed": 0,
+      "n_windows": 12519,
+      "n_dropped": 0,
+      "minutes": 21.945123255252838
+    },
+    "stage2+ce_bge_b16": {
+      "target": "labels",
+      "init": "BAAI/bge-reranker-base",
+      "loss": "RankNetLoss",
+      "epochs": 1,
+      "batch_size": 16,
+      "seed": 0,
+      "gradient_checkpointing": true,
+      "n_windows": 12519,
+      "n_dropped": 0,
+      "minutes": 35.13513497114182
+    },
+    "stage2+ce_bge_groups": {
+      "target": "labels",
+      "init": "BAAI/bge-reranker-base",
+      "loss": "LambdaLoss",
+      "data": "every judged pair of folds 2/3/4, whole query groups",
+      "epochs": 1,
+      "batch_size": 8,
+      "seed": 0,
+      "gradient_checkpointing": true,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "minutes": 56.719803241888684
+    }
+  },
+  "best_model_arm": "stage2+ce_bge_groups",
+  "seed": 0
+}

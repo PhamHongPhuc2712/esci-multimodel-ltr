@@ -323,3 +323,42 @@ def test_capacity_refuses_a_hand_picked_arm_list(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["distill_report", "--capacity", "--arms", "stage2+ce_bge"])
     with pytest.raises(SystemExit, match="--capacity"):
         _main()
+
+
+def _points(name):
+    return {arm["name"]: arm["ndcg"]["point"] for arm in _committed(name)["arms"]}
+
+
+def test_the_capacity_arms_were_trained_as_their_pairs_claim():
+    # Review Focus 2 and 4: each pair changes one thing, and the training
+    # records - not the plan - are what say so.
+    record = _committed("capacity.json")["training"]
+    bge, b16, groups = (
+        record["stage2+ce_bge"], record["stage2+ce_bge_b16"], record["stage2+ce_bge_groups"]
+    )
+    for arm in (bge, b16, groups):
+        assert arm["init"] == "BAAI/bge-reranker-base"
+        assert arm["target"] == "labels"
+    assert (bge["loss"], bge["batch_size"]) == ("RankNetLoss", 8)
+    assert (b16["loss"], b16["batch_size"]) == ("RankNetLoss", 16)
+    assert (groups["loss"], groups["batch_size"]) == ("LambdaLoss", 8)
+    assert b16["gradient_checkpointing"] and groups["gradient_checkpointing"]
+    assert record["stage2+ce_windows"]["batch_size"] == 16
+
+
+def test_the_capacity_file_re_scores_plan_8_s_arms_exactly():
+    # Review Focus 5. The same models on the same windows; a drift here means
+    # the windows or a model directory changed underneath the comparison.
+    capacity, plan8 = _points("capacity.json"), _points("distill.json")
+    for name in (*REFERENCE_ARMS, "stage2+ce_windows", "stage2+ce_bge"):
+        assert capacity[name] == pytest.approx(plan8[name], abs=2e-4), name
+
+
+def test_the_fold_0_file_names_its_best_arm_by_its_own_numbers():
+    # Review Focus 3: the no-API headline is chosen here, on fold 0.
+    report = _committed("capacity.json")
+    points = _points("capacity.json")
+    assert set(CAPACITY_ARMS) <= set(points)
+    assert report["best_model_arm"] == max(CAPACITY_ARMS, key=points.__getitem__)
+    isolated = {row["isolates"] for row in report["comparisons"] if "isolates" in row}
+    assert isolated == set(CAPACITY_PAIRS.values())
