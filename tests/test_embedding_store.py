@@ -1,10 +1,10 @@
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
 
 from src.clip_encoder import EMBEDDING_DIM
+from src.embed_images import DEFAULT_STORE_ROOT, STORE_NAME
 from src.embedding_store import (
     KEYS_NAME,
     META_NAME,
@@ -188,7 +188,10 @@ def test_the_default_dim_is_clips(tmp_path):
 
 # --- the real run -----------------------------------------------------------
 
-REAL_STORE = Path("data/embeddings/rerank")
+# The one image store every scope reads and writes since 2026-09-30. Taken
+# from src.embed_images rather than spelled out: the rerank path this used to
+# name was deleted, and the test then skipped instead of checking anything.
+REAL_STORE = DEFAULT_STORE_ROOT / STORE_NAME
 
 
 @pytest.mark.data
