@@ -103,6 +103,16 @@ python -m src.distill_report --pilot              # the cross-fitted pilot and t
 python -m src.distill_report --split test --final --arms stage2+ce_windows stage2+ce_bge \
     --out docs/results/distill-test.json
 
+# Capacity (Plan 9, 2026-10-01). Gradient checkpointing lets bge fit 16 GB.
+# Both runs shared the card with another project's job; expect ~22 min for the
+# first on an idle card.
+python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 \
+    --gradient-checkpointing --out models/cross-encoder/bge-b16              # 35 min
+python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base \
+    --gradient-checkpointing --out-dir models/cross-encoder/bge-groups       # 57 min
+python -m src.distill_report --capacity           # fold 0 -> docs/results/capacity.json, ~10 min
+python -m src.distill_report --capacity --split test --final   # -> capacity-test.json
+
 # Image URL resolution gate - samples live URLs, exits non-zero below 90%
 python -m src.esci_images <esci.json.zst>   # a truncated prefix of the file is fine
 ```

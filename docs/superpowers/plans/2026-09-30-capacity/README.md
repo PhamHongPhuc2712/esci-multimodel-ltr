@@ -141,11 +141,23 @@ the task that owns the code.
 
 ## Plan Gate
 
-- [ ] `python -m pytest` passes with no failures and no new skips.
-- [ ] `python -m pytest -m data` passes.
-- [ ] `docs/results/capacity.json` holds the four capacity arms beside the three reference arms on fold 0. Plan 8's arms reproduce `distill.json`. Every pair in the grid has a paired interval labelled with what it isolates. The training records match the recipes the pairs claim. `best_model_arm` is recorded.
-- [ ] `docs/results/capacity-test.json` holds the same arms on all 8,956 test queries, measured once. Plan 8's arms reproduce `distill-test.json`.
-- [ ] `docs/RESULTS.md` says what each comparison isolated and measured, names the no-API Stage 3 chosen on fold 0 with its test number, and quotes nothing that is not in a committed results file.
-- [ ] `CLAUDE.md` lists the two new training commands and the capacity report.
+**Passed 2026-10-01. The backbone is what paid; the no-API Stage 3 is bge on whole query groups.**
+
+- [x] `python -m pytest` passes with no failures and no new skips. — 808 passed (787 before this plan), 36 deselected, 0 skipped.
+- [x] `python -m pytest -m data` passes. — 35 passed, 0 skipped. One data test had been skipping since 2026-09-30, because it still named the deleted `rerank` store. It now checks the catalogue store (fae9c3b).
+- [x] `docs/results/capacity.json` holds the four capacity arms beside the three reference arms on fold 0. Plan 8's arms reproduce `distill.json`. Every pair in the grid has a paired interval labelled with what it isolates. The training records match the recipes the pairs claim. `best_model_arm` is recorded. — The reference arms are 0.8519 / 0.8587 / 0.8814, and Plan 8's are 0.8555 / 0.8650. The pairs:
+  - backbone: +0.0098 [+0.0074, +0.0124];
+  - batch: −0.0004 [−0.0016, +0.0010], a tie;
+  - recipe: +0.0011 [−0.0004, +0.0027], a tie.
+
+  `best_model_arm` is `stage2+ce_bge_groups`, at 0.8661.
+- [x] `docs/results/capacity-test.json` holds the same arms on all 8,956 test queries, measured once. Plan 8's arms reproduce `distill-test.json`. — 0.8581 and 0.8695. The pairs:
+  - backbone: +0.0112 [+0.0094, +0.0130];
+  - batch: +0.0002 [−0.0006, +0.0010], a tie;
+  - recipe: +0.0016 [+0.0006, +0.0026].
+
+  `stage2+ce_bge_groups` scores 0.8711 [0.8681, 0.8742].
+- [x] `docs/RESULTS.md` says what each comparison isolated and measured, names the no-API Stage 3 chosen on fold 0 with its test number, and quotes nothing that is not in a committed results file. — §8 *Which part of the larger model paid*; `tests/test_results_doc.py` passes.
+- [x] `CLAUDE.md` lists the two new training commands and the capacity report.
 
 Then: record Plan 9 in [`../README.md`](../README.md).

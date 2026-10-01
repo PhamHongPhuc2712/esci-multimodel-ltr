@@ -211,6 +211,17 @@ git add tests/test_distill_report.py docs/results/capacity-test.json
 git commit -m "Score the four capacity arms on the full test split"
 ```
 
+**Landed 2026-10-01 (79fb254).** The command ran once, on an idle card.
+- **Reproduced.** The reference arms gave 0.8579 / 0.8616 / 0.8855, and Plan
+  8's arms 0.8581 / 0.8695. Tests: 41 passed.
+- **The pairs, on test:**
+  - backbone: +0.0112 [+0.0094, +0.0130];
+  - batch: +0.0002 [−0.0006, +0.0010], a tie;
+  - recipe: +0.0016 [+0.0006, +0.0026]. It tied on fold 0, so the writeup
+    states both.
+- **The fold-0 choice** scores 0.8711 [0.8681, 0.8742] on test, at 66.9 ms a
+  query.
+
 - [ ] **Step 5: Write it up**
 
 Write from the committed JSON only; open each file and quote it.

@@ -44,9 +44,11 @@ halved.
 Without the LLM, the coarse LambdaMART ranker alone scores **0.8579 [0.8551,
 0.8611]** (`coarse-rank-test.json`). Its interval contains 0.8562, so it
 **matches** the target rather than beating it. Re-ranking its top 10 with a
-larger fine-tuned cross-encoder, `bge-reranker-base`, reaches **0.8695
-[0.8667, 0.8724]** with no API call at all (`distill-test.json`, Section 8).
-That also lies wholly above the target, at 72.5 ms a query.
+larger fine-tuned cross-encoder, `bge-reranker-base` trained on every judged
+pair, reaches **0.8711 [0.8681, 0.8742]** with no API call at all
+(`capacity-test.json`, Section 8). That arm was chosen on fold 0 before the
+test split was scored. It also lies wholly above the target, at 66.9 ms a
+query.
 
 The floor is computed every time, never quoted: 0.7467 on the full test split
 with this project's gains and discount (`sbert-title-test.json`), against the
@@ -97,7 +99,7 @@ test split, `fine-rank-test-full.json`:
 |---|---|---|---|
 | coarse only | 0.8579 | | — |
 | + cross-encoder, fine-tuned | 0.8616 | +0.0037 [+0.0016, +0.0058] | 20 ms |
-| + larger cross-encoder (`bge-reranker-base`), fine-tuned — Section 8 | 0.8695 | +0.0116 [+0.0095, +0.0138] | 72.5 ms |
+| + larger cross-encoder (`bge-reranker-base`), fine-tuned — Section 8 | 0.8711 | +0.0132 [+0.0110, +0.0154] | 66.9 ms |
 | **+ LLM listwise** | **0.8855** | **+0.0276 [+0.0255, +0.0296]** | 4,713 ms |
 
 The LLM's single-query latency comes from the uncached run on the sample
@@ -264,6 +266,13 @@ Measured losses and ties, reported as results:
 - **The windows-only recipe loses.** The top-10 windows alone, with `RankNetLoss`
   at batch 16, costs the MiniLM cross-encoder −0.0035 [−0.0045, −0.0026]
   against the landed recipe: every judged pair, `LambdaLoss`, batch 8.
+- **For the larger cross-encoder, the batch ties and the recipe barely
+  matters (Section 8).** Batch 8 against 16 ties on both surfaces: −0.0004
+  [−0.0016, +0.0010] on fold 0 and +0.0002 [−0.0006, +0.0010] on test. The
+  landed recipe against the windows-only one ties on fold 0, +0.0011 [−0.0004,
+  +0.0027], and gains +0.0016 [+0.0006, +0.0026] on test. That is significant,
+  but about a seventh of what the backbone buys (`capacity.json`,
+  `capacity-test.json`).
 - **The obvious reading of the behavioural ablation was wrong.** Subtracting
   the presence-flags-only arm reports the behavioural features at −0.0107,
   worse than useless (`coarse-rank-test.json`). That subtraction assumes the
@@ -344,12 +353,52 @@ On all 8,956 test queries, measured once (`distill-test.json`):
   was measured on fold 0 first: 0.8650, +0.0063 [+0.0038, +0.0089] over the
   cross-encoder (`distill.json`). Its gain over the MiniLM windows arm mixes
   the backbone with a batch half the size, and so twice the optimiser steps;
-  this plan does not separate the two.
+  Plan 8 does not separate the two. The next subsection does.
 
-It trained in 22 minutes on the RTX 3080. It could not use the whole-query-group
-recipe: a scratch attempt ran under 0.2 queries a second while another job held
-4 GB of the card, and it was not retried on the idle card. Whether the bge arm
-pays the same windows-only penalty as the MiniLM is untested.
+It trained in 22 minutes on the RTX 3080. Plan 8 could not use the
+whole-query-group recipe: a scratch attempt ran under 0.2 queries a second
+while another job held 4 GB of the card. Plan 9 trained it with gradient
+checkpointing, below.
+
+### Which part of the larger model paid
+
+The bge arm above differed from the landed cross-encoder in four things at
+once: the backbone, the data (windows against whole query groups), the loss
+and the batch. Plan 9 trained two more bge arms, so that each comparison below
+changes only one of them:
+
+- **bge on the windows at batch 16** — the MiniLM windows arm's recipe, with
+  the larger backbone.
+- **bge on whole query groups** — the landed recipe, unchanged: every judged
+  pair, `LambdaLoss`, batch 8. It needs gradient checkpointing to fit the
+  3080's 16 GB.
+
+| comparison | changes only | fold 0 (n=4,130) | test (n=8,956) |
+|---|---|---|---|
+| bge − MiniLM, both on windows at batch 16 | the backbone | +0.0098 [+0.0074, +0.0124] | **+0.0112 [+0.0094, +0.0130]** |
+| bge at batch 8 − bge at batch 16, both on windows | the batch | −0.0004 [−0.0016, +0.0010], ties | +0.0002 [−0.0006, +0.0010], ties |
+| bge on whole groups − bge on windows, both at batch 8 | the recipe: whole groups and `LambdaLoss` against windows and `RankNetLoss` | +0.0011 [−0.0004, +0.0027], ties | +0.0016 [+0.0006, +0.0026] |
+| bge on whole groups − the landed MiniLM | the backbone, under the landed recipe | +0.0074 [+0.0051, +0.0100] | **+0.0095 [+0.0078, +0.0112]** |
+
+Fold 0 is `capacity.json`; test is `capacity-test.json`. "The backbone" means
+everything `bge-reranker-base` brings: its size, its tokenizer and its own
+reranking pre-training. This grid does not separate those.
+
+**The backbone is what paid.** It is the largest effect on both surfaces, and
+significant on both. The batch ties on both, so Plan 8's gain was not an
+artefact of twice the optimiser steps. The recipe ties on fold 0 and adds
++0.0016 on test. That is real but small, and the surface the choice was made
+on could not resolve it.
+
+**The no-API Stage 3 is bge on whole query groups.** It was chosen on fold 0,
+where it scored 0.8661 [0.8612, 0.8707], before the test split was touched. On
+all 8,956 test queries it scores **0.8711 [0.8681, 0.8742]**:
+- +0.0095 [+0.0078, +0.0112] over the landed cross-encoder;
+- −0.0144 [−0.0164, −0.0123] under the LLM;
+- 48% of the LLM's gain over the coarse ranker;
+- 66.9 ms for a single query and 53.4 ms batched, against the LLM's 4,713 ms.
+
+It trained in 57 minutes, while another project's job shared the GPU.
 
 ## 9. What would come next
 
@@ -358,12 +407,9 @@ pays the same windows-only penalty as the MiniLM is untested.
   shuffled and measure how much the two answers agree — is the natural
   candidate. It doubles the LLM's cost: about another 454 + 382 tokens and
   1.2 s of batched time a query.
-- **A larger student, on labels, on whole query groups.** In Section 8 a
-  larger backbone paid where the teacher did not, at the scale measured.
-  `bge-reranker-base` keeps 42% of the LLM's gain while training on windows
-  alone. Two things are untried. One is training it on every judged pair with
-  the landed recipe. That fits the 3080 with gradient checkpointing: measured
-  at about 66 minutes an epoch and a 6.3 GB peak. Without checkpointing it
-  spills past 16 GB. The other is matching its batch to the MiniLM's, which
-  would separate backbone from recipe. Past that, `bge-reranker-large` is the
-  next size up.
+- **The next size up.** Section 8 isolates the backbone as the factor that
+  pays: +0.0112 for bge over MiniLM with everything else held fixed, against
+  a tie for the batch and +0.0016 for the recipe. `bge-reranker-large` is the
+  next step along that axis. It is untried. It would need its own memory
+  measurement on the 3080 first, because checkpointing letting the base model
+  fit says nothing about a larger one.

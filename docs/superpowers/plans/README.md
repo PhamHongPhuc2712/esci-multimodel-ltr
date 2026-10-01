@@ -29,7 +29,7 @@ interfaces are known.
 | 6 | [**Fine Rank**](2026-09-21-fine-rank/) | Fine-tuned cross-encoder and LLM listwise reranker, head to head on Stage 2 top-K | Ablation 6 produces NDCG + latency + cost | §4.3, §8.6, §8.7 |
 | 7 | [**Blend and Report**](2026-09-23-blend-and-report/) | Stage 4 learned combiner, full ablation table, per-category error analysis, writeup **(landed)** | Beats the 0.8562 `ESCI_baseline` target, or reports honestly that it ties | §4.4, §5, §6, §8.8 |
 | 8 | [**Distillation**](2026-09-27-distillation/) | Out-of-fold training windows, two free cross-encoder arms, a fold-0 pilot, and — only if its gate passes — a paid teacher pass and a distilled student **(landed; gate not passed, no paid pass)** | A pre-registered pilot gate decides whether the paid pass runs; every trained arm reaches the test split once either way | §7.4 |
-| 9 | [**Capacity, One Factor at a Time**](2026-09-30-capacity/) | Gradient checkpointing for bge; two more bge arms so each comparison changes one thing — backbone, batch or recipe; the best no-API cross-encoder chosen on fold 0 **(written)** | Every pair in the grid measured on fold 0 and on the test split once, with the training records matching the recipes the pairs claim | §7.4, §7.5 |
+| 9 | [**Capacity, One Factor at a Time**](2026-09-30-capacity/) | Gradient checkpointing for bge; two more bge arms so each comparison changes one thing — backbone, batch or recipe; the best no-API cross-encoder chosen on fold 0 **(landed)** | Every pair in the grid measured on fold 0 and on the test split once, with the training records matching the recipes the pairs claim | §7.4, §7.5 |
 
 A written plan gets its own directory and is split into phase files when a single file stops being readable end to end. All seven are written, each split that way, and so is Plan 8, written after the series closed:
 
@@ -197,6 +197,18 @@ bge on whole query groups spills past the 3080's 16 GB and runs under 0.27
 queries a second, and gradient accumulation does not help. With it, the
 landed recipe runs 66 minutes an epoch at a 6.3 GB peak. The best of the four
 arms on fold 0 becomes the project's no-API Stage 3.
+
+**Landed 2026-10-01: the backbone is what paid.** With everything else held
+fixed, bge beats MiniLM on the windows by +0.0112 [+0.0094, +0.0130] on the
+full test split. The batch ties: +0.0002 [−0.0006, +0.0010]. The landed
+recipe over the windows ties on fold 0 and adds +0.0016 [+0.0006, +0.0026] on
+test, about a seventh of the backbone's effect. Fold 0 chose bge on whole
+query groups, at 0.8661, before test was scored. On the full test split it
+scores **0.8711 [0.8681, 0.8742]**: +0.0095 over the landed cross-encoder and
+48% of the LLM's gain, at 66.9 ms a query with no API call. Both arms trained
+while another project's job shared the GPU. The whole-group run took 57
+minutes and never came near the card's 16 GB. Plan 8's arms re-scored exactly
+on both surfaces. `docs/RESULTS.md` §8 is the writeup.
 
 ## Ablation ownership
 
