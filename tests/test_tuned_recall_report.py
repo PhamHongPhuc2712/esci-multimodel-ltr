@@ -139,3 +139,10 @@ def test_the_fold_0_report_reproduces_plan_4_s_published_fusion():
         assert _recall(report, "published fusion", k) == pytest.approx(
             _recall(plan4, "dense+bm25+image", k), abs=1e-4)
     assert report["retriever"]["training"]["folds"] == [2, 3, 4]
+
+
+def test_the_test_report_scores_every_fold_0_arm_once_with_the_same_fusion():
+    fold0, test = _committed("recall-tuned.json"), _committed("recall-tuned-test.json")
+    assert test["split"] == "test" and test["n_queries"] == 8956
+    assert [a["name"] for a in test["arms"]] == [a["name"] for a in fold0["arms"]]
+    assert test["fusion"] == fold0["fusion"]
