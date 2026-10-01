@@ -22,14 +22,14 @@ are ranked, scored by full-list NDCG with gains E 1.0 / S 0.1 / C 0.01 / I 0.0.
 | `ESCI_baseline`, a fine-tuned cross-encoder (published, the target) | 0.8562 | full test split |
 | **coarse LambdaMART, 47 features** | **0.8579 [0.8551, 0.8611]** | full test split |
 | + fine-tuned cross-encoder on its top 10 | 0.8616 | full test split |
-| + a larger fine-tuned cross-encoder (`bge-reranker-base`) on its top 10 | 0.8695 [0.8667, 0.8724] | full test split |
+| + a larger fine-tuned cross-encoder (`bge-reranker-base`) on its top 10 | 0.8711 [0.8681, 0.8742] | full test split |
 | **+ LLM listwise re-ranking of its top 10** | **0.8855 [0.8827, 0.8883]** | full test split |
 
 **The funnel beats the published baseline on the same 8,956 queries.** The
 LLM arm's interval sits wholly above 0.8562, at the price of an API call that
 takes 4.7 s a query. Without the LLM, the coarse ranker alone **matches** the
 target: its interval contains 0.8562. A larger cross-encoder on its top 10
-**beats** it with no API call, at 72.5 ms a query. The LLM arm was first measured on a frozen
+**beats** it with no API call, at 66.9 ms a query. The LLM arm was first measured on a frozen
 2,000-query sample (0.8855 [0.8799, 0.8910]); running the whole split once
 left the point estimate unchanged and halved the interval.
 
@@ -46,7 +46,7 @@ left the point estimate unchanged and halved the interval.
 | learned fusion | **ties** a single hand-tuned text/image weight | −0.0011 [−0.0023, +0.0000] NDCG |
 | blending | **no blend beats the LLM alone** — all three lose to it, though a per-query oracle would add +0.0257 | best: −0.0006 [−0.0009, −0.0003] NDCG |
 | distillation | in a fold-0 pilot the LLM's ordering was **not a better training target than the labels**, so the paid labelling was not run | ties from both starting points |
-| model size, fine rank | a larger cross-encoder (`bge-reranker-base`, trained on the top-10 windows) beats the landed small one, keeping 42% of the LLM's gain at 72.5 ms | +0.0079 [+0.0062, +0.0097] NDCG |
+| model size, fine rank | with everything else held fixed, the larger backbone (`bge-reranker-base` against MiniLM) is what pays; the batch ties and the training recipe adds little | +0.0112 [+0.0094, +0.0130] NDCG |
 
 Each ablation row's scope, `n` and source are in the full table in
 [`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The last two rows
@@ -129,6 +129,9 @@ python -m src.distill --target labels --out models/cross-encoder/windows
 python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 8 --out models/cross-encoder/bge
 python -m src.distill_report && python -m src.distill_report --pilot
 python -m src.distill_report --split test --final --arms stage2+ce_windows stage2+ce_bge --out docs/results/distill-test.json
+python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16   # Plan 9
+python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base --gradient-checkpointing --out-dir models/cross-encoder/bge-groups
+python -m src.distill_report --capacity && python -m src.distill_report --capacity --split test --final
 ```
 
 Every configuration is chosen on a validation fold carved from train by query.
@@ -142,6 +145,6 @@ Each test measurement sits behind `--final` and was run once.
 | `tests/` | one test module per source module; `-m data` runs against the real datasets |
 | `docs/results/` | every committed measurement, as JSON |
 | `docs/RESULTS.md` | the writeup |
-| `docs/superpowers/plans/` | the eight implementation plans, with what each measured and corrected |
+| `docs/superpowers/plans/` | the nine implementation plans, with what each measured and corrected |
 | `PROJECT_SPEC.md` | motivation, funnel design, baselines and the ablation plan |
 | `splits/` | the frozen validation folds and their checksum |
