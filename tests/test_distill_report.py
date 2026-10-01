@@ -362,3 +362,14 @@ def test_the_fold_0_file_names_its_best_arm_by_its_own_numbers():
     assert report["best_model_arm"] == max(CAPACITY_ARMS, key=points.__getitem__)
     isolated = {row["isolates"] for row in report["comparisons"] if "isolates" in row}
     assert isolated == set(CAPACITY_PAIRS.values())
+
+
+def test_the_capacity_test_file_scores_the_fold_0_arms_and_nothing_else():
+    assert set(_points("capacity-test.json")) == set(_points("capacity.json"))
+
+
+def test_the_capacity_test_file_re_scores_plan_8_s_test_arms_exactly():
+    capacity, plan8 = _points("capacity-test.json"), _points("distill-test.json")
+    assert _committed("capacity-test.json")["n_queries"] == 8956
+    for name in (*REFERENCE_ARMS, "stage2+ce_windows", "stage2+ce_bge"):
+        assert capacity[name] == pytest.approx(plan8[name], abs=2e-4), name
