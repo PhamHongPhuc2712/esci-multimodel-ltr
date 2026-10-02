@@ -456,3 +456,16 @@ It trained in 57 minutes, while another project's job shared the GPU.
   next step along that axis. It is untried. It would need its own memory
   measurement on the 3080 first, because checkpointing letting the base model
   fit says nothing about a larger one.
+- **The fine-tuned retriever as a coarse-ranker feature.** Section 3's
+  retriever beats the off-the-shelf one by +0.1030 at Recall@100, and Plan 5's
+  `dense_sim` feature still comes from the off-the-shelf model. Two things make
+  swapping it in more than a one-line change:
+  - **The score must be out-of-fold.** The retriever trained on folds 2/3/4,
+    and so did the coarse ranker. Its similarity on those folds is fitted, not
+    predicted, and a ranker trained on it would learn to trust a feature that
+    is weaker at serving time. Each training fold needs a retriever that never
+    saw it — the same reason Plan 8 carved its training windows out-of-fold.
+  - **It moves the LLM's windows.** A different coarse ranker puts different
+    products in each query's top 10. The cached LLM orderings are keyed on
+    those windows, so keeping the LLM arm current means a new paid pass over
+    the test split (Section 3: 6,958 calls in 2.3 hours).
