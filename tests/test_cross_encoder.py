@@ -7,6 +7,7 @@ from src.cross_encoder import (
     LOSSES,
     TRAINING_RECORD,
     check_training_folds,
+    configure_allocator,
     document_text,
     enable_gradient_checkpointing,
     listwise_dataset,
@@ -357,3 +358,40 @@ def test_both_fine_tunes_write_the_same_record_file():
     from src.distill import TRAINING_RECORD as window_record
 
     assert TRAINING_RECORD == window_record == "training.json"
+
+
+# --- Plan 11: accumulation, and the allocator ----------------------------------
+
+def test_no_accumulation_is_recorded_as_one_step():
+    record = _record()
+    assert record["gradient_accumulation_steps"] == 1
+    assert record["queries_per_update"] == record["batch_size"]
+
+
+def test_accumulation_is_recorded_with_the_queries_each_update_sees():
+    # bge-reranker-large takes the landed recipe's 8 queries an update as
+    # 4 x 2; the record is what says the two arms saw the same update size.
+    record = _record(batch_size=4, gradient_accumulation_steps=2)
+    assert record["gradient_accumulation_steps"] == 2
+    assert record["queries_per_update"] == 8
+
+
+def test_accumulation_below_one_is_refused():
+    with pytest.raises(ValueError, match="accumulation"):
+        _record(gradient_accumulation_steps=0)
+
+
+def test_the_allocator_is_set_to_expandable_segments(monkeypatch):
+    import os
+
+    monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
+    configure_allocator()
+    assert os.environ["PYTORCH_CUDA_ALLOC_CONF"] == "expandable_segments:True"
+
+
+def test_an_allocator_setting_the_caller_chose_is_kept(monkeypatch):
+    import os
+
+    monkeypatch.setenv("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
+    configure_allocator()
+    assert os.environ["PYTORCH_CUDA_ALLOC_CONF"] == "max_split_size_mb:128"

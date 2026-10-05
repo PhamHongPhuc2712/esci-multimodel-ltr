@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -148,6 +149,18 @@ def pairwise_dataset(
     }
 
 
+def configure_allocator() -> None:
+    """Expandable segments, unless the caller already chose an allocator.
+
+    On WSL an allocation past the card spills into shared memory instead of
+    raising, and with the default allocator the segments a heavy batch reserved
+    stay reserved, so later steps can keep spilling. Expandable segments grow
+    and shrink in place. Where tensors live changes; what a step computes does
+    not. Must run before torch initialises CUDA.
+    """
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+
 def enable_gradient_checkpointing(model) -> None:
     """Recompute activations during backward instead of storing them.
 
@@ -180,10 +193,19 @@ def training_record(
     n_queries: int,
     n_pairs: int,
     minutes: float,
+    gradient_accumulation_steps: int = 1,
 ) -> dict:
-    """What trained a whole-group fine-tune, in the shape src.distill writes."""
+    """What trained a whole-group fine-tune, in the shape src.distill writes.
+
+    `queries_per_update` is batch x accumulation: two arms that split the same
+    update differently - 8 in one step, or 4 twice - took the same step size.
+    """
     if loss not in LOSSES:
         raise ValueError(f"unknown loss {loss!r}; expected one of {LOSSES}")
+    if gradient_accumulation_steps < 1:
+        raise ValueError(
+            f"gradient accumulation of {gradient_accumulation_steps} steps; it must be at least 1"
+        )
     return {
         "target": "labels",
         "init": backbone,
@@ -191,6 +213,8 @@ def training_record(
         "data": "every judged pair of folds 2/3/4, whole query groups",
         "epochs": epochs,
         "batch_size": batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "queries_per_update": batch_size * gradient_accumulation_steps,
         "seed": seed,
         "gradient_checkpointing": gradient_checkpointing,
         "n_queries": n_queries,
@@ -214,6 +238,7 @@ def fine_tune(
     device: str = "auto",
     seed: int = 0,
     gradient_checkpointing: bool = False,
+    gradient_accumulation_steps: int = 1,
 ) -> Path:
     """Fine-tune and save. `matrix` must contain only training folds."""
     from datasets import Dataset
@@ -231,6 +256,10 @@ def fine_tune(
 
     if loss not in LOSSES:
         raise ValueError(f"unknown loss {loss!r}; expected one of {LOSSES}")
+    if gradient_accumulation_steps < 1:
+        raise ValueError(
+            f"gradient accumulation of {gradient_accumulation_steps} steps; it must be at least 1"
+        )
     check_training_folds(matrix)
 
     resolved = resolve_device(device)
@@ -251,6 +280,7 @@ def fine_tune(
     arguments = CrossEncoderTrainingArguments(
         output_dir=str(target / "checkpoints"),
         per_device_train_batch_size=batch_size or DEFAULT_BATCH_SIZE[loss],
+        gradient_accumulation_steps=gradient_accumulation_steps,
         num_train_epochs=epochs,
         learning_rate=learning_rate,
         fp16=resolved.startswith("cuda"),
@@ -445,6 +475,7 @@ def measure_latency(
 def _main() -> int:
     import time
 
+    configure_allocator()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--loss", default="lambda", choices=list(LOSSES))
     parser.add_argument("--backbone", default=DEFAULT_BACKBONE)
@@ -460,6 +491,10 @@ def _main() -> int:
     parser.add_argument(
         "--gradient-checkpointing", action="store_true",
         help="recompute activations in backward; bge-reranker-base needs it on 16 GB")
+    parser.add_argument(
+        "--grad-accum", type=int, default=1,
+        help="optimiser updates every N batches; bge-reranker-large takes the "
+             "landed 8 queries an update as --batch-size 4 --grad-accum 2")
     args = parser.parse_args()
 
     matrix = pd.read_parquet(
@@ -488,6 +523,7 @@ def _main() -> int:
         device=args.device,
         seed=args.seed,
         gradient_checkpointing=args.gradient_checkpointing,
+        gradient_accumulation_steps=args.grad_accum,
     )
     minutes = (time.time() - started) / 60
     record = training_record(
@@ -500,6 +536,7 @@ def _main() -> int:
         n_queries=int(matrix["query_id"].nunique()),
         n_pairs=len(matrix),
         minutes=minutes,
+        gradient_accumulation_steps=args.grad_accum,
     )
     (target / TRAINING_RECORD).write_text(
         json.dumps(record, indent=2) + "\n", encoding="utf-8"
