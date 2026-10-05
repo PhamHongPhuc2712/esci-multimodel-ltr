@@ -469,3 +469,14 @@ def test_the_size_file_names_its_best_arm_by_its_own_numbers():
     assert report["best_model_arm"] == max(SIZE_ARMS, key=points.__getitem__)
     isolated = {row["isolates"] for row in report["comparisons"] if "isolates" in row}
     assert isolated == set(SIZE_PAIRS.values())
+
+
+def test_the_size_test_file_scores_the_fold_0_arms_and_nothing_else():
+    assert set(_points("size-test.json")) == set(_points("size.json"))
+
+
+def test_the_size_test_file_re_scores_plan_9_s_test_arm_exactly():
+    size, plan9 = _points("size-test.json"), _points("capacity-test.json")
+    assert _committed("size-test.json")["n_queries"] == 8956
+    for name in (*REFERENCE_ARMS, "stage2+ce_bge_groups"):
+        assert size[name] == pytest.approx(plan9[name], abs=2e-4), name
