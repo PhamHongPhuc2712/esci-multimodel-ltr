@@ -15,6 +15,9 @@ Three modes, one module, because all three score the same windows the same way:
     comparisons each change one thing - backbone, batch or recipe - on fold 0
     (docs/results/capacity.json) or, with ``--split test --final``, on test
     (docs/results/capacity-test.json).
+  * ``--size``: Plan 11's preset. bge-reranker-base against -large under the
+    landed recipe, on fold 0 (docs/results/size.json) or, with ``--split test
+    --final``, on test (docs/results/size-test.json).
 
 The reference arms are read from Plan 7's signal frame and checked against
 the NDCG Plan 6 published for them, so every arm here is scored on exactly the
@@ -36,6 +39,7 @@ MODEL_ARMS: dict[str, Path] = {
     "stage2+student": Path("models/cross-encoder/student"),
     "stage2+ce_bge_b16": Path("models/cross-encoder/bge-b16"),
     "stage2+ce_bge_groups": Path("models/cross-encoder/bge-groups/lambda"),
+    "stage2+ce_bge_large": Path("models/cross-encoder/bge-large-groups/lambda"),
 }
 FREE_ARMS: tuple[str, ...] = ("stage2+ce_windows", "stage2+ce_bge")
 
@@ -65,6 +69,28 @@ CAPACITY_OUT: dict[str, Path] = {
     "test": Path("docs/results/capacity-test.json"),
 }
 
+# Plan 11. Plan 9 isolated the backbone as the factor that pays; this is the
+# next size up the same family, under the landed recipe. The large model
+# takes the recipe's 8 queries an update as 4 x 2 - batch 8 overflows the
+# 16 GB card on the heaviest batches - and Plan 9 measured the batch a tie.
+SIZE_ARMS: tuple[str, ...] = ("stage2+ce_bge_groups", "stage2+ce_bge_large")
+SIZE_PAIRS: dict[tuple[str, str], str] = {
+    ("stage2+ce_bge_large", "stage2+ce_bge_groups"): (
+        "the backbone's size, bge-reranker-base against -large, under the landed "
+        "recipe at 8 queries an update (large accumulates 4 x 2)"
+    ),
+}
+SIZE_OUT: dict[str, Path] = {
+    "train": Path("docs/results/size.json"),
+    "test": Path("docs/results/size-test.json"),
+}
+
+# Each preset fixes its arms, its labelled pairs and where it writes.
+PRESETS: dict[str, tuple[tuple[str, ...], dict, dict[str, Path]]] = {
+    "capacity": (CAPACITY_ARMS, CAPACITY_PAIRS, CAPACITY_OUT),
+    "size": (SIZE_ARMS, SIZE_PAIRS, SIZE_OUT),
+}
+
 TRAIN_COMMANDS: dict[str, str] = {
     "stage2+ce_windows": (
         "python -m src.distill --target labels --out models/cross-encoder/windows"
@@ -84,6 +110,11 @@ TRAIN_COMMANDS: dict[str, str] = {
     "stage2+ce_bge_groups": (
         "python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base "
         "--gradient-checkpointing --out-dir models/cross-encoder/bge-groups"
+    ),
+    "stage2+ce_bge_large": (
+        "python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-large "
+        "--gradient-checkpointing --batch-size 4 --grad-accum 2 "
+        "--out-dir models/cross-encoder/bge-large-groups"
     ),
 }
 
@@ -385,7 +416,8 @@ def _arms(args) -> int:
 
     check_split(args.split, args.final)
     models = resolve_model_arms(args.arms)
-    pairs = CAPACITY_PAIRS if args.capacity else {}
+    preset = PRESETS.get(args.preset)
+    pairs = preset[1] if preset else {}
     training = training_records(models)
     scope, windows_, matrix, frame, query_text, doc_text = _scope(args.split, args.seed)
     qrels = qrels_from_frame(matrix)
@@ -458,7 +490,7 @@ def _arms(args) -> int:
         ),
         "seed": args.seed,
     }
-    out = args.out or (CAPACITY_OUT if args.capacity else DEFAULT_OUT)[args.split]
+    out = args.out or (preset[2] if preset else DEFAULT_OUT)[args.split]
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"\nwritten to {out}")
@@ -475,19 +507,23 @@ def _main() -> int:
     parser.add_argument("--final", action="store_true", help="required with --split test")
     parser.add_argument("--arms", nargs="+", default=None, choices=list(MODEL_ARMS),
                         help=f"default {list(FREE_ARMS)}; --capacity sets its own")
-    parser.add_argument("--capacity", action="store_true",
-                        help="Plan 9: the four capacity arms and the comparisons "
-                             "that each isolate one factor")
+    presets = parser.add_mutually_exclusive_group()
+    presets.add_argument("--capacity", action="store_true",
+                         help="Plan 9: the four capacity arms and the comparisons "
+                              "that each isolate one factor")
+    presets.add_argument("--size", action="store_true",
+                         help="Plan 11: bge-reranker-base against -large")
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--floor-trials", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
 
-    if args.capacity and args.arms is not None:
-        raise SystemExit("--capacity sets its own arms; do not pass --arms with it")
+    args.preset = "capacity" if args.capacity else "size" if args.size else None
+    if args.preset and args.arms is not None:
+        raise SystemExit(f"--{args.preset} sets its own arms; do not pass --arms with it")
     if args.arms is None:
-        args.arms = list(CAPACITY_ARMS if args.capacity else FREE_ARMS)
+        args.arms = list(PRESETS[args.preset][0] if args.preset else FREE_ARMS)
     if args.pilot:
         if args.split != "train":
             raise SystemExit("the pilot trains on fold 0; it never touches the test split")

@@ -11,7 +11,10 @@ from src.distill_report import (
     GATE_RULE,
     MODEL_ARMS,
     PILOT_EPOCHS,
+    PRESETS,
     REFERENCE_ARMS,
+    SIZE_ARMS,
+    SIZE_PAIRS,
     TRAIN_COMMANDS,
     best_model_arm,
     check_reference,
@@ -373,3 +376,64 @@ def test_the_capacity_test_file_re_scores_plan_8_s_test_arms_exactly():
     assert _committed("capacity-test.json")["n_queries"] == 8956
     for name in (*REFERENCE_ARMS, "stage2+ce_windows", "stage2+ce_bge"):
         assert capacity[name] == pytest.approx(plan8[name], abs=2e-4), name
+
+
+# --- Plan 11: the size preset ---------------------------------------------------
+
+def test_the_size_arms_are_model_arms_with_commands():
+    assert set(SIZE_ARMS) <= set(MODEL_ARMS)
+    assert set(MODEL_ARMS) == set(TRAIN_COMMANDS)
+
+
+def test_the_size_pair_is_large_against_base():
+    [(arm, baseline)] = list(SIZE_PAIRS)
+    assert (arm, baseline) == ("stage2+ce_bge_large", "stage2+ce_bge_groups")
+    assert "size" in SIZE_PAIRS[(arm, baseline)]
+
+
+def test_the_size_arms_take_the_same_queries_per_update():
+    # Review Focus 2: the two arms split an update differently - 8 in one
+    # step, or 4 twice - and must agree on how many queries it holds.
+    import re
+
+    from src.cross_encoder import DEFAULT_BATCH_SIZE
+
+    def per_update(command):
+        batch = re.search(r"--batch-size (\d+)", command)
+        accum = re.search(r"--grad-accum (\d+)", command)
+        return (int(batch.group(1)) if batch else DEFAULT_BATCH_SIZE["lambda"]) * (
+            int(accum.group(1)) if accum else 1
+        )
+
+    base, large = TRAIN_COMMANDS["stage2+ce_bge_groups"], TRAIN_COMMANDS["stage2+ce_bge_large"]
+    assert per_update(base) == per_update(large) == 8
+    assert "BAAI/bge-reranker-large" in large
+    assert "--loss lambda" in large and "--gradient-checkpointing" in large
+
+
+def test_every_preset_names_scored_arms_and_its_own_outputs():
+    for name, (arms, pairs, out) in PRESETS.items():
+        assert set(arms) <= set(MODEL_ARMS), name
+        for (arm, baseline), isolates in pairs.items():
+            assert {arm, baseline} <= set(arms) | set(REFERENCE_ARMS) and isolates
+        assert set(out) == {"train", "test"}
+
+
+def test_size_refuses_a_hand_picked_arm_list(monkeypatch):
+    import sys
+
+    from src.distill_report import _main
+
+    monkeypatch.setattr(sys, "argv", ["distill_report", "--size", "--arms", "stage2+ce_bge"])
+    with pytest.raises(SystemExit, match="--size"):
+        _main()
+
+
+def test_size_and_capacity_are_one_or_the_other(monkeypatch):
+    import sys
+
+    from src.distill_report import _main
+
+    monkeypatch.setattr(sys, "argv", ["distill_report", "--size", "--capacity"])
+    with pytest.raises(SystemExit):
+        _main()
