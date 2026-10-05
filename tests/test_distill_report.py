@@ -437,3 +437,35 @@ def test_size_and_capacity_are_one_or_the_other(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["distill_report", "--size", "--capacity"])
     with pytest.raises(SystemExit):
         _main()
+
+
+def _per_update(record):
+    return record["batch_size"] * record.get("gradient_accumulation_steps", 1)
+
+
+def test_the_size_arms_were_trained_as_their_pair_claims():
+    # Review Focus 2: the records, not the plan, say what trained each arm.
+    record = _committed("size.json")["training"]
+    base, large = record["stage2+ce_bge_groups"], record["stage2+ce_bge_large"]
+    assert base["init"] == "BAAI/bge-reranker-base"
+    assert large["init"] == "BAAI/bge-reranker-large"
+    for arm in (base, large):
+        assert (arm["target"], arm["loss"]) == ("labels", "LambdaLoss")
+        assert arm["gradient_checkpointing"] is True
+        assert _per_update(arm) == 8
+
+
+def test_the_size_file_re_scores_plan_9_s_arm_exactly():
+    # Review Focus 4. The same model on the same windows.
+    size, plan9 = _points("size.json"), _points("capacity.json")
+    for name in (*REFERENCE_ARMS, "stage2+ce_bge_groups"):
+        assert size[name] == pytest.approx(plan9[name], abs=2e-4), name
+
+
+def test_the_size_file_names_its_best_arm_by_its_own_numbers():
+    # Review Focus 3: the no-API headline is chosen here, on fold 0.
+    report, points = _committed("size.json"), _points("size.json")
+    assert set(SIZE_ARMS) <= set(points)
+    assert report["best_model_arm"] == max(SIZE_ARMS, key=points.__getitem__)
+    isolated = {row["isolates"] for row in report["comparisons"] if "isolates" in row}
+    assert isolated == set(SIZE_PAIRS.values())

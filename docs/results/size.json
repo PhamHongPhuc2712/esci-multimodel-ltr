@@ -1,0 +1,275 @@
+{
+  "split": "train",
+  "scope": "fold0",
+  "n_queries": 4130,
+  "n_judgements": 82751,
+  "floor": {
+    "mean": 0.743749290760818,
+    "low": 0.740674758377043,
+    "high": 0.7465897379380034,
+    "n_trials": 100
+  },
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945205,
+        "high": 0.11184183460770253
+      }
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8586628405345903,
+        "low": 0.8536051256564455,
+        "high": 0.8634481987115363
+      },
+      "lift_over_floor": {
+        "point": 0.11491354977377234,
+        "low": 0.11069610239524458,
+        "high": 0.11894968519517485
+      }
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8814224315239989,
+        "low": 0.8767520992505652,
+        "high": 0.8858538470712275
+      },
+      "lift_over_floor": {
+        "point": 0.13767314076318082,
+        "low": 0.1333709847325301,
+        "high": 0.1417409078465728
+      }
+    },
+    {
+      "name": "stage2+ce_bge_groups",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.866096887302874,
+        "low": 0.8611989088152913,
+        "high": 0.870678920519895
+      },
+      "lift_over_floor": {
+        "point": 0.12234759654205597,
+        "low": 0.11794328752401459,
+        "high": 0.12621763211609777
+      }
+    },
+    {
+      "name": "stage2+ce_bge_large",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.874246227188337,
+        "low": 0.8695580229595622,
+        "high": 0.8784776988473442
+      },
+      "lift_over_floor": {
+        "point": 0.1304969364275191,
+        "low": 0.12626884415014858,
+        "high": 0.13480470421503213
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "stage2+ce",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0067968002342362836,
+        "low": 0.003746473997611245,
+        "high": 0.009872226280145332
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+llm",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02955639122364474,
+        "low": 0.026562658829945435,
+        "high": 0.032718611385769404
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.014230847002519911,
+        "low": 0.011371709442645931,
+        "high": 0.0173916836210234
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_large",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.022380186887983045,
+        "low": 0.019474468784836624,
+        "high": 0.025473791607742737
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": 0.0074340467682836265,
+        "low": 0.005096218625225211,
+        "high": 0.009977096706674597
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_groups",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.015325544221124832,
+        "low": -0.018586910169261874,
+        "high": -0.012215770046301143
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_large",
+      "baseline": "stage2+ce",
+      "delta": {
+        "point": 0.015583386653746764,
+        "low": 0.013198046141793847,
+        "high": 0.018130181246069795
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_large",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.007176204335661694,
+        "low": -0.010087384967010102,
+        "high": -0.004202930222062384
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+ce_bge_large",
+      "baseline": "stage2+ce_bge_groups",
+      "delta": {
+        "point": 0.008149339885463137,
+        "low": 0.006039161524889936,
+        "high": 0.010272051042359063
+      },
+      "significant": true,
+      "isolates": "the backbone's size, bge-reranker-base against -large, under the landed recipe at 8 queries an update (large accumulates 4 x 2)"
+    }
+  ],
+  "share_of_llm_gain": {
+    "stage2+ce": 0.229960423206164,
+    "stage2+ce_bge_groups": 0.48148120976066544,
+    "stage2+ce_bge_large": 0.7572029588672862
+  },
+  "pairwise_accuracy": {
+    "stage2": 0.637315352347985,
+    "stage2+ce": 0.6557650933304486,
+    "stage2+llm": 0.7404415918460558,
+    "stage2+ce_bge_groups": 0.6834577338669936,
+    "stage2+ce_bge_large": 0.711486916910059
+  },
+  "latency": {
+    "stage2+ce": {
+      "single_ms": 26.988587659980112,
+      "batched_ms": 9.261748740027542,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_bge_groups": {
+      "single_ms": 63.628433579942794,
+      "batched_ms": 51.41084211994894,
+      "n_queries": 50,
+      "n_pairs": 499
+    },
+    "stage2+ce_bge_large": {
+      "single_ms": 190.9166875599476,
+      "batched_ms": 161.70882861995779,
+      "n_queries": 50,
+      "n_pairs": 499
+    }
+  },
+  "models": {
+    "stage2+ce_bge_groups": "models/cross-encoder/bge-groups/lambda",
+    "stage2+ce_bge_large": "models/cross-encoder/bge-large-groups/lambda"
+  },
+  "training": {
+    "stage2+ce_bge_groups": {
+      "target": "labels",
+      "init": "BAAI/bge-reranker-base",
+      "loss": "LambdaLoss",
+      "data": "every judged pair of folds 2/3/4, whole query groups",
+      "epochs": 1,
+      "batch_size": 8,
+      "seed": 0,
+      "gradient_checkpointing": true,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "minutes": 56.719803241888684
+    },
+    "stage2+ce_bge_large": {
+      "target": "labels",
+      "init": "BAAI/bge-reranker-large",
+      "loss": "LambdaLoss",
+      "data": "every judged pair of folds 2/3/4, whole query groups",
+      "epochs": 1,
+      "batch_size": 4,
+      "gradient_accumulation_steps": 2,
+      "queries_per_update": 8,
+      "seed": 0,
+      "gradient_checkpointing": true,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "minutes": 177.8180905063947
+    }
+  },
+  "best_model_arm": "stage2+ce_bge_large",
+  "seed": 0
+}
