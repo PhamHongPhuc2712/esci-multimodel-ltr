@@ -23,13 +23,15 @@ are ranked, scored by full-list NDCG with gains E 1.0 / S 0.1 / C 0.01 / I 0.0.
 | **coarse LambdaMART, 47 features** | **0.8579 [0.8551, 0.8611]** | full test split |
 | + fine-tuned cross-encoder on its top 10 | 0.8616 | full test split |
 | + a larger fine-tuned cross-encoder (`bge-reranker-base`) on its top 10 | 0.8711 [0.8681, 0.8742] | full test split |
+| + the next size up (`bge-reranker-large`) on its top 10 | 0.8770 [0.8742, 0.8801] | full test split |
 | **+ LLM listwise re-ranking of its top 10** | **0.8855 [0.8827, 0.8883]** | full test split |
 
 **The funnel beats the published baseline on the same 8,956 queries.** The
 LLM arm's interval sits wholly above 0.8562, at the price of an API call that
 takes 4.7 s a query. Without the LLM, the coarse ranker alone **matches** the
 target: its interval contains 0.8562. A larger cross-encoder on its top 10
-**beats** it with no API call, at 66.9 ms a query. The LLM arm was first measured on a frozen
+**beats** it with no API call: `bge-reranker-base` at 64.5 ms a query, and
+`bge-reranker-large` at 205.2 ms for a further +0.0059. The LLM arm was first measured on a frozen
 2,000-query sample (0.8855 [0.8799, 0.8910]); running the whole split once
 left the point estimate unchanged and halved the interval.
 
@@ -52,6 +54,7 @@ reaches **0.6172** on the test split, up from 0.5606 for the untuned channels.
 | blending | **no blend beats the LLM alone** — all three lose to it, though a per-query oracle would add +0.0257 | best: −0.0006 [−0.0009, −0.0003] NDCG |
 | distillation | in a fold-0 pilot the LLM's ordering was **not a better training target than the labels**, so the paid labelling was not run | ties from both starting points |
 | model size, fine rank | with everything else held fixed, the larger backbone (`bge-reranker-base` against MiniLM) is what pays; the batch ties and the training recipe adds little | +0.0112 [+0.0094, +0.0130] NDCG |
+| one size up, fine rank | the next size (`bge-reranker-large` against -base, same recipe, 8 queries an update) pays again, for three times the latency | +0.0059 [+0.0044, +0.0074] NDCG |
 
 Each ablation row's scope, `n` and source are in the full table in
 [`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The fine-tuned
@@ -66,7 +69,7 @@ The ties and losses are reported as results.
 | 0 | LLM query rewriting (`gpt-5.6-luna`), cached | Recall@100 lift |
 | 1 | BM25 + two dense retrievers (off-the-shelf SBERT, and `bge-base` fine-tuned on ESCI) + CLIP image, fused with RRF at weights chosen on fold 1, over the 1.2M-product catalogue | Recall@100 |
 | 2 | LightGBM `lambdarank` over 47 query × product features: retrieval scores, text overlap, image similarity, ESCI-S behavioural values, categories, attributes | NDCG |
-| 3 | fine-tuned `ms-marco-MiniLM-L6-v2` cross-encoder, or an LLM listwise call, re-ranking Stage 2's top 10 | NDCG, latency, tokens |
+| 3 | a fine-tuned cross-encoder (`ms-marco-MiniLM-L6-v2`, `bge-reranker-base` or `bge-reranker-large`), or an LLM listwise call, re-ranking Stage 2's top 10 | NDCG, latency, tokens |
 | 4 | fixed-weight RRF, a learned combiner, or a per-query selector over the three stages | NDCG against each stage alone |
 
 Recall is evaluated on its own, over the whole catalogue. Stages 2–4 rank only
@@ -141,6 +144,8 @@ python -m src.distill_report --capacity && python -m src.distill_report --capaci
 python -m src.dense_finetune                             # Plan 10: the fine-tuned retriever
 python -m src.dense_embed --model models/retriever/bge-base --store data/embeddings/dense-ft --half --max-seq 256
 python -m src.tuned_recall_report --sweep && python -m src.tuned_recall_report && python -m src.tuned_recall_report --split test --final
+python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-large --gradient-checkpointing --batch-size 4 --grad-accum 2 --out-dir models/cross-encoder/bge-large-groups   # Plan 11
+python -m src.distill_report --size && python -m src.distill_report --size --split test --final
 ```
 
 Every configuration is chosen on a validation fold carved from train by query.
@@ -154,6 +159,6 @@ Each test measurement sits behind `--final` and was run once.
 | `tests/` | one test module per source module; `-m data` runs against the real datasets |
 | `docs/results/` | every committed measurement, as JSON |
 | `docs/RESULTS.md` | the writeup |
-| `docs/superpowers/plans/` | the ten implementation plans, with what each measured and corrected |
+| `docs/superpowers/plans/` | the eleven implementation plans, with what each measured and corrected |
 | `PROJECT_SPEC.md` | motivation, funnel design, baselines and the ablation plan |
 | `splits/` | the frozen validation folds and their checksum |

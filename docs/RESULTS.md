@@ -45,11 +45,13 @@ halved.
 Without the LLM, the coarse LambdaMART ranker alone scores **0.8579 [0.8551,
 0.8611]** (`coarse-rank-test.json`). Its interval contains 0.8562, so it
 **matches** the target rather than beating it. Re-ranking its top 10 with a
-larger fine-tuned cross-encoder, `bge-reranker-base` trained on every judged
-pair, reaches **0.8711 [0.8681, 0.8742]** with no API call at all
-(`capacity-test.json`, Section 8). That arm was chosen on fold 0 before the
-test split was scored. It also lies wholly above the target, at 66.9 ms a
-query.
+larger fine-tuned cross-encoder, `bge-reranker-large` trained on every judged
+pair, reaches **0.8770 [0.8742, 0.8801]** with no API call at all
+(`size-test.json`, Section 8). That arm was chosen on fold 0 before the test
+split was scored. It also lies wholly above the target, at 205.2 ms a query.
+The next size down, `bge-reranker-base` under the same recipe, scores 0.8711
+[0.8681, 0.8742] at 64.5 ms (`capacity-test.json`), so the larger model buys
++0.0059 [+0.0044, +0.0074] for about three times the latency.
 
 The floor is computed every time, never quoted: 0.7467 on the full test split
 with this project's gains and discount (`sbert-title-test.json`), against the
@@ -136,6 +138,7 @@ test split, `fine-rank-test-full.json`:
 | coarse only | 0.8579 | | — |
 | + cross-encoder, fine-tuned | 0.8616 | +0.0037 [+0.0016, +0.0058] | 20 ms |
 | + larger cross-encoder (`bge-reranker-base`), fine-tuned — Section 8 | 0.8711 | +0.0132 [+0.0110, +0.0154] | 66.9 ms |
+| + the next size up (`bge-reranker-large`), fine-tuned — Section 8 | 0.8770 | +0.0191 [+0.0169, +0.0212] | 205.2 ms |
 | **+ LLM listwise** | **0.8855** | **+0.0276 [+0.0255, +0.0296]** | 4,713 ms |
 
 The LLM's single-query latency comes from the uncached run on the sample
@@ -443,6 +446,48 @@ all 8,956 test queries it scores **0.8711 [0.8681, 0.8742]**:
 
 It trained in 57 minutes, while another project's job shared the GPU.
 
+### One size up
+
+Plan 11 took the next step on the axis Plan 9 isolated: `bge-reranker-large`,
+560M parameters against the base model's 278M, under the landed recipe
+unchanged - every judged pair of folds 2/3/4, `LambdaLoss`, one epoch, 8
+queries an optimiser update. One thing had to give. At batch 8 the heaviest
+batches overflow the 3080's 16 GB about once an epoch, and on WSL an
+overflow spills into shared memory and crawls rather than raising. So the
+large arm takes its 8 queries an update as 4 × 2 with gradient accumulation,
+and the training record says so (`size.json`, `queries_per_update`). Plan 9
+measured the batch as a tie, so the comparison still changes one thing: the
+backbone's size.
+
+| comparison | changes only | fold 0 (n=4,130) | test (n=8,956) |
+|---|---|---|---|
+| bge-large − bge-base, both on whole groups at 8 queries an update | the backbone's size | **+0.0081 [+0.0060, +0.0103]** | **+0.0059 [+0.0044, +0.0074]** |
+
+Fold 0 is `size.json`; test is `size-test.json`. The base arm re-scored
+exactly on both surfaces: 0.8661 on fold 0 and 0.8711 on test.
+
+**The larger model pays again, and the no-API Stage 3 is now
+`bge-reranker-large`.** It was chosen on fold 0, where it scored 0.8742
+[0.8696, 0.8785] against the base model's 0.8661, before the test split was
+touched. On all 8,956 test queries it scores **0.8770 [0.8742, 0.8801]**:
+- +0.0154 [+0.0135, +0.0172] over the landed cross-encoder;
+- +0.0059 [+0.0044, +0.0074] over `bge-reranker-base`;
+- −0.0086 [−0.0105, −0.0066] under the LLM;
+- 69% of the LLM's gain over the coarse ranker, against 48% for the base
+  model;
+- 205.2 ms for a single query and 170.8 ms batched, against 64.5 and 52.3 for
+  the base model and 4,713 for the LLM.
+
+On mixed-grade window pairs it orders 0.7110 the right way round, between
+the base model's 0.6865 and the LLM's 0.7451. It trained in 178 minutes on
+the RTX 3080, 1.17 queries a second, while another project's inference job
+shared the card for 24 of those minutes.
+
+Two sizes have now each paid, and each step bought less: +0.0112 for base
+over MiniLM on the windows, +0.0059 for large over base on whole groups. The
+remaining gap to the LLM is −0.0086, and a model twice this size again would
+need more than the card's 16 GB for its weights and optimiser state alone.
+
 ## 9. What would come next
 
 - **Predict when the LLM is wrong, from the LLM.** Section 5 shows label-free
@@ -450,12 +495,11 @@ It trained in 57 minutes, while another project's job shared the GPU.
   shuffled and measure how much the two answers agree — is the natural
   candidate. It doubles the LLM's cost: about another 454 + 382 tokens and
   1.2 s of batched time a query.
-- **The next size up.** Section 8 isolates the backbone as the factor that
-  pays: +0.0112 for bge over MiniLM with everything else held fixed, against
-  a tie for the batch and +0.0016 for the recipe. `bge-reranker-large` is the
-  next step along that axis. It is untried. It would need its own memory
-  measurement on the 3080 first, because checkpointing letting the base model
-  fit says nothing about a larger one.
+- **Latency for the large cross-encoder.** Section 8's `bge-reranker-large`
+  answers in 205.2 ms, three times the base model, for +0.0059. Shortening
+  the window to the top 5, or distilling the large model into the base one
+  on its own windows, are the two cheap ways to try to keep the gain and
+  lose the latency; neither has been measured.
 - **The fine-tuned retriever as a coarse-ranker feature.** Section 3's
   retriever beats the off-the-shelf one by +0.1030 at Recall@100, and Plan 5's
   `dense_sim` feature still comes from the off-the-shelf model. Two things make
