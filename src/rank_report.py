@@ -14,21 +14,25 @@ Every number is scored by src.metrics. None comes from LightGBM: its ndcg@k
 differs from this project's full-list NDCG by up to 6.4 points on the same
 booster, for two independent reasons - see src/ranker.py.
 
-**Ablation 4's arithmetic.** CLAUDE.md states the rule twice and the two are
-not the same sum. "the honest contribution is arm 2 - arm 3" reads literally
-as one NDCG minus another, which is roughly +0.09: arm 2 is a real ranker and
-arm 3 is barely above the floor. The neighbouring sentence - "the ~+0.0084
-must be subtracted from any behavioural-feature result" - describes the
-coherent version, which is what `honest_behavioural_delta` computes:
+**Ablation 4 is four arms, and the number to report is a plain paired
+delta.** ESCI-S presence flags - "the 2022 scrape failed on this page" - rank
+at +0.0084 over the floor on their own and are not available at serving time,
+so `text+behavioural − text` credits the behavioural values with an artefact.
+The control is a fourth arm, `text+indicators`, which carries the same text
+base and the same presence flags and differs from `text+behavioural` only by
+the ESCI-S *value* columns:
 
-    naive     = arm2 - arm1            text+behavioural vs text
-    artefact  = arm3 - floor           the ESCI-S presence pattern alone
-    honest    = naive - artefact
+    values_over_indicators = text+behavioural − text+indicators
 
-All three are reported. The subtraction assumes the effects are additive, and
-CLAUDE.md measured them as super-additive (+0.0166 together against +0.0052 +
-+0.0084 apart), so the honest figure is a point estimate under an assumption
-rather than a bound. The caveat travels with the number in the JSON.
+Nothing is subtracted, so nothing has to be additive. That is the figure
+CLAUDE.md says to report, +0.0036 [+0.0023, +0.0051] on test, and
+`check_ablation_4` refuses to report without the arm. The subtraction
+
+    honest = (text+behavioural − text) − (indicators_only − floor)
+
+is still computed and committed beside it, as the artefact it is: it assumes
+the presence effects add, CLAUDE.md measured them as super- then sub-additive,
+and on test it lands at −0.0107. The caveat travels with it in the JSON.
 
 Selection happens on folds 1-4. `--split test` exists and requires `--final`,
 because running it before the configuration has settled is exactly the thing
@@ -192,14 +196,14 @@ def check_ablation_4(arm_names: Sequence[str]) -> None:
     computing it and crediting the behavioural features with an artefact worth
     roughly twice Plan 4's entire image contribution.
     """
-    required = {"text", "text+behavioural", "indicators_only"}
+    required = {"text", "text+behavioural", "indicators_only", "text+indicators"}
     missing = required - set(arm_names)
     if missing:
         raise ValueError(
-            f"Ablation 4 needs three arms and {sorted(missing)} are missing. "
+            f"Ablation 4 needs four arms and {sorted(missing)} are missing. "
             "ESCI-S presence alone ranks at +0.0084 over the floor and is not "
-            "available at serving time, so it must be measured and subtracted, "
-            "not assumed away."
+            "available at serving time; the honest figure is text+behavioural "
+            "against text+indicators, the control that carries the same flags."
         )
 
 
@@ -209,13 +213,15 @@ def honest_behavioural_delta(
     text: Mapping[str, float],
     floor: Mapping[str, float],
     *,
-    text_indicators: Mapping[str, float] | None = None,
+    text_indicators: Mapping[str, float],
     seed: int = 0,
 ) -> dict:
-    """Ablation 4's three numbers, each with a paired interval.
+    """Ablation 4's numbers, each with a paired interval.
 
-    honest = (arm2 - arm1) - (arm3 - floor), computed per query so the
-    interval is a real paired bootstrap rather than two intervals subtracted.
+    `values_over_indicators` is the one to report: arm 2 against the control
+    that differs from it only by the ESCI-S value columns. The subtraction,
+    honest = (arm2 - arm1) - (arm3 - floor), is computed per query beside it
+    so the artefact is on record with its interval, not assumed away.
     """
     naive = paired_delta_ci(values, text, seed=seed)
     artefact = paired_delta_ci(indicators, floor, seed=seed)
@@ -230,15 +236,12 @@ def honest_behavioural_delta(
         "significant": not (honest.low <= 0.0 <= honest.high),
         "caveat": ADDITIVITY_CAVEAT,
     }
-    if text_indicators is not None:
-        # The assumption-free reading: both arms carry the same text base AND
-        # the same ESCI-S presence flags, so the difference is the ESCI-S
-        # *values* alone. Nothing is subtracted, so nothing has to be additive.
-        clean = paired_delta_ci(values, text_indicators, seed=seed)
-        out["values_over_indicators"] = _interval(clean)
-        out["values_over_indicators_significant"] = not (
-            clean.low <= 0.0 <= clean.high
-        )
+    # The assumption-free reading: both arms carry the same text base AND the
+    # same ESCI-S presence flags, so the difference is the ESCI-S *values*
+    # alone. Nothing is subtracted, so nothing has to be additive.
+    clean = paired_delta_ci(values, text_indicators, seed=seed)
+    out["values_over_indicators"] = _interval(clean)
+    out["values_over_indicators_significant"] = not (clean.low <= 0.0 <= clean.high)
     return out
 
 

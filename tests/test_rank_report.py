@@ -123,8 +123,16 @@ def test_ablation_4_refuses_to_report_without_the_indicators_arm():
         check_ablation_4(["text", "text+behavioural"])
 
 
-def test_ablation_4_accepts_all_three_arms():
-    check_ablation_4(["text", "text+behavioural", "indicators_only"])  # must not raise
+def test_ablation_4_refuses_to_report_without_the_control_arm():
+    # Subtracting indicators_only over-corrects to -0.0107 on test; the
+    # number CLAUDE.md says to report needs text+indicators, and until Plan
+    # 12 that arm was optional here.
+    with pytest.raises(ValueError, match="text\\+indicators"):
+        check_ablation_4(["text", "text+behavioural", "indicators_only"])
+
+
+def test_ablation_4_accepts_all_four_arms():
+    check_ablation_4(["text", "text+behavioural", "indicators_only", "text+indicators"])
 
 
 def test_the_honest_delta_subtracts_the_artefact_lift():
@@ -136,7 +144,9 @@ def test_the_honest_delta_subtracts_the_artefact_lift():
     indicators = _per_query([0.75, 0.75])
     floor = _per_query([0.74, 0.74])
 
-    out = honest_behavioural_delta(values, indicators, text, floor)
+    out = honest_behavioural_delta(
+        values, indicators, text, floor, text_indicators=_per_query([0.85, 0.85])
+    )
     assert out["naive_delta"]["point"] == pytest.approx(0.02)
     assert out["artefact_lift"]["point"] == pytest.approx(0.01)
     assert out["honest_delta"]["point"] == pytest.approx(0.01)
@@ -146,7 +156,8 @@ def test_the_honest_delta_records_the_additivity_caveat():
     # CLAUDE.md measured the presence effects as super-additive, so the
     # subtraction is a point estimate under an assumption, not a bound.
     out = honest_behavioural_delta(
-        _per_query([0.86]), _per_query([0.75]), _per_query([0.84]), _per_query([0.74])
+        _per_query([0.86]), _per_query([0.75]), _per_query([0.84]), _per_query([0.74]),
+        text_indicators=_per_query([0.85]),
     )
     assert "super-additive" in out["caveat"]
 
@@ -159,6 +170,7 @@ def test_the_honest_delta_can_be_negative():
         _per_query([0.78, 0.78]),
         _per_query([0.84, 0.84]),
         _per_query([0.74, 0.74]),
+        text_indicators=_per_query([0.842, 0.842]),
     )
     assert out["honest_delta"]["point"] < 0
 
@@ -204,11 +216,11 @@ def test_values_over_indicators_subtracts_nothing():
     assert out["values_over_indicators_significant"] is True
 
 
-def test_the_clean_control_is_optional():
-    out = honest_behavioural_delta(
-        _per_query([0.86]), _per_query([0.75]), _per_query([0.84]), _per_query([0.74])
-    )
-    assert "values_over_indicators" not in out
+def test_the_clean_control_is_required():
+    with pytest.raises(TypeError, match="text_indicators"):
+        honest_behavioural_delta(
+            _per_query([0.86]), _per_query([0.75]), _per_query([0.84]), _per_query([0.74])
+        )
 
 
 @pytest.mark.data

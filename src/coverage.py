@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -131,6 +132,30 @@ SPARSE_FIELDS: tuple[str, ...] = (
 # field whose missingness shifts mean gain by less than this cannot manufacture
 # an effect of that size.
 MAX_DENSE_GAIN_SHIFT = 0.02
+
+
+class CoverageError(ValueError):
+    """The ESCI-S join covers too few re-ranking products to enrich them."""
+
+
+def check_join_coverage(
+    scopes: Sequence[Mapping], *, minimum: float = MIN_JOIN_COVERAGE
+) -> None:
+    """Plan 2's gate: raise unless the re-ranking join reaches `minimum`.
+
+    Declared since Plan 2 and, until Plan 12, enforced only by a data-marked
+    test; the CLI printed the figure and exited 0 whatever it was.
+    """
+    rerank = [s for s in scopes if s.get("scope") == "rerank"]
+    if not rerank:
+        raise CoverageError("no rerank scope was measured, so the join gate cannot be checked")
+    coverage = float(rerank[0]["coverage"])
+    if coverage < minimum:
+        raise CoverageError(
+            f"ESCI-S covers {coverage:.4f} of the re-ranking products, below the "
+            f"{minimum:.2f} gate; the enrichment would be too sparse to carry "
+            "Ablation 4"
+        )
 
 
 class MissingnessError(ValueError):
@@ -288,8 +313,9 @@ def _main() -> int:
         )
         + "\n"
     )
+    check_join_coverage(scopes)
     check_missingness(biases)
-    print("\ndense-field missingness is within tolerance")
+    print("\njoin coverage clears the gate; dense-field missingness is within tolerance")
     return 0
 
 

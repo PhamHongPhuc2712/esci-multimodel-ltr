@@ -201,3 +201,43 @@ def test_the_failure_profile_contrasts_attributes_across_the_split():
 def test_the_failure_profile_needs_the_same_queries():
     with pytest.raises(ValueError, match="same queries"):
         failure_profile({"a": 0.1}, {"b": 0.1}, {})
+
+
+# --- Plan 12: the reproduction is asserted, and an empty cell prints ----------
+
+def _committed(tmp_path, point):
+    import json
+
+    path = tmp_path / "coarse-rank.json"
+    path.write_text(json.dumps(
+        {"ablations": {"3_text_vs_image": {"delta": {"point": point, "low": 0, "high": 0}}}}
+    ), encoding="utf-8")
+    return path
+
+
+def test_a_reproduced_ablation_3_passes(tmp_path):
+    from src.error_analysis import check_ablation_3
+
+    check_ablation_3(0.00752, _committed(tmp_path, 0.0075))
+
+
+def test_a_drifted_ablation_3_raises_naming_both_numbers(tmp_path):
+    from src.error_analysis import check_ablation_3
+
+    with pytest.raises(ValueError) as excinfo:
+        check_ablation_3(0.0085, _committed(tmp_path, 0.0075))
+    assert "+0.0085" in str(excinfo.value) and "+0.0075" in str(excinfo.value)
+
+
+def test_every_scope_names_where_ablation_3_is_committed_or_says_it_is_not():
+    from src.error_analysis import COMMITTED_ABLATION_3
+
+    assert set(COMMITTED_ABLATION_3) == {"fold0", "test-sample", "test"}
+    assert COMMITTED_ABLATION_3["test-sample"] is None
+
+
+def test_an_empty_population_prints_rather_than_raising():
+    from src.error_analysis import format_attribute
+
+    assert format_attribute(None).strip() == "n/a"
+    assert format_attribute(0.5).strip() == "0.500"

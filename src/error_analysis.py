@@ -173,6 +173,40 @@ def delta_by_stratum(
     return rows
 
 
+# Where Ablation 3 was committed for each scope this analysis can run on.
+# The 2,000-query sample has no committed Ablation 3, so it is only printed.
+COMMITTED_ABLATION_3: dict[str, Path | None] = {
+    "fold0": Path("docs/results/coarse-rank.json"),
+    "test-sample": None,
+    "test": Path("docs/results/coarse-rank-test.json"),
+}
+
+
+def check_ablation_3(measured: float, committed: Path, *, tol: float = 5e-4) -> None:
+    """Raise unless the retrained Ablation 3 reproduces the committed delta.
+
+    The image strata are Ablation 3's own delta split by coverage; if the two
+    rankers retrained here do not reproduce the committed number, every
+    stratum below is a different experiment. Until Plan 12 this was a line
+    of print saying "must match its committed number".
+    """
+    import json
+
+    expected = json.loads(Path(committed).read_text(encoding="utf-8"))
+    expected = float(expected["ablations"]["3_text_vs_image"]["delta"]["point"])
+    if abs(measured - expected) > tol:
+        raise ValueError(
+            f"Ablation 3 retrained here at {measured:+.4f} against the committed "
+            f"{expected:+.4f} in {committed}; the strata would not be a breakdown "
+            "of the committed number"
+        )
+
+
+def format_attribute(value: float | None) -> str:
+    """One cell of the failure-profile table; an empty population prints n/a."""
+    return f"{value:8.3f}" if value is not None else f"{'n/a':>8s}"
+
+
 def failure_profile(
     arm: Mapping[str, float],
     baseline: Mapping[str, float],
@@ -313,8 +347,11 @@ def _main() -> int:
         print(f"  {row['stratum']:16s} n={row['n_queries']:5,}  {d['point']:+.4f} "
               f"[{d['low']:+.4f}, {d['high']:+.4f}]")
     overall = sum(image_delta.values()) / len(image_delta)
+    committed = COMMITTED_ABLATION_3.get(args.scope)
     print(f"  {'all':16s} n={len(image_delta):5,}  {overall:+.4f}  "
-          "(Ablation 3 on this surface; must match its committed number)")
+          f"(Ablation 3 on this surface; committed in {committed})")
+    if committed is not None:
+        check_ablation_3(overall, committed)
 
     # --- the LLM's failure population ---------------------------------------
     window_size = signals.groupby("query_id").size()
@@ -347,7 +384,8 @@ def _main() -> int:
           f"mean loss when worse {profile['mean_loss_when_worse']:+.4f}")
     print(f"  {'attribute (mean)':20s} {'better':>8s} {'worse':>8s} {'same':>8s}")
     for name, values in profile["attributes"].items():
-        print(f"  {name:20s} " + " ".join(f"{values[k]:8.3f}" for k in ("better", "worse", "same")))
+        print(f"  {name:20s} "
+              + " ".join(format_attribute(values[k]) for k in ("better", "worse", "same")))
 
     payload = {
         "scope": args.scope,
