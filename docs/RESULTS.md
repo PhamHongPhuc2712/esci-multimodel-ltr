@@ -172,6 +172,26 @@ B won.
 
 > Rows 1–2 and 3–7 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.
 
+**Findings after the spec.** The results of Stage 4 and of Plans 8–11 are not
+among the seven ablations the spec asked for, but they are measured the same
+way, and since Plan 12 the same table carries them (`ablation-table.json`,
+`findings`), each read from the file its plan committed by arm name. Sections
+5 and 8 and the fine-tuned retriever's part of Section 3 are the prose for
+these rows.
+
+| # | ablation | metric | scope | n | delta | |
+|---|---|---|---|---|---|---|
+| S4 | best blend (per-query selector) − LLM alone | NDCG | test | 8,956 | -0.0006 [-0.0009, -0.0003] | significant |
+| 8a | MiniLM on top-10 windows − landed cross-encoder | NDCG | test | 8,956 | -0.0035 [-0.0045, -0.0026] | significant |
+| 9a | bge − MiniLM, both on windows at batch 16 (the backbone) | NDCG | test | 8,956 | +0.0112 [+0.0094, +0.0130] | significant |
+| 9b | bge at batch 8 − batch 16, on windows (the batch) | NDCG | test | 8,956 | +0.0002 [-0.0006, +0.0010] | ties |
+| 9c | bge on whole groups − bge on windows (the recipe) | NDCG | test | 8,956 | +0.0016 [+0.0006, +0.0026] | significant |
+| 10a | four channels, tuned fusion − Plan 4's fusion | Recall@100 | test, full corpus | 8,956 | +0.0567 [+0.0534, +0.0598] | significant |
+| 10b | fine-tuned retriever alone − off-the-shelf dense alone | Recall@100 | test, full corpus | 8,956 | +0.1030 [+0.0978, +0.1082] | significant |
+| 11 | bge-large − bge-base, both on whole groups (the size) | NDCG | test | 8,956 | +0.0059 [+0.0044, +0.0074] | significant |
+
+> Rows 1–2 and 3–7 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.
+
 The two contributions this project set out to measure:
 
 - **Images help (Ablation 3).** Image features add +0.0075 to the coarse
@@ -326,7 +346,8 @@ Measured losses and ties, reported as results:
 - **Storage is over budget.** The BM25 index and the three embedding stores
   took 3.48 GB against the spec's 1.0 GB (`recall.json`). 0.40 GB of that was
   a redundant image store, since deleted. Plan 10's 768-dimensional retriever
-  store added 1.88 GB more.
+  store added 1.88 GB more. Since Plan 12 the recall report measures the
+  figure on disk at run time rather than carrying a typed one.
 
 ## 8. Distilling the LLM
 
@@ -500,6 +521,11 @@ need more than the card's 16 GB for its weights and optimiser state alone.
   the window to the top 5, or distilling the large model into the base one
   on its own windows, are the two cheap ways to try to keep the gain and
   lose the latency; neither has been measured.
+- **A demo.** `PROJECT_SPEC.md` §9 names a free-tier hosted demo as optional.
+  With a 0.8770 arm that needs no API key, the whole no-API funnel - BM25 and
+  the fine-tuned retriever, the coarse ranker, `bge-reranker-large` on its top
+  10 - can run as one small app. The retrieval indexes are about 5 GB on
+  disk, which is the constraint to design around.
 - **The fine-tuned retriever as a coarse-ranker feature.** Section 3's
   retriever beats the off-the-shelf one by +0.1030 at Recall@100, and Plan 5's
   `dense_sim` feature still comes from the off-the-shelf model. Two things make

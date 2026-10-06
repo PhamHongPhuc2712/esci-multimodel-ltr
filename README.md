@@ -56,10 +56,12 @@ reaches **0.6172** on the test split, up from 0.5606 for the untuned channels.
 | model size, fine rank | with everything else held fixed, the larger backbone (`bge-reranker-base` against MiniLM) is what pays; the batch ties and the training recipe adds little | +0.0112 [+0.0094, +0.0130] NDCG |
 | one size up, fine rank | the next size (`bge-reranker-large` against -base, same recipe, 8 queries an update) pays again, for three times the latency | +0.0059 [+0.0044, +0.0074] NDCG |
 
-Each ablation row's scope, `n` and source are in the full table in
-[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The fine-tuned
-retriever row comes from [its Section 3](docs/RESULTS.md#3-the-funnel-stage-by-stage),
-and the last two rows from [its Section 8](docs/RESULTS.md#8-distilling-the-llm).
+Every row with an interval is in [`docs/results/ablation-table.json`](docs/results/ablation-table.json),
+read from the file its plan committed, and a test checks that. The scope,
+`n` and source of each are in the full table in
+[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table); the prose for the
+retriever row is in [its Section 3](docs/RESULTS.md#3-the-funnel-stage-by-stage)
+and for the last two rows in [its Section 8](docs/RESULTS.md#8-distilling-the-llm).
 The ties and losses are reported as results.
 
 ## The funnel
@@ -117,7 +119,7 @@ python -m src.esci_s_etl && python -m src.combine        # enrichment corpus, jo
 python -m src.embed_images --scope catalogue             # CLIP vectors, network-bound, ~6 h
 python -m src.bm25_index && python -m src.dense_embed    # retrieval indexes
 python -m src.query_rewrite --split train --folds 0      # Stage 0 (paid)
-python -m src.recall_report --split train --folds 0 --rewrites data/rewrites.json
+python -m src.recall_report --split train --folds 0 --rewrites data/rewrites.json   # --split test needs --final
 for s in train test; do python -m src.pair_scores --split $s; python -m src.feature_matrix --split $s; done
 python -m src.rank_report                                # Stage 2 ablations on validation fold 0
 python -m src.rank_report --split test --final --out docs/results/coarse-rank-test.json
@@ -159,6 +161,6 @@ Each test measurement sits behind `--final` and was run once.
 | `tests/` | one test module per source module; `-m data` runs against the real datasets |
 | `docs/results/` | every committed measurement, as JSON |
 | `docs/RESULTS.md` | the writeup |
-| `docs/superpowers/plans/` | the eleven implementation plans, with what each measured and corrected |
+| `docs/superpowers/plans/` | the twelve implementation plans, with what each measured and corrected |
 | `PROJECT_SPEC.md` | motivation, funnel design, baselines and the ablation plan |
 | `splits/` | the frozen validation folds and their checksum |
