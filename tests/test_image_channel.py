@@ -159,5 +159,25 @@ def test_the_real_image_channel_reaches_the_measured_coverage():
     if not Path("data/embeddings/catalogue/keys.txt").exists():
         pytest.skip("no catalogue image store; run python -m src.embed_images "
                     "--scope catalogue")
-    channel = open_channel(scope="catalogue")
+    channel = open_channel()
     assert channel.coverage(n_products=1_215_854) > 0.75
+
+
+# --- Plan 12: one meaning of scope --------------------------------------------
+
+def test_open_channel_takes_no_scope():
+    import inspect
+
+    from src.image_channel import open_channel
+
+    assert "scope" not in inspect.signature(open_channel).parameters
+
+
+def test_open_channel_reads_the_one_store(tmp_path):
+    from src.embed_images import STORE_NAME
+    from src.image_channel import open_channel
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        open_channel(store_root=tmp_path)
+    assert str(tmp_path / STORE_NAME) in str(excinfo.value)
+    assert "--scope catalogue" in str(excinfo.value)

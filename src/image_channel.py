@@ -27,11 +27,10 @@ from typing import Any
 import pandas as pd
 
 from src.clip_encoder import EMBEDDING_DIM
-from src.embed_images import DEFAULT_PRODUCTS, DEFAULT_STORE_ROOT
+from src.embed_images import DEFAULT_PRODUCTS, DEFAULT_STORE_ROOT, STORE_NAME
 from src.embedding_store import EmbeddingStore, open_store
 from src.recall import Channel  # noqa: F401  (ImageChannel implements it)
 
-DEFAULT_SCOPE = "catalogue"
 
 # Retrieve OVERSAMPLE x k URLs before expanding to products, so shared images
 # cannot starve a query of candidates.
@@ -99,19 +98,26 @@ class ImageChannel:
 
 
 def open_channel(
-    scope: str = DEFAULT_SCOPE,
     store_root: Path = DEFAULT_STORE_ROOT,
     products_path: Path = DEFAULT_PRODUCTS,
     device: str = "auto",
 ) -> ImageChannel:
-    """Open the CLIP image store for `scope` and load the text encoder."""
+    """Open the one CLIP image store and load the text encoder.
+
+    There is no scope here. In `embed_images` and `image_report` a scope picks
+    the *products*; every scope reads and writes the one store, `STORE_NAME`.
+    Until Plan 12 this function took a scope and used it as the store
+    *directory*, so the word meant two things and `--image-scope rerank`
+    looked for a store deleted on 2026-09-30.
+    """
     from src.clip_encoder import load_encoder
 
-    store = open_store(Path(store_root) / scope, dim=EMBEDDING_DIM)
+    path = Path(store_root) / STORE_NAME
+    store = open_store(path, dim=EMBEDDING_DIM)
     if len(store) == 0:
         raise FileNotFoundError(
-            f"the image store at {Path(store_root) / scope} is empty; run "
-            f"python -m src.embed_images --scope {scope}"
+            f"the image store at {path} is empty; run "
+            "python -m src.embed_images --scope catalogue"
         )
     encoder = load_encoder(device=device)
     return ImageChannel(

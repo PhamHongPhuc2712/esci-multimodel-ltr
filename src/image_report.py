@@ -81,6 +81,23 @@ def top1_accuracy(image_vectors: np.ndarray, text_vectors: np.ndarray) -> float:
     return float((better_or_equal == 1).mean())
 
 
+def build_parser() -> argparse.ArgumentParser:
+    from src.embed_images import DEFAULT_PRODUCTS, DEFAULT_STORE_ROOT
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--scope", default="catalogue", choices=["rerank", "catalogue"],
+        help="which products to report coverage over; every scope reads the one "
+             "store, data/embeddings/catalogue")
+    parser.add_argument("--store-root", type=Path, default=DEFAULT_STORE_ROOT)
+    parser.add_argument("--products", type=Path, default=DEFAULT_PRODUCTS)
+    parser.add_argument("--pool", type=int, default=GATE_POOL)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--out", type=Path, default=Path("docs/results/image-embeddings.json"))
+    return parser
+
+
 def _main() -> int:
     from src.clip_encoder import load_encoder
     from src.coverage import rerank_product_ids
@@ -93,15 +110,7 @@ def _main() -> int:
     from src.embedding_store import open_store
     from src.image_fetch import fetch_many
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scope", default="rerank", choices=["rerank", "catalogue"])
-    parser.add_argument("--store-root", type=Path, default=DEFAULT_STORE_ROOT)
-    parser.add_argument("--products", type=Path, default=DEFAULT_PRODUCTS)
-    parser.add_argument("--pool", type=int, default=GATE_POOL)
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--device", default="auto")
-    parser.add_argument("--out", type=Path, default=Path("docs/results/image-embeddings.json"))
-    args = parser.parse_args()
+    args = build_parser().parse_args()
 
     frame = product_image_urls(args.scope, products_path=args.products)
     # The scope picks the products; every scope reads the one store.

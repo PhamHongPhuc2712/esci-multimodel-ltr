@@ -114,3 +114,9 @@ def test_the_test_split_needs_final(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["recall_report", "--split", "test"])
     with pytest.raises(SystemExit, match="--final"):
         _main()
+
+
+def test_the_image_channel_has_no_scope_flag():
+    # A scope picks products in embed_images and image_report; the image
+    # store is one directory. The flag named a store that no longer exists.
+    assert "--image-scope" not in Path("src/recall_report.py").read_text(encoding="utf-8")

@@ -154,3 +154,10 @@ def test_unknown_train_query_without_a_fold_raises():
     folds = pd.DataFrame({"query_id": [10], "fold": [0]})
     with pytest.raises(ValueError, match="no frozen fold"):
         combine_judgements({"train": _judgements("train")}, folds)
+
+
+def test_the_product_table_has_no_judged_only_scope():
+    # A judged-only product table is candidate-set leakage one flag away.
+    from src.combine import build_parser
+
+    assert "--scope" not in build_parser()._option_string_actions

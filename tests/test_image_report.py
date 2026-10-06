@@ -77,3 +77,11 @@ def test_coverage_serialises(tmp_path):
         n_products=1,
     )
     assert record.to_dict()["embedding_coverage"] == pytest.approx(1.0)
+
+
+def test_the_default_scope_matches_embed_images():
+    # embed_images defaults to the catalogue; a report defaulting to the
+    # re-ranking products read a different population by default.
+    from src.image_report import build_parser
+
+    assert build_parser().get_default("scope") == "catalogue"

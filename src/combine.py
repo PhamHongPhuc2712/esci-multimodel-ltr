@@ -14,6 +14,13 @@ The `description` column is the practical payoff of the join: ESCI has a
 description for 52.2% of products and ESCI-S fills a further 37.0%, taking the
 union to 89.2%. `description_source` records which one supplied it so a feature
 can condition on provenance instead of pretending they are the same field.
+
+The product table is always the whole `us` catalogue, 1,215,854 products.
+Until Plan 12 a `--scope rerank` wrote a judged-only table to the same path
+with nothing in the file to say so; a recall channel built from it would draw
+from a pool holding every relevant product and none of the ~450K non-judged
+distractors - the candidate-set leakage CLAUDE.md describes - and report an
+inflated Recall@k with nothing raised.
 """
 
 from __future__ import annotations
@@ -154,17 +161,14 @@ def combine_judgements(
     return combined[list(JUDGEMENT_COLUMNS)]
 
 
-def _main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dest", type=Path, default=DEFAULT_DEST)
-    parser.add_argument(
-        "--scope",
-        default="catalogue",
-        choices=["catalogue", "rerank"],
-        help="catalogue = every us product (what recall searches); "
-        "rerank = only judged products",
-    )
-    args = parser.parse_args()
+    return parser
+
+
+def _main() -> int:
+    args = build_parser().parse_args()
     args.dest.mkdir(parents=True, exist_ok=True)
 
     enrichment = load_corpus(columns=["asin", *ENRICHMENT_COLUMNS])
@@ -172,22 +176,17 @@ def _main() -> int:
     by_split = {split: load_split(split).judgements for split in ("train", "test")}
     judgements = combine_judgements(by_split, load_folds(FOLDS_PATH))
 
-    if args.scope == "rerank":
-        esci_products = pd.concat(
-            [load_split(s).products for s in ("train", "test")], ignore_index=True
-        )
-    else:
-        all_products = pd.read_parquet(ensure_downloaded("products"))
-        esci_products = all_products.loc[all_products["product_locale"] == "us"][
-            [
-                "product_id",
-                "product_title",
-                "product_description",
-                "product_bullet_point",
-                "product_brand",
-                "product_color",
-            ]
+    all_products = pd.read_parquet(ensure_downloaded("products"))
+    esci_products = all_products.loc[all_products["product_locale"] == "us"][
+        [
+            "product_id",
+            "product_title",
+            "product_description",
+            "product_bullet_point",
+            "product_brand",
+            "product_color",
         ]
+    ]
 
     products = combine_products(esci_products, enrichment)
 

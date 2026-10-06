@@ -144,7 +144,6 @@ def _main() -> int:
     parser.add_argument("--relevance", default="E", choices=["E", "E+S"])
     parser.add_argument("--k", type=int, default=1000, help="depth to retrieve")
     parser.add_argument("--rrf-k", type=int, default=DEFAULT_K)
-    parser.add_argument("--image-scope", default="catalogue")
     parser.add_argument("--rewrites", type=Path, default=None)
     parser.add_argument("--sample", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
@@ -170,7 +169,7 @@ def _main() -> int:
     channels = {
         "bm25": open_bm25(),
         "dense": open_dense(),
-        "image": open_image(scope=args.image_scope),
+        "image": open_image(),
     }
     hits = {}
     for name, channel in channels.items():
