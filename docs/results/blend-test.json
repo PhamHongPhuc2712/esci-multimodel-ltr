@@ -11,6 +11,19 @@
   "esci_baseline_target": 0.8562,
   "combiner_fitted_on": "fold 0",
   "selector_fitted_on": "fold 0",
+  "selector_routes": {
+    "default_arm": "llm",
+    "share": {
+      "stage2": 0.0015,
+      "ce": 0.0155,
+      "llm": 0.983
+    },
+    "n_deviations": 34,
+    "n_better": 13,
+    "n_worse": 15,
+    "n_same": 6,
+    "mean_delta": -0.012661628574401833
+  },
   "fixed_weights": {
     "stage2": 1.0,
     "ce": 1.0,

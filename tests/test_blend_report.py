@@ -216,10 +216,12 @@ def test_the_fold_0_learned_arms_are_cross_fitted():
 
 
 @pytest.mark.data
-def test_the_fold_0_report_records_the_selector_routes():
+@pytest.mark.parametrize("name", ["blend.json", "blend-test.json", "blend-test-full.json"])
+def test_every_blend_report_records_the_selector_routes(name):
     # The writeup explains Stage 4's result by these routes, so they live in
-    # the committed report rather than in an ad hoc calculation.
-    payload = json.loads(open("docs/results/blend.json").read())
+    # the committed report rather than in an ad hoc calculation. The sample
+    # file lacked them until Plan 12 regenerated it, every value unchanged.
+    payload = json.loads(open(f"docs/results/{name}").read())
     routes = payload["selector_routes"]
     assert routes["default_arm"] == "llm"
     assert sum(routes["share"].values()) == pytest.approx(1.0)
