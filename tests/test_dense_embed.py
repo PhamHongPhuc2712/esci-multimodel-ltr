@@ -172,3 +172,40 @@ def test_the_record_carries_the_token_budget(tmp_path):
 
     write_model_record(tmp_path, "m", max_seq=256)
     assert json.loads((tmp_path / MODEL_RECORD).read_text()) == {"model": "m", "max_seq": 256}
+
+
+# --- Plan 12: the record checks the token budget too --------------------------
+
+def test_a_different_token_budget_is_refused_naming_both(tmp_path):
+    from src.dense_embed import check_model_record, write_model_record
+
+    write_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)
+    with pytest.raises(ValueError, match="max_seq") as excinfo:
+        check_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=128)
+    assert "256" in str(excinfo.value) and "128" in str(excinfo.value)
+
+
+def test_the_same_model_and_budget_pass(tmp_path):
+    from src.dense_embed import check_model_record, write_model_record
+
+    write_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)
+    check_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)  # no raise
+
+
+def test_a_reader_that_does_not_say_its_budget_is_checked_on_the_model_only(tmp_path):
+    # Readers (open_channel) compare the model; only a writer has a budget to
+    # disagree about.
+    from src.dense_embed import check_model_record, write_model_record
+
+    write_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)
+    check_model_record(tmp_path, "BAAI/bge-base-en-v1.5")  # no raise
+
+
+def test_a_refused_resume_leaves_the_record_as_it_was(tmp_path):
+    from src.dense_embed import MODEL_RECORD, check_model_record, write_model_record
+
+    write_model_record(tmp_path, "m", max_seq=256)
+    before = (tmp_path / MODEL_RECORD).read_text(encoding="utf-8")
+    with pytest.raises(ValueError):
+        check_model_record(tmp_path, "m", max_seq=128)
+    assert (tmp_path / MODEL_RECORD).read_text(encoding="utf-8") == before

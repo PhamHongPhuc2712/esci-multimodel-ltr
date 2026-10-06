@@ -58,24 +58,38 @@ def write_model_record(store_dir: Path, model_name: str, *, max_seq: int) -> Non
     )
 
 
-def check_model_record(store_dir: Path, model_name: str) -> None:
-    """Raise unless `model_name` is the encoder that wrote the store.
+def check_model_record(
+    store_dir: Path, model_name: str, *, max_seq: int | None = None
+) -> None:
+    """Raise unless `model_name` (and `max_seq`, when given) wrote the store.
 
     A store with vectors and no record predates the record: it is Plan 4's
     data/embeddings/dense, written by DEFAULT_MODEL, and only that model may
     read it. An empty store has no vectors to disagree with.
+
+    The token budget matters as much as the model for a *writer*: a store
+    resumed at a different `--max-seq` would hold vectors from two budgets
+    under a record claiming one. Until Plan 12 only the model was compared,
+    and the record was rewritten on every run.
     """
     from src.embedding_store import VECTORS_NAME
 
     store_dir = Path(store_dir)
     record_path = store_dir / MODEL_RECORD
     if record_path.exists():
-        recorded = json.loads(record_path.read_text(encoding="utf-8"))["model"]
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        recorded = record["model"]
         if recorded != str(model_name):
             raise ValueError(
                 f"the store at {store_dir} was written by {recorded!r}, not "
                 f"{model_name!r}; queries from another encoder land in a "
                 "different vector space and nothing else would notice"
+            )
+        if max_seq is not None and "max_seq" in record and int(record["max_seq"]) != int(max_seq):
+            raise ValueError(
+                f"the store at {store_dir} was written at max_seq "
+                f"{int(record['max_seq'])}, not {int(max_seq)}; resuming it would "
+                "mix vectors from two token budgets under one record"
             )
         return
     vectors = store_dir / VECTORS_NAME
@@ -208,8 +222,12 @@ def _main() -> int:
         model.max_seq_length = args.max_seq
     if args.half:
         model.half()
+    # The budget is known only once the model is loaded; check it before any
+    # vector is written, and write the record only for a fresh store. A resume
+    # never rewrites it.
+    check_model_record(args.store, args.model, max_seq=model.max_seq_length)
     store = open_store(args.store, dim=_embedding_dim(model))
-    if len(store) == 0 or (Path(args.store) / MODEL_RECORD).exists():
+    if len(store) == 0:
         write_model_record(args.store, args.model, max_seq=model.max_seq_length)
     print(
         f"{len(frame):,} products, {len(store):,} already embedded; "
