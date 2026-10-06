@@ -210,7 +210,8 @@ def training_record(
         "target": "labels",
         "init": backbone,
         "loss": LOSS_NAMES[loss],
-        "data": "every judged pair of folds 2/3/4, whole query groups",
+        "data": "every judged pair of folds 2/3/4, "
+                + ("whole query groups" if loss == "lambda" else "as (query, document) pairs"),
         "epochs": epochs,
         "batch_size": batch_size,
         "gradient_accumulation_steps": gradient_accumulation_steps,

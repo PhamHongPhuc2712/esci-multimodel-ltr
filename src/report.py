@@ -15,6 +15,10 @@ from src.bootstrap import Interval, bootstrap_ci, paired_delta_ci
 from src.floor import random_floor
 from src.metrics import Qrels, Run, ndcg_per_query
 
+# PROJECT_SPEC.md §5: `ms-marco-MiniLM-L-12-v2` fine-tuned on SQD train, the
+# published target this project set itself. One copy; every report imports it.
+ESCI_BASELINE = 0.8562
+
 
 @dataclass(frozen=True)
 class EvaluationReport:

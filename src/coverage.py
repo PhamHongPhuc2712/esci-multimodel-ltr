@@ -186,13 +186,21 @@ class FieldBias:
         }
 
 
-def _present(series: pd.Series) -> np.ndarray:
-    """True where a value is genuinely there - empty lists and "" are not."""
+def non_empty(series: pd.Series) -> pd.Series:
+    """True where a value is genuinely present - "" and [] are not.
+
+    The one definition of presence. src.combine's description coalesce and
+    this module's missingness both use it; until Plan 12 each had a copy.
+    """
     if series.dtype == object:
         return series.map(
             lambda v: v is not None and not (isinstance(v, float) and pd.isna(v)) and len(v) > 0
-        ).to_numpy(dtype=bool)
-    return series.notna().to_numpy(dtype=bool)
+        )
+    return series.notna()
+
+
+def _present(series: pd.Series) -> np.ndarray:
+    return non_empty(series).to_numpy(dtype=bool)
 
 
 def missingness_bias(

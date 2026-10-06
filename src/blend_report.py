@@ -35,12 +35,12 @@ from src.blend import ARM_COLUMNS, orderings_from_scores
 from src.metrics import ndcg_per_query
 from src.rank_report import compare, evaluate_arm, format_table, qrels_from_frame
 from src.rerank_window import spliced_run
+from src.report import ESCI_BASELINE
 
 DEFAULT_OUT = Path("docs/results/blend.json")
 
 # PROJECT_SPEC.md §5. Plan 5 matched it at 0.8579; Plan 6's LLM arm reached
 # 0.8855 on the 2,000-query sample.
-ESCI_BASELINE = 0.8562
 
 SINGLE_STAGES: tuple[str, ...] = ("stage2", "stage2+ce", "stage2+llm")
 BLEND_ARMS: tuple[str, ...] = ("blend_fixed", "blend_combiner", "blend_selector")

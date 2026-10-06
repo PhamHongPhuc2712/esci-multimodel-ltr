@@ -36,12 +36,14 @@ from src.feature_matrix import (
     CATEGORICAL_FEATURES,
     group_sizes,
     sort_for_ranking,
+    LABEL_CODES,
 )
 from src.labels import ESCI_GAINS
 
 # Integer label codes, ordered by gain. LightGBM indexes label_gain by the
 # label and requires the list to be non-decreasing.
-LABEL_ORDER: tuple[str, ...] = ("I", "C", "S", "E")
+# Derived from the matrix's own codes so the two cannot disagree.
+LABEL_ORDER: tuple[str, ...] = tuple(sorted(LABEL_CODES, key=LABEL_CODES.__getitem__))
 LABEL_GAIN: list[float] = [ESCI_GAINS[label] for label in LABEL_ORDER]
 
 OBJECTIVES: tuple[str, ...] = (

@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.coverage import load_corpus
+from src.coverage import load_corpus, non_empty
 from src.dataset import ensure_downloaded, load_split
 from src.splits import FOLDS_PATH, load_folds
 
@@ -80,17 +80,6 @@ _LABEL_COLUMNS = frozenset(
 )
 
 
-def _non_empty(series: pd.Series) -> pd.Series:
-    """True where a value is genuinely present - "" and [] are not."""
-    if series.dtype == object:
-        return series.map(
-            lambda v: v is not None
-            and not (isinstance(v, float) and pd.isna(v))
-            and len(v) > 0
-        )
-    return series.notna()
-
-
 def combine_products(
     esci_products: pd.DataFrame, enrichment: pd.DataFrame
 ) -> pd.DataFrame:
@@ -112,9 +101,9 @@ def combine_products(
     )
     combined["has_enrichment"] = combined["product_id"].isin(set(enrichment["asin"]))
 
-    esci_has = _non_empty(combined["product_description"])
+    esci_has = non_empty(combined["product_description"])
     scrape_has = (
-        _non_empty(combined["s_description"])
+        non_empty(combined["s_description"])
         if "s_description" in combined.columns
         else pd.Series(False, index=combined.index)
     )

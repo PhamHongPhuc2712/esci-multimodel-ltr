@@ -226,7 +226,7 @@ def _main() -> int:
         by_label[label]["significant"] = entry["significant"]
         by_label[label]["n_queries"] = coarse["n_queries"]
 
-    # 6 - each fine-tuned reranker against coarse-only, on the frozen sample.
+    # 6 - each fine-tuned reranker against coarse-only, on the whole test split.
     for label, arm in [("6a", "stage2+ce"), ("6b", "stage2+llm")]:
         entry = by_arm(fine["ablation_6"], arm)
         by_label[label]["delta"] = entry["delta"]

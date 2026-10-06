@@ -87,3 +87,13 @@ def test_evaluating_a_run_that_skips_a_query_raises():
     del run["q0"]
     with pytest.raises(KeyError, match="q0"):
         evaluate_run(run, qrels, run_tag="t", split="test", n_floor_trials=5)
+
+
+def test_the_published_baseline_has_one_definition():
+    # PROJECT_SPEC.md §5's target, imported by every report rather than typed
+    # into three of them.
+    from src import blend_report, fine_rank_report, rank_report
+    from src.report import ESCI_BASELINE
+
+    assert ESCI_BASELINE == 0.8562
+    assert rank_report.ESCI_BASELINE is fine_rank_report.ESCI_BASELINE is blend_report.ESCI_BASELINE is ESCI_BASELINE

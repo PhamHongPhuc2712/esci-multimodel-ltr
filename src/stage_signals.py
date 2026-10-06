@@ -6,7 +6,7 @@ blend, the per-category analysis and the writeup all need the same per-document
 signals, and building them three times is how three sections of one report come
 to quote three different numbers.
 
-Four signals per (query, window document):
+Five signals per (query, window document), the last derived from the fourth:
 
     stage2_score   Plan 5's LambdaMART score, persisted by Plan 6
     stage2_rank    its 1-based position in the window

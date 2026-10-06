@@ -120,3 +120,11 @@ def test_published_sbert_number_is_reproduced():
     payload = json.loads(Path("docs/results/sbert-title-test.json").read_text())
     assert 0.820 <= payload["ndcg"]["point"] <= 0.840
     assert payload["lift_over_floor"]["low"] > 0
+
+
+def test_the_device_and_normalise_helpers_are_clip_encoder_s():
+    from src import baseline_sbert, clip_encoder
+
+    assert baseline_sbert.resolve_device is clip_encoder.resolve_device
+    assert baseline_sbert.l2_normalise is clip_encoder.l2_normalise
+    assert not hasattr(baseline_sbert, "_normalise")

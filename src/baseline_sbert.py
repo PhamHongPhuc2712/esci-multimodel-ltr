@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from src.clip_encoder import l2_normalise, resolve_device
 from src.dataset import load_split
 from src.runs import run_from_scores, write_run
 
@@ -43,11 +44,6 @@ def product_text(products: pd.DataFrame, fields: Sequence[str]) -> pd.Series:
     return joined.str.replace(r"\s+", " ", regex=True)
 
 
-def _normalise(vectors: np.ndarray) -> np.ndarray:
-    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-    return vectors / np.maximum(norms, 1e-12)
-
-
 def score_pairs(
     judgements: pd.DataFrame,
     products: pd.DataFrame,
@@ -68,11 +64,11 @@ def score_pairs(
         )
 
     queries = judgements[["query_id", "query"]].drop_duplicates("query_id")
-    query_vectors = _normalise(encode(list(queries["query"])))
+    query_vectors = l2_normalise(encode(list(queries["query"])))
     query_row = {qid: i for i, qid in enumerate(queries["query_id"])}
 
     catalogue = products.drop_duplicates("product_id").reset_index(drop=True)
-    product_vectors = _normalise(encode(list(product_text(catalogue, fields))))
+    product_vectors = l2_normalise(encode(list(product_text(catalogue, fields))))
     product_row = {pid: i for i, pid in enumerate(catalogue["product_id"])}
 
     left = query_vectors[[query_row[q] for q in judgements["query_id"]]]
@@ -84,25 +80,6 @@ def score_pairs(
             "score": np.einsum("ij,ij->i", left, right),
         }
     )
-
-
-def resolve_device(requested: str) -> str:
-    """Pick the encode device. "auto" means the GPU when there is one.
-
-    Explicit rather than relying on the library default: a silent fall back to
-    CPU turns a one-minute encode into the better part of an hour, and looks
-    identical in the logs.
-    """
-    import torch
-
-    if requested != "auto":
-        if requested.startswith("cuda") and not torch.cuda.is_available():
-            raise SystemExit(
-                f"--device {requested} requested but torch.cuda.is_available() "
-                "is False; pass --device cpu to run on CPU deliberately"
-            )
-        return requested
-    return "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def _main() -> int:

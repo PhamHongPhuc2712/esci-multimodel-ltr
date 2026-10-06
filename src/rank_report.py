@@ -51,12 +51,12 @@ import pandas as pd
 
 from src.bootstrap import Interval, bootstrap_ci, paired_delta_ci
 from src.feature_matrix import FEATURE_GROUPS
+from src.report import ESCI_BASELINE
 
 DEFAULT_OUT = Path("docs/results/coarse-rank.json")
 
 # PROJECT_SPEC.md §5: the cross-encoder fine-tuned on SQD train. The project's
 # stated realistic goal.
-ESCI_BASELINE = 0.8562
 
 ARMS: dict[str, tuple[str, ...]] = {
     # Ablations 3 and 4's arm 1. ESCI's own text and presence, plus the

@@ -161,3 +161,10 @@ def test_the_product_table_has_no_judged_only_scope():
     from src.combine import build_parser
 
     assert "--scope" not in build_parser()._option_string_actions
+
+
+def test_presence_has_one_definition():
+    from src import combine, coverage
+
+    assert combine.non_empty is coverage.non_empty
+    assert not hasattr(combine, "_non_empty")

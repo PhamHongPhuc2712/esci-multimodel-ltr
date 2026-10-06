@@ -30,11 +30,11 @@ from pathlib import Path
 from src.cross_encoder import Latency
 from src.llm_rerank import Usage
 from src.rank_report import compare, evaluate_arm, format_table, qrels_from_frame
+from src.report import ESCI_BASELINE
 
 DEFAULT_OUT = Path("docs/results/fine-rank.json")
 
 # PROJECT_SPEC.md §5. Plan 5 already matched it at 0.8579 [0.8551, 0.8611].
-ESCI_BASELINE = 0.8562
 
 # All 8,956 test queries through the LLM is ~3.3 h and real money, so the
 # three-way test comparison runs on a frozen sample. Every arm uses the same

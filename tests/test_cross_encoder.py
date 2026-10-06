@@ -395,3 +395,8 @@ def test_an_allocator_setting_the_caller_chose_is_kept(monkeypatch):
     monkeypatch.setenv("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
     configure_allocator()
     assert os.environ["PYTORCH_CUDA_ALLOC_CONF"] == "max_split_size_mb:128"
+
+
+def test_the_pairwise_record_does_not_claim_whole_groups():
+    assert "whole query groups" not in _record(loss="bce")["data"]
+    assert "pairs" in _record(loss="bce")["data"]

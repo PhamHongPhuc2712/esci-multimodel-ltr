@@ -202,3 +202,10 @@ def test_folds_selects_the_requested_folds():
 def test_folds_raises_when_a_requested_fold_is_absent():
     with pytest.raises(ValueError, match="fold"):
         folds(_frame(fold=0), [3])
+
+
+def test_the_label_order_is_derived_from_the_matrix_codes():
+    from src.feature_matrix import LABEL_CODES
+    from src.ranker import LABEL_ORDER
+
+    assert LABEL_ORDER == tuple(sorted(LABEL_CODES, key=LABEL_CODES.__getitem__))

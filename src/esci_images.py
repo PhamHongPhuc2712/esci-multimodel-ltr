@@ -49,7 +49,6 @@ def _main() -> int:
     """Re-run the resolution gate against a live random sample."""
     import argparse
     import concurrent.futures as cf
-    import io
     import json
     import random
     import urllib.error
