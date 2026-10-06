@@ -27,21 +27,43 @@ from src.recall import DEFAULT_KS, RecallResult, recall_table
 
 DEFAULT_OUT = Path("docs/results/recall.json")
 
-# Measured on disk after the real runs. PROJECT_SPEC.md §9 budgets "<1 GB" for
-# embeddings; the channels together do not fit, and that is a reportable fact
-# rather than a reason to shrink a channel.
-#
-# `image_rerank` is the separate store Plan 3 built. It is redundant once
-# `image_catalogue` exists - the catalogue URLs are a superset - but it is
-# counted here because it is what the project actually occupies. Deleting it
-# would recover 0.40 GB.
-STORAGE_GB = {
-    "bm25": 1.15,
-    "dense": 0.95,
-    "image_catalogue": 0.98,
-    "image_rerank": 0.40,
+# PROJECT_SPEC.md §9 budgets "<1 GB" for embeddings; the channels together do
+# not fit, and that is a reportable fact rather than a reason to shrink a
+# channel. The figure is measured on disk at report time. It was a quoted dict
+# until Plan 12, and that dict still counted the `rerank` image store deleted
+# on 2026-09-30 while omitting Plan 10's `dense-ft` store.
+STORAGE_ROOTS: dict[str, Path] = {
+    "bm25": Path("data/bm25"),
+    "dense": Path("data/embeddings/dense"),
+    "dense_ft": Path("data/embeddings/dense-ft"),
+    "image_catalogue": Path("data/embeddings/catalogue"),
 }
 SPEC_BUDGET_GB = 1.0
+
+
+def storage_gb(roots: Mapping[str, Path] = STORAGE_ROOTS) -> dict[str, float]:
+    """Bytes on disk under each store, in GB to three decimals. Never quoted.
+
+    A missing store raises rather than counting as zero: the one way this
+    number goes wrong is by silently leaving a store out.
+    """
+    out: dict[str, float] = {}
+    for name, root in roots.items():
+        root = Path(root)
+        if not root.is_dir():
+            raise FileNotFoundError(f"no {name} store at {root}; nothing to measure")
+        total = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+        out[name] = round(total / 1e9, 3)
+    return out
+
+
+def check_split(split: str, final: bool) -> None:
+    """The test split is touched once, behind --final."""
+    if split == "test" and not final:
+        raise SystemExit(
+            "refusing to touch the test split without --final. Ablations 1 and 2 "
+            "are reported on fold 0; test is measured once."
+        )
 
 
 @dataclass(frozen=True)
@@ -127,7 +149,9 @@ def _main() -> int:
     parser.add_argument("--sample", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--final", action="store_true", help="required with --split test")
     args = parser.parse_args()
+    check_split(args.split, args.final)
 
     folds = None if args.folds == "all" else [int(f) for f in args.folds.split(",")]
     queries = load_queries(args.split, folds=folds)
@@ -196,6 +220,7 @@ def _main() -> int:
 
     print()
     print(format_table(arms))
+    storage = storage_gb()
 
     baseline = next(a for a in arms if a.name == "bm25")
     comparisons = [
@@ -244,17 +269,17 @@ def _main() -> int:
         "n_queries": len(raw),
         "retrieval_depth": args.k,
         "rrf_k": args.rrf_k,
-        "bm25_baseline_r100": 0.5018,
         "arms": [arm.to_dict() for arm in arms],
         "comparisons": comparisons,
         "ablation_2_ladder": incremental,
         "recall_at_100_intervals": intervals,
         "ablation_1_rewrite": ablation1,
-        "storage_gb": STORAGE_GB
+        "storage_gb": storage
         | {
-            "total": round(sum(STORAGE_GB.values()), 2),
+            "total": round(sum(storage.values()), 2),
             "spec_budget": SPEC_BUDGET_GB,
-            "over_budget": round(sum(STORAGE_GB.values()) - SPEC_BUDGET_GB, 2),
+            "over_budget": round(sum(storage.values()) - SPEC_BUDGET_GB, 2),
+            "measured": True,
         },
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)

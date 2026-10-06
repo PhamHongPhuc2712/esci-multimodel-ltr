@@ -2,12 +2,15 @@ import math
 
 import pytest
 
+from pathlib import Path
+
 from src.recall_report import (
     SPEC_BUDGET_GB,
-    STORAGE_GB,
+    STORAGE_ROOTS,
     compare,
     evaluate_arm,
     format_table,
+    storage_gb,
 )
 
 
@@ -70,16 +73,44 @@ def test_the_table_renders_a_nan_recall_without_crashing():
     assert "nan" in format_table([arm]).lower()
 
 
-def test_the_storage_overrun_is_recorded_not_hidden():
-    # PROJECT_SPEC.md §9 budgets "<1 GB" for embeddings. The three channels
-    # total 2.94 GB. The honest number is worth more than a flattering one.
-    assert SPEC_BUDGET_GB == 1.0
-    assert sum(STORAGE_GB.values()) > SPEC_BUDGET_GB
-    assert set(STORAGE_GB) == {
-        "bm25",
-        "dense",
-        "image_catalogue",
-        # A separate store from image_catalogue, not an extension of it: the
-        # scopes write to different directories, so running both costs both.
-        "image_rerank",
+def test_storage_is_measured_from_disk(tmp_path):
+    # PROJECT_SPEC.md §9 budgets "<1 GB" for embeddings. The figure was a
+    # quoted dict until Plan 12, and it still counted a store deleted on
+    # 2026-09-30; measuring it means it cannot go stale again.
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "vectors.f16").write_bytes(b"x" * 1_500_000)
+    (tmp_path / "a" / "keys.txt").write_bytes(b"y" * 500_000)
+    (tmp_path / "b").mkdir()
+    (tmp_path / "b" / "index.npy").write_bytes(b"z" * 10_000_000)
+    assert storage_gb({"a": tmp_path / "a", "b": tmp_path / "b"}) == {
+        "a": pytest.approx(0.002, abs=1e-6),
+        "b": pytest.approx(0.01, abs=1e-6),
     }
+
+
+def test_a_missing_store_is_named_not_counted_as_zero(tmp_path):
+    with pytest.raises(FileNotFoundError, match="dense_ft"):
+        storage_gb({"dense_ft": tmp_path / "absent"})
+
+
+def test_the_live_stores_are_named_and_the_deleted_one_is_not():
+    assert SPEC_BUDGET_GB == 1.0
+    assert set(STORAGE_ROOTS) == {"bm25", "dense", "dense_ft", "image_catalogue"}
+    assert all(isinstance(root, Path) for root in STORAGE_ROOTS.values())
+
+
+def test_no_recall_number_is_quoted_in_the_module():
+    # 0.5018 was BM25's Recall@100 on a scratch sample, written into every
+    # results file as "bm25_baseline_r100". The arm's own measurement is in
+    # `arms`; nothing else should be typed.
+    assert "0.5018" not in Path("src/recall_report.py").read_text(encoding="utf-8")
+
+
+def test_the_test_split_needs_final(monkeypatch):
+    import sys
+
+    from src.recall_report import _main
+
+    monkeypatch.setattr(sys, "argv", ["recall_report", "--split", "test"])
+    with pytest.raises(SystemExit, match="--final"):
+        _main()
