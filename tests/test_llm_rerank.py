@@ -7,15 +7,19 @@ from src.llm_rerank import (
     DEFAULT_CONCURRENCY,
     DEFAULT_MODEL,
     MAX_COMPLETION_TOKENS,
+    META_KEY,
     PROMPT,
     RerankCache,
     Usage,
     append_usage,
     build_prompt,
+    check_windows,
     parse_permutation,
+    prompt_fingerprint,
     rerank_windows,
     window_key,
 )
+from src.rerank_window import DEFAULT_K
 from src.rerank_window import Window
 
 
@@ -325,3 +329,79 @@ def test_append_usage_sums_a_resumed_pass(tmp_path):
     assert payload["totals"]["n_calls"] == 8
     assert payload["totals"]["n_fallback"] == 2
     assert payload["totals"]["prompt_tokens_per_call"] == pytest.approx(50.0)
+
+
+# --- Plan 12: the cache knows what wrote it ---------------------------------
+
+def _stamp():
+    return {"model": DEFAULT_MODEL, "prompt": prompt_fingerprint(), "k": DEFAULT_K}
+
+
+def test_a_legacy_cache_loads_every_entry_and_is_stamped_with_what_wrote_it(tmp_path):
+    # Review Focus 2. data/llm-rerank.json holds 19,203 paid answers written
+    # before the header existed, by DEFAULT_MODEL with the current PROMPT at
+    # DEFAULT_K. Loading it must miss nothing.
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps({"k1": [1, 2], "k2": [2, 1]}), encoding="utf-8")
+    cache = RerankCache(path)
+    assert len(cache) == 2
+    assert cache.get("k1") == [1, 2] and cache.get("k2") == [2, 1]
+    assert cache.meta == _stamp()
+
+
+def test_the_header_round_trips_and_never_counts_as_an_entry(tmp_path):
+    path = tmp_path / "c.json"
+    cache = RerankCache(path)
+    cache.set("k", [3, 1, 2])
+    cache.save()
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    assert raw[META_KEY] == _stamp()
+    reloaded = RerankCache(path)
+    assert len(reloaded) == 1
+    assert reloaded.get(META_KEY) is None
+    assert reloaded.meta == _stamp()
+
+
+def test_the_header_in_the_file_wins_over_the_legacy_stamp(tmp_path):
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps({META_KEY: {"model": "other", "prompt": "abc", "k": 5},
+                                "k1": [1]}), encoding="utf-8")
+    assert RerankCache(path).meta == {"model": "other", "prompt": "abc", "k": 5}
+
+
+@pytest.mark.parametrize("field, value", [("model", "gpt-other"), ("prompt", "0" * 16), ("k", 5)])
+def test_a_mismatch_is_refused_naming_the_field(tmp_path, field, value):
+    cache = RerankCache(tmp_path / "c.json")
+    kwargs = _stamp() | {field: value}
+    with pytest.raises(ValueError, match=field):
+        cache.check(**kwargs)
+
+
+def test_a_matching_configuration_passes(tmp_path):
+    RerankCache(tmp_path / "c.json").check(**_stamp())
+
+
+def test_a_mismatch_can_be_allowed_but_is_printed(tmp_path, capsys):
+    cache = RerankCache(tmp_path / "c.json")
+    cache.check(**(_stamp() | {"model": "gpt-other"}), allow_mismatch=True)
+    assert "model" in capsys.readouterr().out
+
+
+def test_the_prompt_fingerprint_follows_the_prompt(monkeypatch):
+    import src.llm_rerank as module
+
+    before = prompt_fingerprint()
+    monkeypatch.setattr(module, "PROMPT", PROMPT + " ")
+    assert module.prompt_fingerprint() != before
+    assert len(before) == 16
+
+
+def test_zero_selected_windows_is_refused_not_run():
+    # --split test with the default --folds 0 selects nothing: test rows
+    # carry fold = -1. Until Plan 12 that ran "0 windows" and exited 0.
+    with pytest.raises(SystemExit, match="--folds"):
+        check_windows([], split="test", folds="0", sample=None)
+
+
+def test_a_non_empty_selection_passes():
+    check_windows([Window("q", ["a"], [])], split="test", folds="all", sample=None)

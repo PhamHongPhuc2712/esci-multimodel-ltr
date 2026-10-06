@@ -44,8 +44,14 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.rerank_window import DEFAULT_K
+
 DEFAULT_MODEL = "gpt-5.6-luna"
 DEFAULT_CACHE = Path("data/llm-rerank.json")
+
+# The cache's reserved header. Its value is a dict, which the loader has always
+# skipped (entries are lists), so a stamped file reads under the old code too.
+META_KEY = "_meta"
 
 # 88% of completion tokens are reasoning. A cap sized for the answer alone
 # returns an empty string; billing is on what is generated, so this is free.
@@ -90,6 +96,16 @@ def window_key(query: str, documents: Sequence[str]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def prompt_fingerprint() -> str:
+    """The first 16 hex characters of sha256 over PROMPT.
+
+    The cache key is the query and the ordered documents, so an edited prompt
+    or a different model would replay the old answers under the new name.
+    The header carries both so that cannot happen silently.
+    """
+    return hashlib.sha256(PROMPT.encode("utf-8")).hexdigest()[:16]
+
+
 def build_prompt(query: str, titles: Sequence[str]) -> str:
     """A RankGPT-style numbered listing, 1-based."""
     listing = "\n".join(
@@ -123,6 +139,10 @@ class RerankCache:
         # "dictionary changed size during iteration" and loses the write.
         self._lock = threading.Lock()
         self._entries: dict[str, list[int]] = {}
+        # A file without a header is legacy: every such file was written by
+        # DEFAULT_MODEL with the current PROMPT at DEFAULT_K, so that is the
+        # stamp it gets, and the next save writes it down.
+        self._meta: dict = {"model": DEFAULT_MODEL, "prompt": prompt_fingerprint(), "k": DEFAULT_K}
         if self.path.exists():
             try:
                 loaded = json.loads(self.path.read_text(encoding="utf-8"))
@@ -136,9 +156,46 @@ class RerankCache:
                     for k, v in loaded.items()
                     if isinstance(v, list)
                 }
+                header = loaded.get(META_KEY)
+                if isinstance(header, dict) and {"model", "prompt", "k"} <= set(header):
+                    self._meta = {
+                        "model": str(header["model"]),
+                        "prompt": str(header["prompt"]),
+                        "k": int(header["k"]),
+                    }
 
     def __len__(self) -> int:
         return len(self._entries)
+
+    @property
+    def meta(self) -> dict:
+        """The model, prompt fingerprint and window size that wrote this cache."""
+        return dict(self._meta)
+
+    def check(
+        self, *, model: str, prompt: str, k: int, allow_mismatch: bool = False
+    ) -> None:
+        """Raise unless this run's configuration is the one that wrote the cache.
+
+        A cache hit under a different model or prompt is not a cached answer,
+        it is a different experiment's answer under this one's name.
+        """
+        wanted = {"model": str(model), "prompt": str(prompt), "k": int(k)}
+        differing = [f for f in ("model", "prompt", "k") if wanted[f] != self._meta[f]]
+        if not differing:
+            return
+        detail = "; ".join(
+            f"{f}: cache {self._meta[f]!r}, this run {wanted[f]!r}" for f in differing
+        )
+        if allow_mismatch:
+            print(f"  WARNING: the cache at {self.path} was written by another "
+                  f"configuration ({detail}); replaying it anyway")
+            return
+        raise ValueError(
+            f"the cache at {self.path} was written by another configuration "
+            f"({detail}). Its answers would be replayed under this run's name. "
+            "Use a different --cache, or pass --allow-cache-mismatch."
+        )
 
     def get(self, key: str) -> list[int] | None:
         return self._entries.get(key)
@@ -149,7 +206,9 @@ class RerankCache:
 
     def save(self) -> None:
         with self._lock:
-            payload = json.dumps(self._entries, indent=0, sort_keys=True) + "\n"
+            payload = json.dumps(
+                self._entries | {META_KEY: self._meta}, indent=0, sort_keys=True
+            ) + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # Write-then-rename: a process killed mid-write leaves the previous
         # cache intact rather than a truncated file worth nothing.
@@ -320,6 +379,20 @@ def rerank_windows(
     )
 
 
+def check_windows(windows_: Sequence, *, split: str, folds: str, sample: int | None) -> None:
+    """Refuse a selection of zero windows rather than running nothing.
+
+    `--split test` with the default `--folds 0` selects no rows, because test
+    rows carry fold = -1; until Plan 12 that printed "0 windows" and exited 0.
+    """
+    if len(windows_) == 0:
+        raise SystemExit(
+            f"no windows selected for --split {split} --folds {folds} "
+            f"--sample {sample}; test rows carry fold = -1, so the test split "
+            "needs --folds all"
+        )
+
+
 def openai_call(model: str = DEFAULT_MODEL, max_tokens: int = MAX_COMPLETION_TOKENS) -> Call:
     """The real client. `max_completion_tokens`, not `max_tokens`: gpt-5.x rejects the older name."""
     import openai
@@ -364,6 +437,9 @@ def _main() -> int:
     parser.add_argument(
         "--usage-out", type=Path, default=None,
         help="append this pass's token usage to a JSON record (for committing the bill)")
+    parser.add_argument(
+        "--allow-cache-mismatch", action="store_true",
+        help="replay a cache written by another model, prompt or k, with a warning")
     args = parser.parse_args()
 
     matrix = pd.read_parquet(args.features_dir / f"{args.split}.parquet")
@@ -381,12 +457,15 @@ def _main() -> int:
         scores, on=["query_id", "product_id"]
     )
     ws = windows(joined, k=args.k)
+    check_windows(ws, split=args.split, folds=args.folds, sample=args.sample)
     query_text, doc_text = text_maps(
         matrix, Path("data/combined/products.parquet"), Path("data/combined/judgements.parquet")
     )
     query_text = {str(k): v for k, v in query_text.items()}
 
     cache = RerankCache(args.cache)
+    cache.check(model=args.model, prompt=prompt_fingerprint(), k=args.k,
+                allow_mismatch=args.allow_cache_mismatch)
     print(f"{len(ws):,} windows of up to {args.k}; {len(cache):,} already cached")
 
     def report(done: int, total: int) -> None:
@@ -405,8 +484,10 @@ def _main() -> int:
     print(json.dumps(usage.to_dict(), indent=2))
     per = usage.per_query(len(ws))
     print(
-        f"per query: {per['prompt_tokens']:.0f} prompt + {per['completion_tokens']:.0f} "
-        f"completion ({per['reasoning_tokens']:.0f} reasoning), {per['seconds']:.2f}s"
+        f"per window: {per['prompt_tokens']:.0f} prompt + {per['completion_tokens']:.0f} "
+        f"completion ({per['reasoning_tokens']:.0f} reasoning); wall clock over the "
+        f"pass {per['seconds']:.2f}s a window - replay time on a warm cache, not a "
+        "latency (see fine_rank_report --llm-latency-probe)"
     )
     print(f"{usage.n_fallback:,} windows fell back to the Stage 2 order")
     print(f"cache written to {args.cache}")
