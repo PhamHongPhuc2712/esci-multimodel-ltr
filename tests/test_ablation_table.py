@@ -98,11 +98,13 @@ def test_a_missing_results_file_is_named(tmp_path):
 
 
 def test_results_load_by_stem(tmp_path):
-    for name in ("recall", "coarse-rank-test", "fine-rank-test-full", "blend-test-full"):
+    from src.ablation_table import REQUIRED_FILES
+
+    for name in REQUIRED_FILES:
         (tmp_path / f"{name}.json").write_text(json.dumps({"stem": name}))
     loaded = load_results(tmp_path)
     assert loaded["recall"]["stem"] == "recall"
-    assert set(loaded) >= {"recall", "coarse-rank-test", "fine-rank-test-full", "blend-test-full"}
+    assert set(loaded) >= set(REQUIRED_FILES)
 
 
 def test_ablation_1_is_read_from_the_paired_bootstrap_not_re_derived():
@@ -155,3 +157,82 @@ def test_a_missing_comparison_is_named_not_guessed():
 def test_rows_sharing_a_number_order_by_label():
     rows = build_rows([_row(number=2, label="2b"), _row(number=2, label="2a")])
     assert [row.label for row in rows] == ["2a", "2b"]
+
+
+# --- Plan 12: the findings after the spec ---------------------------------------
+
+def test_every_finding_names_its_file_block_and_both_arms():
+    from src.ablation_table import FINDINGS, REQUIRED_FILES
+
+    for finding in FINDINGS:
+        assert finding["file"] in REQUIRED_FILES, finding["label"]
+        assert finding["block"] in {"comparisons", "against_best_single"}
+        assert finding["arm"] and finding["baseline"] and "−" in finding["name"]
+        assert finding["scope"] and finding["metric"] and finding["owner"]
+
+
+def test_the_findings_cover_stage_4_and_plans_8_to_11():
+    from src.ablation_table import FINDINGS
+
+    assert [f["label"] for f in FINDINGS] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11"]
+
+
+def test_a_comparison_is_found_by_both_names():
+    from src.ablation_table import find_comparison
+
+    rows = [
+        {"arm": "a", "baseline": "stage2", "delta": 1},
+        {"arm": "a", "baseline": "stage2+ce", "delta": 2},
+    ]
+    assert find_comparison(rows, "a", "stage2+ce")["delta"] == 2
+
+
+def test_a_comparison_at_a_depth_is_found_by_its_depth():
+    from src.ablation_table import find_comparison
+
+    rows = [
+        {"arm": "a", "baseline": "b", "k": 1000, "delta": 1},
+        {"arm": "a", "baseline": "b", "k": 100, "delta": 2},
+    ]
+    assert find_comparison(rows, "a", "b", k=100)["delta"] == 2
+
+
+def test_a_missing_pair_is_named_not_guessed():
+    from src.ablation_table import find_comparison
+
+    with pytest.raises(KeyError, match="'a' against 'c'"):
+        find_comparison([{"arm": "a", "baseline": "b"}], "a", "c")
+
+
+def test_build_findings_reads_each_file_by_name():
+    from src.ablation_table import FINDINGS, build_findings
+
+    results = {}
+    for finding in FINDINGS:
+        payload = results.setdefault(finding["file"], {"n_queries": 10})
+        payload.setdefault(finding["block"], []).append({
+            "arm": finding["arm"], "baseline": finding["baseline"], "k": finding.get("k"),
+            "delta": {"point": 0.5, "low": 0.4, "high": 0.6}, "significant": True,
+        })
+    rows = build_findings(results)
+    assert [row.label for row in rows] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11"]
+    assert all(row.n_queries == 10 and row.delta["point"] == 0.5 for row in rows)
+
+
+def test_every_readme_finding_with_an_interval_is_in_the_committed_table():
+    # Review Focus 4. The README's findings table used to be typed by hand
+    # for Plans 8-11; every bracketed delta in it must now be a row here.
+    import re
+    from pathlib import Path
+
+    table = json.loads(Path("docs/results/ablation-table.json").read_text(encoding="utf-8"))
+    rows = table["ablations"] + table["findings"]
+    deltas = {(round(r["delta"]["point"], 4), round(r["delta"]["low"], 4), round(r["delta"]["high"], 4))
+              for r in rows if r["delta"]}
+    readme = Path("README.md").read_text(encoding="utf-8")
+    section = readme.split("## What the ablations found")[1].split("\n## ")[0]
+    pattern = re.compile(r"([+−-]\d\.\d{4}) \[([+−-]\d\.\d{4}), ([+−-]\d\.\d{4})\]")
+    found = [tuple(round(float(v.replace("−", "-")), 4) for v in m) for m in pattern.findall(section)]
+    assert found, "no bracketed delta in the README's findings table"
+    for triple in found:
+        assert triple in deltas, triple

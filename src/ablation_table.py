@@ -19,6 +19,11 @@ comparable.
 
 Nothing here computes a number. Every value is read from a committed JSON, so
 the table cannot drift from the files it claims to summarise.
+
+A second block, FINDINGS, carries the results measured after the spec's seven
+ablations - Stage 4 against the LLM alone, and Plans 8 to 11 - read the same
+way, by arm name, from the files those plans committed. Until Plan 12 the
+README quoted those rows by hand.
 """
 
 from __future__ import annotations
@@ -37,12 +42,23 @@ REQUIRED_FILES: tuple[str, ...] = (
     "coarse-rank-test",
     "fine-rank-test-full",
     "blend-test-full",
+    "recall-tuned-test",
+    "distill-test",
+    "capacity-test",
+    "size-test",
 )
 
 _RECALL, _COARSE, _FINE = (
     "docs/results/recall.json",
     "docs/results/coarse-rank-test.json",
     "docs/results/fine-rank-test-full.json",
+)
+_BLEND, _TUNED, _DISTILL, _CAPACITY, _SIZE = (
+    "docs/results/blend-test-full.json",
+    "docs/results/recall-tuned-test.json",
+    "docs/results/distill-test.json",
+    "docs/results/capacity-test.json",
+    "docs/results/size-test.json",
 )
 
 # One row per measured comparison, named "A − B" so the sign reads the same
@@ -75,6 +91,44 @@ ABLATIONS: tuple[dict, ...] = (
      "scope": "test", "source": _FINE, "owner": "Plan 6"},
     {"number": 7, "label": "7", "name": "learned fusion − fixed global weight", "metric": "NDCG",
      "scope": "test", "source": _COARSE, "owner": "Plan 5"},
+)
+
+# The findings after the spec. Each names the file, the block in it, and the
+# arm and baseline the row is found by - never a position. `k` picks the
+# depth for the recall rows, whose comparisons carry one row per depth.
+FINDINGS: tuple[dict, ...] = (
+    {"number": 0, "label": "S4", "name": "best blend (per-query selector) − LLM alone",
+     "metric": "NDCG", "scope": "test", "source": _BLEND, "owner": "Plan 7",
+     "file": "blend-test-full", "block": "against_best_single",
+     "arm": "blend_selector", "baseline": "stage2+llm"},
+    {"number": 8, "label": "8a", "name": "MiniLM on top-10 windows − landed cross-encoder",
+     "metric": "NDCG", "scope": "test", "source": _DISTILL, "owner": "Plan 8",
+     "file": "distill-test", "block": "comparisons",
+     "arm": "stage2+ce_windows", "baseline": "stage2+ce"},
+    {"number": 9, "label": "9a", "name": "bge − MiniLM, both on windows at batch 16 (the backbone)",
+     "metric": "NDCG", "scope": "test", "source": _CAPACITY, "owner": "Plan 9",
+     "file": "capacity-test", "block": "comparisons",
+     "arm": "stage2+ce_bge_b16", "baseline": "stage2+ce_windows"},
+    {"number": 9, "label": "9b", "name": "bge at batch 8 − batch 16, on windows (the batch)",
+     "metric": "NDCG", "scope": "test", "source": _CAPACITY, "owner": "Plan 9",
+     "file": "capacity-test", "block": "comparisons",
+     "arm": "stage2+ce_bge", "baseline": "stage2+ce_bge_b16"},
+    {"number": 9, "label": "9c", "name": "bge on whole groups − bge on windows (the recipe)",
+     "metric": "NDCG", "scope": "test", "source": _CAPACITY, "owner": "Plan 9",
+     "file": "capacity-test", "block": "comparisons",
+     "arm": "stage2+ce_bge_groups", "baseline": "stage2+ce_bge"},
+    {"number": 10, "label": "10a", "name": "four channels, tuned fusion − Plan 4's fusion",
+     "metric": "Recall@100", "scope": "test, full corpus", "source": _TUNED, "owner": "Plan 10",
+     "file": "recall-tuned-test", "block": "comparisons",
+     "arm": "tuned fusion", "baseline": "published fusion", "k": 100},
+    {"number": 10, "label": "10b", "name": "fine-tuned retriever alone − off-the-shelf dense alone",
+     "metric": "Recall@100", "scope": "test, full corpus", "source": _TUNED, "owner": "Plan 10",
+     "file": "recall-tuned-test", "block": "comparisons",
+     "arm": "dense_ft", "baseline": "dense_base", "k": 100},
+    {"number": 11, "label": "11", "name": "bge-large − bge-base, both on whole groups (the size)",
+     "metric": "NDCG", "scope": "test", "source": _SIZE, "owner": "Plan 11",
+     "file": "size-test", "block": "comparisons",
+     "arm": "stage2+ce_bge_large", "baseline": "stage2+ce_bge_groups"},
 )
 
 _SCOPE_WARNING = (
@@ -140,6 +194,45 @@ def by_arm(rows: Sequence[Mapping], arm: str) -> Mapping:
     raise KeyError(
         f"no comparison for arm {arm!r} among {[r.get('arm') for r in rows]}"
     )
+
+
+def find_comparison(
+    rows: Sequence[Mapping], arm: str, baseline: str, *, k: int | None = None
+) -> Mapping:
+    """The comparison row for `arm` against `baseline` (and depth `k`), or a KeyError.
+
+    By both names: a file carries every arm against several baselines, and the
+    first row with the right arm is usually the one against Stage 2.
+    """
+    for row in rows:
+        if row.get("arm") != arm or row.get("baseline") != baseline:
+            continue
+        if k is not None and row.get("k") != k:
+            continue
+        return row
+    raise KeyError(
+        f"no comparison of {arm!r} against {baseline!r}"
+        + (f" at k={k}" if k is not None else "")
+        + f" among {[(r.get('arm'), r.get('baseline'), r.get('k')) for r in rows]}"
+    )
+
+
+def build_findings(results: Mapping[str, Mapping]) -> list[Row]:
+    """The findings after the spec, each read from its file by arm name."""
+    rows = []
+    for finding in FINDINGS:
+        payload = results[finding["file"]]
+        entry = find_comparison(
+            payload[finding["block"]], finding["arm"], finding["baseline"],
+            k=finding.get("k"),
+        )
+        rows.append(Row(
+            number=finding["number"], label=finding["label"], name=finding["name"],
+            metric=finding["metric"], scope=finding["scope"],
+            n_queries=payload["n_queries"], delta=entry["delta"],
+            significant=entry["significant"], source=finding["source"],
+        ))
+    return build_rows(rows)
 
 
 def build_rows(rows: Sequence[Row]) -> list[Row]:
@@ -242,9 +335,16 @@ def _main() -> int:
     table = format_markdown(rows)
     print(table)
 
+    findings = build_findings(results)
+    findings_table = format_markdown(findings)
+    print("\nFindings after the spec\n")
+    print(findings_table)
+
     payload = {
         "ablations": [row.to_dict() for row in rows],
         "markdown": table,
+        "findings": [row.to_dict() for row in findings],
+        "findings_markdown": findings_table,
         "stage4": {
             "best_single_stage": blend["best_single_stage"],
             "any_blend_beats_best_single": blend["any_blend_beats_best_single"],

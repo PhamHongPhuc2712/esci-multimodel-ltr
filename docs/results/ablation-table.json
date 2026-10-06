@@ -152,6 +152,129 @@
     }
   ],
   "markdown": "| # | ablation | metric | scope | n | delta | |\n|---|---|---|---|---|---|---|\n| 1 | LLM-rewritten \u2212 raw query | Recall@100 | fold 0, full corpus | 4,130 | +0.0048 [-0.0007, +0.0107] | ties |\n| 2a | dense+BM25 \u2212 dense-only (RRF) | Recall@100 | fold 0, full corpus | 4,130 | +0.0895 [+0.0831, +0.0958] | significant |\n| 2b | dense+BM25+image \u2212 dense+BM25 (RRF) | Recall@100 | fold 0, full corpus | 4,130 | +0.0048 [+0.0008, +0.0088] | significant |\n| 3 | text+image \u2212 text-only features | NDCG | test | 8,956 | +0.0075 [+0.0059, +0.0090] | significant |\n| 4 | behavioural values \u2212 text+presence indicators | NDCG | test | 8,956 | +0.0036 [+0.0023, +0.0051] | significant |\n| 5a | pointwise classifier \u2212 lambdarank | NDCG | test | 8,956 | -0.0085 [-0.0101, -0.0069] | significant |\n| 5b | pointwise regression \u2212 lambdarank | NDCG | test | 8,956 | -0.0096 [-0.0112, -0.0079] | significant |\n| 6a | coarse+cross-encoder \u2212 coarse-only | NDCG | test | 8,956 | +0.0037 [+0.0016, +0.0058] | significant |\n| 6b | coarse+LLM listwise \u2212 coarse-only | NDCG | test | 8,956 | +0.0276 [+0.0255, +0.0296] | significant |\n| 7 | learned fusion \u2212 fixed global weight | NDCG | test | 8,956 | -0.0011 [-0.0023, +0.0000] | ties |\n\n> Rows 1\u20132 and 3\u20137 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.",
+  "findings": [
+    {
+      "number": 0,
+      "label": "S4",
+      "name": "best blend (per-query selector) \u2212 LLM alone",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": -0.0005719522887804518,
+        "low": -0.0008537960910649355,
+        "high": -0.00030994210826543536
+      },
+      "significant": true,
+      "source": "docs/results/blend-test-full.json"
+    },
+    {
+      "number": 8,
+      "label": "8a",
+      "name": "MiniLM on top-10 windows \u2212 landed cross-encoder",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": -0.0034991701290156465,
+        "low": -0.004466809572174207,
+        "high": -0.002561501091129601
+      },
+      "significant": true,
+      "source": "docs/results/distill-test.json"
+    },
+    {
+      "number": 9,
+      "label": "9a",
+      "name": "bge \u2212 MiniLM, both on windows at batch 16 (the backbone)",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.011198725202980929,
+        "low": 0.009364876549445861,
+        "high": 0.013006679837459779
+      },
+      "significant": true,
+      "source": "docs/results/capacity-test.json"
+    },
+    {
+      "number": 9,
+      "label": "9b",
+      "name": "bge at batch 8 \u2212 batch 16, on windows (the batch)",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.00022923997849896288,
+        "low": -0.0005839434586392009,
+        "high": 0.0009842546325808186
+      },
+      "significant": false,
+      "source": "docs/results/capacity-test.json"
+    },
+    {
+      "number": 9,
+      "label": "9c",
+      "name": "bge on whole groups \u2212 bge on windows (the recipe)",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.0015937866238104955,
+        "low": 0.0006288763700288961,
+        "high": 0.0025524968334141446
+      },
+      "significant": true,
+      "source": "docs/results/capacity-test.json"
+    },
+    {
+      "number": 10,
+      "label": "10a",
+      "name": "four channels, tuned fusion \u2212 Plan 4's fusion",
+      "metric": "Recall@100",
+      "scope": "test, full corpus",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.056654997593707526,
+        "low": 0.05343033582986399,
+        "high": 0.05980870635096405
+      },
+      "significant": true,
+      "source": "docs/results/recall-tuned-test.json"
+    },
+    {
+      "number": 10,
+      "label": "10b",
+      "name": "fine-tuned retriever alone \u2212 off-the-shelf dense alone",
+      "metric": "Recall@100",
+      "scope": "test, full corpus",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.1030305304245586,
+        "low": 0.09784303668806428,
+        "high": 0.10822603868349126
+      },
+      "significant": true,
+      "source": "docs/results/recall-tuned-test.json"
+    },
+    {
+      "number": 11,
+      "label": "11",
+      "name": "bge-large \u2212 bge-base, both on whole groups (the size)",
+      "metric": "NDCG",
+      "scope": "test",
+      "n_queries": 8956,
+      "delta": {
+        "point": 0.00585040018064253,
+        "low": 0.004403216792691798,
+        "high": 0.0073800393102189474
+      },
+      "significant": true,
+      "source": "docs/results/size-test.json"
+    }
+  ],
+  "findings_markdown": "| # | ablation | metric | scope | n | delta | |\n|---|---|---|---|---|---|---|\n| S4 | best blend (per-query selector) \u2212 LLM alone | NDCG | test | 8,956 | -0.0006 [-0.0009, -0.0003] | significant |\n| 8a | MiniLM on top-10 windows \u2212 landed cross-encoder | NDCG | test | 8,956 | -0.0035 [-0.0045, -0.0026] | significant |\n| 9a | bge \u2212 MiniLM, both on windows at batch 16 (the backbone) | NDCG | test | 8,956 | +0.0112 [+0.0094, +0.0130] | significant |\n| 9b | bge at batch 8 \u2212 batch 16, on windows (the batch) | NDCG | test | 8,956 | +0.0002 [-0.0006, +0.0010] | ties |\n| 9c | bge on whole groups \u2212 bge on windows (the recipe) | NDCG | test | 8,956 | +0.0016 [+0.0006, +0.0026] | significant |\n| 10a | four channels, tuned fusion \u2212 Plan 4's fusion | Recall@100 | test, full corpus | 8,956 | +0.0567 [+0.0534, +0.0598] | significant |\n| 10b | fine-tuned retriever alone \u2212 off-the-shelf dense alone | Recall@100 | test, full corpus | 8,956 | +0.1030 [+0.0978, +0.1082] | significant |\n| 11 | bge-large \u2212 bge-base, both on whole groups (the size) | NDCG | test | 8,956 | +0.0059 [+0.0044, +0.0074] | significant |\n\n> Rows 1\u20132 and 3\u20137 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.",
   "stage4": {
     "best_single_stage": "stage2+llm",
     "any_blend_beats_best_single": false,
