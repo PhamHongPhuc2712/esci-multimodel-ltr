@@ -240,21 +240,28 @@ def load_stage2(split: str, directory: Path = DEFAULT_DIR) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
-def require_out_of_sample(frame: pd.DataFrame) -> pd.DataFrame:
-    """Drop rows the Stage 2 model trained on, or raise if none are left.
+# The numbers a dump must reproduce: Plan 5's two headlines and Plan 8's
+# out-of-fold ordering of folds 2/3/4. A dump that lands elsewhere is scoring
+# windows the published Stage 3 and 4 numbers never saw.
+PUBLISHED: dict[str, float] = {"fold 0": 0.8519, "test": 0.8579, "out-of-fold": 0.8534}
 
-    Folds 2/3/4 are in the model's weights; their Stage 2 ordering is better
-    than it would be in production, and a reranker measured on top of it would
-    be measured against an inflated baseline.
+
+def check_reproduction(
+    measured: float, expected: float, *, label: str, tol: float = 5e-4
+) -> None:
+    """Raise unless a dump reproduces the published number for its surface.
+
+    Until Plan 12 this was a printed WARNING, and the parquet was written
+    anyway; the first raise would have come one plan later, from
+    distill_report.check_reference, with a worse message.
     """
-    kept = frame.loc[~frame["in_sample"].astype(bool)].reset_index(drop=True)
-    if kept.empty:
+    if abs(measured - expected) > tol:
         raise ValueError(
-            "every row is in-sample: the Stage 2 model trained on all of them, "
-            "so nothing here can be used to measure a reranker. Score fold 0, "
-            "fold 1 or the test split instead."
+            f"{label} scores {measured:.4f} against the published {expected:.4f}, "
+            f"{abs(measured - expected):.4f} apart; the Stage 2 configuration has "
+            "drifted, and every report on these windows would sit on a baseline "
+            "nobody published. Pass --allow-drift to write the dump anyway."
         )
-    return kept
 
 
 def _main() -> int:
@@ -269,7 +276,19 @@ def _main() -> int:
     parser.add_argument(
         "--results-out", type=Path, default=Path("docs/results/stage2-oof.json"),
         help="where --out-of-fold commits its comparison with the in-sample ordering")
+    parser.add_argument(
+        "--allow-drift", action="store_true",
+        help="print a warning instead of refusing when the dump does not reproduce "
+             "the published number")
     args = parser.parse_args()
+
+    def reproduce(measured: float, label: str) -> None:
+        try:
+            check_reproduction(measured, PUBLISHED[label], label=label)
+        except ValueError as error:
+            if not args.allow_drift:
+                raise
+            print(f"  WARNING: {error}")
 
     train = pd.read_parquet(args.features_dir / "train.parquet")
 
@@ -283,10 +302,9 @@ def _main() -> int:
         # Measured 2026-09-27: 0.8534 here, fold 0 0.8519, and the in-sample
         # ordering of these same folds 0.9035.
         print(f"  folds {list(TRAIN_FOLDS)} out-of-fold NDCG {measured:.4f} "
-              "(fold 0: 0.8519; the in-sample ordering of these folds: 0.9035)")
-        if abs(measured - 0.8519) > 0.01:
-            print("  WARNING: more than 0.01 from fold 0; these windows would not "
-                  "look like the ones a student meets at test time")
+              f"(published {PUBLISHED['out-of-fold']:.4f}; fold 0 "
+              f"{PUBLISHED['fold 0']:.4f}; the in-sample ordering of these folds: 0.9035)")
+        reproduce(measured, "out-of-fold")
         path = args.features_dir / f"stage2-{OOF_SPLIT}.parquet"
         scores.to_parquet(path, index=False, compression="zstd")
         print(f"wrote {len(scores):,} rows over {scores['query_id'].nunique():,} "
@@ -330,17 +348,12 @@ def _main() -> int:
     check = target.merge(scores, on=["query_id", "product_id"])
     if args.split == "train":
         check = check.loc[check["fold"] == REPORT_FOLD]
-        expected, label = 0.8519, f"fold {REPORT_FOLD}"
+        label = f"fold {REPORT_FOLD}"
     else:
-        expected, label = 0.8579, "test"
+        label = "test"
     measured = stage2_ndcg(check)
-    print(f"  {label} NDCG {measured:.4f} (Plan 5 reported {expected:.4f})")
-    if abs(measured - expected) > 0.0005:
-        print(
-            f"  WARNING: {abs(measured - expected):.4f} away from Plan 5's number; "
-            "the Stage 2 configuration has drifted and Ablation 6 would sit on "
-            "a different baseline than the one Plan 5 reported"
-        )
+    print(f"  {label} NDCG {measured:.4f} (Plan 5 reported {PUBLISHED[label]:.4f})")
+    reproduce(measured, label)
 
     path = args.features_dir / f"stage2-{args.split}.parquet"
     scores.to_parquet(path, index=False, compression="zstd")

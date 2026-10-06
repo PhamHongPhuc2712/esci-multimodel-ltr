@@ -8,8 +8,9 @@ from src.stage2_scores import (
     OOF_SPLIT,
     STAGE2_COLUMNS,
     load_stage2,
+    PUBLISHED,
+    check_reproduction,
     out_of_fold_scores,
-    require_out_of_sample,
     score_split,
     stage2_ndcg,
     window_shift,
@@ -96,30 +97,28 @@ def test_scoring_is_deterministic_for_a_seed():
     np.testing.assert_allclose(a, b)
 
 
-def test_require_out_of_sample_drops_the_training_folds():
-    frame = pd.DataFrame(
-        {
-            "query_id": [1, 2],
-            "product_id": ["a", "b"],
-            "stage2_score": [1.0, 2.0],
-            "in_sample": [True, False],
-        }
-    )
-    kept = require_out_of_sample(frame)
-    assert kept["query_id"].tolist() == [2]
+def test_a_dump_within_tolerance_of_the_published_number_passes():
+    check_reproduction(0.85192, 0.8519, label="fold 0")
 
 
-def test_require_out_of_sample_raises_when_nothing_survives():
-    frame = pd.DataFrame(
-        {
-            "query_id": [1],
-            "product_id": ["a"],
-            "stage2_score": [1.0],
-            "in_sample": [True],
-        }
-    )
-    with pytest.raises(ValueError, match="in-sample"):
-        require_out_of_sample(frame)
+def test_a_drifted_dump_raises_naming_both_numbers_and_the_surface():
+    # Until Plan 12 this printed "WARNING" and wrote the parquet anyway; every
+    # Stage 3 and 4 report would then have sat on a baseline Plan 5 never
+    # published, with the first raise one plan later in distill_report.
+    with pytest.raises(ValueError) as excinfo:
+        check_reproduction(0.8531, 0.8519, label="fold 0")
+    message = str(excinfo.value)
+    assert "0.8531" in message and "0.8519" in message and "fold 0" in message
+
+
+def test_the_published_numbers_are_the_three_surfaces_a_dump_reproduces():
+    assert PUBLISHED == {"fold 0": 0.8519, "test": 0.8579, "out-of-fold": 0.8534}
+
+
+def test_the_dead_out_of_sample_filter_is_gone():
+    import src.stage2_scores as module
+
+    assert not hasattr(module, "require_out_of_sample")
 
 
 def test_load_stage2_rejects_an_unknown_split(tmp_path):
@@ -213,7 +212,6 @@ def test_no_fold_is_scored_by_a_model_that_trained_on_it(monkeypatch):
 def test_every_out_of_fold_row_is_out_of_sample():
     out = out_of_fold_scores(_frame(), features=FEATURES)
     assert not out["in_sample"].any()
-    assert len(require_out_of_sample(out)) == len(out)
 
 
 def test_out_of_fold_scores_are_not_the_in_sample_scores():
@@ -334,7 +332,6 @@ def test_the_test_ordering_is_entirely_out_of_sample():
     scores = load_stage2("test")
     assert len(scores) == 181_701
     assert not scores["in_sample"].any()
-    require_out_of_sample(scores)  # must not raise
 
 
 @pytest.mark.data
