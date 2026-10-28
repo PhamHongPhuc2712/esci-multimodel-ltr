@@ -161,6 +161,7 @@ def fine_tune_list(
     seed: int = 0,
     max_updates: int | None = None,
     device: str = "cuda",
+    gradient_checkpointing: bool = True,
 ) -> dict:
     """LoRA SFT on the answer tokens. With `max_updates`, a probe that saves nothing."""
     from src.cross_encoder import configure_allocator
@@ -176,8 +177,9 @@ def fine_tune_list(
         tok.pad_token = tok.eos_token
     model = AutoModelForCausalLM.from_pretrained(backbone, dtype=torch.bfloat16).to(device)
     model.config.use_cache = False
-    model.gradient_checkpointing_enable()
-    model.enable_input_require_grads()
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+        model.enable_input_require_grads()
     model = get_peft_model(model, LoraConfig(
         r=lora_rank, lora_alpha=2 * lora_rank, lora_dropout=0.05,
         target_modules="all-linear", task_type="CAUSAL_LM",
@@ -238,7 +240,9 @@ def fine_tune_list(
         "n_windows": len(encoded), "updates": updates, "minutes": minutes,
         "updates_per_second": per_second,
         "projected_epoch_hours": epoch_updates / per_second / 3600 if per_second else None,
-        "peak_reserved_gb": torch.cuda.max_memory_reserved() / 2**30, "seed": seed,
+        "peak_reserved_gb": torch.cuda.max_memory_reserved() / 2**30,
+        "gradient_checkpointing": gradient_checkpointing,
+        "device_name": torch.cuda.get_device_name(), "seed": seed,
     }
     if max_updates is not None:
         return record
@@ -279,6 +283,8 @@ def _main() -> int:
     train.add_argument("--grad-accum", type=int, default=4)
     train.add_argument("--epochs", type=int, default=1)
     train.add_argument("--probe", type=int, default=None)
+    train.add_argument("--no-gradient-checkpointing", action="store_true",
+                       help="keep activations: faster, for a card with memory to spare")
     args = parser.parse_args()
 
     matrix = pd.read_parquet("data/features/train.parquet",
@@ -294,6 +300,7 @@ def _main() -> int:
         examples, out_dir=args.out, backbone=args.backbone,
         batch_size=args.batch_size, grad_accum=args.grad_accum,
         epochs=args.epochs, max_updates=args.probe,
+        gradient_checkpointing=not args.no_gradient_checkpointing,
     )
     print(json.dumps(record, indent=2))
     return 0

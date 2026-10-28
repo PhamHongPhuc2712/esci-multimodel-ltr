@@ -227,6 +227,8 @@ def point_record(
     minutes: float,
     peak_reserved_gb: float,
     seed: int,
+    gradient_checkpointing: bool = True,
+    device_name: str | None = None,
 ) -> dict:
     """What trained a pointwise arm, and what a full epoch would take at this pace."""
     pairs_per_update = batch_size * grad_accum
@@ -252,6 +254,8 @@ def point_record(
             epoch_updates / updates_per_second / 3600 if updates_per_second else None
         ),
         "peak_reserved_gb": peak_reserved_gb,
+        "gradient_checkpointing": gradient_checkpointing,
+        "device_name": device_name,
         "seed": seed,
     }
 
@@ -272,6 +276,7 @@ def fine_tune_point(
     seed: int = 0,
     max_updates: int | None = None,
     device: str = "cuda",
+    gradient_checkpointing: bool = True,
 ) -> dict:
     """Train on folds 2/3/4 and save. With `max_updates`, a probe that saves nothing."""
     from src.cross_encoder import check_training_folds, configure_allocator, pairwise_dataset
@@ -290,7 +295,10 @@ def fine_tune_point(
         backbone, dtype=torch.bfloat16 if lora_rank else torch.float32
     ).to(device)
     model.config.use_cache = False
-    model.gradient_checkpointing_enable()
+    if gradient_checkpointing:
+        # Recomputes activations in backward: what lets 16 GB fit, at about a
+        # third more compute. A card with the memory to spare turns it off.
+        model.gradient_checkpointing_enable()
     if lora_rank:
         from peft import LoraConfig, get_peft_model
 
@@ -361,6 +369,8 @@ def fine_tune_point(
         n_queries=int(matrix["query_id"].nunique()), n_pairs=len(targets),
         updates=updates, minutes=(time.time() - started) / 60,
         peak_reserved_gb=torch.cuda.max_memory_reserved() / 2**30, seed=seed,
+        gradient_checkpointing=gradient_checkpointing,
+        device_name=torch.cuda.get_device_name(),
     )
     if max_updates is not None:
         return record
@@ -394,6 +404,7 @@ def _train_command(args) -> int:
         max_length=args.max_length, batch_size=args.batch_size,
         grad_accum=args.grad_accum, epochs=args.epochs, lora_rank=args.lora_rank,
         max_updates=args.probe,
+        gradient_checkpointing=not args.no_gradient_checkpointing,
     )
     print(json.dumps(record, indent=2))
     return 0
@@ -487,6 +498,8 @@ def _main() -> int:
     train.add_argument("--grad-accum", type=int, default=1)
     train.add_argument("--epochs", type=int, default=1)
     train.add_argument("--max-length", type=int, default=DEFAULT_MAX_LENGTH)
+    train.add_argument("--no-gradient-checkpointing", action="store_true",
+                       help="keep activations: faster, for a card with memory to spare")
     train.add_argument("--probe", type=int, default=None,
                        help="stop after N updates, report memory and pace, save nothing")
     args = parser.parse_args()

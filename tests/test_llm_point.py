@@ -182,3 +182,26 @@ def test_point_record_reports_pairs_per_update_and_the_projection():
     assert record["updates_per_second"] == pytest.approx(10 / 60)
     # 3,200 pairs / 16 per update = 200 updates an epoch at 1/6 per second.
     assert record["projected_epoch_hours"] == pytest.approx(200 / (10 / 60) / 3600)
+
+
+def test_point_record_names_the_device_and_the_checkpointing():
+    # A run on a rented A100 without checkpointing must say so; the
+    # recipe is the same, the pace is not comparable with the laptop's.
+    record = point_record(
+        backbone="b", lora_rank=None, batch_size=16, grad_accum=1, epochs=1,
+        learning_rate=1e-5, max_length=256, n_queries=1, n_pairs=16,
+        updates=1, minutes=1.0, peak_reserved_gb=1.0, seed=0,
+        gradient_checkpointing=False, device_name="NVIDIA A100 80GB PCIe",
+    )
+    assert record["gradient_checkpointing"] is False
+    assert record["device_name"] == "NVIDIA A100 80GB PCIe"
+
+
+def test_point_record_defaults_to_checkpointing_on():
+    record = point_record(
+        backbone="b", lora_rank=None, batch_size=16, grad_accum=1, epochs=1,
+        learning_rate=1e-5, max_length=256, n_queries=1, n_pairs=16,
+        updates=1, minutes=1.0, peak_reserved_gb=1.0, seed=0,
+    )
+    assert record["gradient_checkpointing"] is True
+    assert record["device_name"] is None
