@@ -214,7 +214,7 @@ def fine_tune_list(
         if not torch.isfinite(loss):
             raise FloatingPointError(f"non-finite loss at step {step}")
         (loss / grad_accum).backward()
-        running += float(loss)
+        running += float(loss.detach())
         if (step + 1) % grad_accum == 0:
             update()
             updates += 1
