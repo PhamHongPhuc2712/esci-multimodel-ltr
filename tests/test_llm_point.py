@@ -5,6 +5,10 @@ import math
 import pytest
 
 from src.llm_point import (
+    fine_tune_point,
+    iterate_batches,
+    point_record,
+    point_targets,
     SUFFIX,
     collate_left,
     encode_pair,
@@ -135,3 +139,46 @@ def test_truncation_share_counts_pairs_whose_document_was_cut():
     long_doc = " ".join(f"w{i}" for i in range(500))
     pairs = [("shoes", "short"), ("shoes", long_doc), ("shoes", "also short")]
     assert truncation_share(tok, pairs, max_length=200) == pytest.approx(1 / 3)
+
+
+# --- Task 4: the pointwise fine-tune -------------------------------------------
+
+import pandas as pd
+
+
+def test_point_targets_are_the_gains():
+    assert point_targets([1.0, 0.1, 0.01, 0.0]) == [1.0, 0.1, 0.01, 0.0]
+
+
+def test_point_targets_refuse_a_gain_outside_zero_one():
+    with pytest.raises(ValueError, match="gain"):
+        point_targets([1.0, 100.0])
+
+
+def test_point_fine_tune_refuses_fold_zero():
+    matrix = pd.DataFrame({"query_id": ["1"], "product_id": ["a"], "gain": [1.0], "fold": [0]})
+    with pytest.raises(ValueError):
+        fine_tune_point(matrix, {"1": "q"}, {"a": "d"}, out_dir="unused")
+
+
+def test_batches_cover_every_row_once_per_epoch():
+    batches = iterate_batches(10, 3, seed=0)
+    assert sorted(i for b in batches for i in b) == list(range(10))
+    assert [len(b) for b in batches] == [3, 3, 3, 1]
+
+
+def test_batches_are_reproducible_for_a_seed():
+    assert iterate_batches(50, 8, seed=1) == iterate_batches(50, 8, seed=1)
+    assert iterate_batches(50, 8, seed=1) != iterate_batches(50, 8, seed=2)
+
+
+def test_point_record_reports_pairs_per_update_and_the_projection():
+    record = point_record(
+        backbone="b", lora_rank=None, batch_size=8, grad_accum=2, epochs=1,
+        learning_rate=1e-5, max_length=256, n_queries=10, n_pairs=3200,
+        updates=10, minutes=1.0, peak_reserved_gb=12.0, seed=0,
+    )
+    assert record["pairs_per_update"] == 16
+    assert record["updates_per_second"] == pytest.approx(10 / 60)
+    # 3,200 pairs / 16 per update = 200 updates an epoch at 1/6 per second.
+    assert record["projected_epoch_hours"] == pytest.approx(200 / (10 / 60) / 3600)

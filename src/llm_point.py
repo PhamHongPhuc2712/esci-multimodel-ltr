@@ -17,8 +17,12 @@ Two properties the rest of Plan 13 depends on:
 
 from __future__ import annotations
 
+import json
 import math
+import time
 from collections.abc import Mapping, Sequence
+
+from pathlib import Path
 
 from src.cross_encoder import _lookup
 
@@ -181,6 +185,220 @@ def load_point_model(path: str, *, device: str = "cuda", dtype: str = "bfloat16"
     return model, tokenizer
 
 
+# --- the fine-tune --------------------------------------------------------------
+
+FULL_LR = 1e-5
+LORA_LR = 1e-4
+LOG_EVERY = 200
+
+
+def point_targets(gains: Sequence[float]) -> list[float]:
+    """ESCI's gains as soft targets for P("yes"). They must already lie in [0, 1]."""
+    targets = [float(g) for g in gains]
+    bad = [g for g in targets if not 0.0 <= g <= 1.0]
+    if bad:
+        raise ValueError(
+            f"gain {bad[0]} is outside [0, 1]; pass the 1.0/0.1/0.01/0.0 gains, "
+            "not the integer qrels"
+        )
+    return targets
+
+
+def iterate_batches(n: int, batch_size: int, seed: int) -> list[list[int]]:
+    """Row indices for one epoch, shuffled by `seed`, in batches."""
+    import numpy as np
+
+    order = np.random.default_rng(seed).permutation(n)
+    return [order[i : i + batch_size].tolist() for i in range(0, n, batch_size)]
+
+
+def point_record(
+    *,
+    backbone: str,
+    lora_rank: int | None,
+    batch_size: int,
+    grad_accum: int,
+    epochs: int,
+    learning_rate: float,
+    max_length: int,
+    n_queries: int,
+    n_pairs: int,
+    updates: int,
+    minutes: float,
+    peak_reserved_gb: float,
+    seed: int,
+) -> dict:
+    """What trained a pointwise arm, and what a full epoch would take at this pace."""
+    pairs_per_update = batch_size * grad_accum
+    updates_per_second = updates / (minutes * 60) if minutes > 0 else 0.0
+    epoch_updates = math.ceil(n_pairs / pairs_per_update)
+    return {
+        "style": "pointwise",
+        "backbone": backbone,
+        "lora_rank": lora_rank,
+        "loss": "BCEWithLogits on logit(yes) - logit(no), gain as soft target",
+        "batch_size": batch_size,
+        "grad_accum": grad_accum,
+        "pairs_per_update": pairs_per_update,
+        "epochs": epochs,
+        "learning_rate": learning_rate,
+        "max_length": max_length,
+        "n_queries": n_queries,
+        "n_pairs": n_pairs,
+        "updates": updates,
+        "minutes": minutes,
+        "updates_per_second": updates_per_second,
+        "projected_epoch_hours": (
+            epoch_updates / updates_per_second / 3600 if updates_per_second else None
+        ),
+        "peak_reserved_gb": peak_reserved_gb,
+        "seed": seed,
+    }
+
+
+def fine_tune_point(
+    matrix,
+    query_text: Mapping,
+    doc_text: Mapping,
+    *,
+    out_dir,
+    backbone: str = DEFAULT_BACKBONE,
+    max_length: int = DEFAULT_MAX_LENGTH,
+    batch_size: int = 16,
+    grad_accum: int = 1,
+    epochs: int = 1,
+    learning_rate: float | None = None,
+    lora_rank: int | None = None,
+    seed: int = 0,
+    max_updates: int | None = None,
+    device: str = "cuda",
+) -> dict:
+    """Train on folds 2/3/4 and save. With `max_updates`, a probe that saves nothing."""
+    from src.cross_encoder import check_training_folds, configure_allocator, pairwise_dataset
+
+    check_training_folds(matrix)
+    configure_allocator()
+
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer, get_linear_schedule_with_warmup
+
+    lr = learning_rate if learning_rate is not None else (LORA_LR if lora_rank else FULL_LR)
+    torch.manual_seed(seed)
+    tok = AutoTokenizer.from_pretrained(backbone, padding_side="left")
+    yes, no = yes_no_ids(tok)
+    model = AutoModelForCausalLM.from_pretrained(
+        backbone, dtype=torch.bfloat16 if lora_rank else torch.float32
+    ).to(device)
+    model.config.use_cache = False
+    model.gradient_checkpointing_enable()
+    if lora_rank:
+        from peft import LoraConfig, get_peft_model
+
+        model.enable_input_require_grads()
+        model = get_peft_model(model, LoraConfig(
+            r=lora_rank, lora_alpha=2 * lora_rank, lora_dropout=0.05,
+            target_modules="all-linear", task_type="CAUSAL_LM",
+        ))
+
+    data = pairwise_dataset(matrix, query_text, doc_text)
+    targets = point_targets(data["label"])
+    batches = [
+        b for epoch in range(epochs) for b in iterate_batches(len(targets), batch_size, seed + epoch)
+    ]
+    total_updates = math.ceil(len(batches) / grad_accum)
+    if max_updates is not None:
+        total_updates = min(total_updates, max_updates)
+        batches = batches[: total_updates * grad_accum]
+
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=0.0)
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, max(1, int(0.05 * total_updates)), total_updates
+    )
+    loss_fn = torch.nn.BCEWithLogitsLoss()
+
+    def update() -> None:
+        torch.nn.utils.clip_grad_norm_(params, 1.0)
+        optimizer.step()
+        scheduler.step()
+        optimizer.zero_grad(set_to_none=True)
+
+    torch.cuda.reset_peak_memory_stats()
+    model.train()
+    started = time.time()
+    running, updates = 0.0, 0
+    for step, batch in enumerate(batches):
+        ids, mask = collate_left(
+            [encode_pair(tok, data["query"][i], data["doc"][i], max_length)[0] for i in batch],
+            tok.pad_token_id,
+        )
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            logits = model(
+                input_ids=torch.tensor(ids, device=device),
+                attention_mask=torch.tensor(mask, device=device),
+                logits_to_keep=1,
+            ).logits[:, -1, :]
+        z = (logits[:, yes] - logits[:, no]).float()
+        loss = loss_fn(z, torch.tensor([targets[i] for i in batch], device=device))
+        if not torch.isfinite(loss):
+            raise FloatingPointError(f"non-finite loss at step {step}")
+        (loss / grad_accum).backward()
+        running += float(loss)
+        if (step + 1) % grad_accum == 0:
+            update()
+            updates += 1
+            if updates % LOG_EVERY == 0:
+                print(f"  update {updates:,}/{total_updates:,}  "
+                      f"loss {running / (LOG_EVERY * grad_accum):.4f}", flush=True)
+                running = 0.0
+    if len(batches) % grad_accum:
+        update()
+        updates += 1
+
+    record = point_record(
+        backbone=backbone, lora_rank=lora_rank, batch_size=batch_size,
+        grad_accum=grad_accum, epochs=epochs, learning_rate=lr, max_length=max_length,
+        n_queries=int(matrix["query_id"].nunique()), n_pairs=len(targets),
+        updates=updates, minutes=(time.time() - started) / 60,
+        peak_reserved_gb=torch.cuda.max_memory_reserved() / 2**30, seed=seed,
+    )
+    if max_updates is not None:
+        return record
+
+    if lora_rank:
+        model = model.merge_and_unload()
+    target = Path(out_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    model.to(torch.bfloat16).save_pretrained(target)
+    tok.save_pretrained(target)
+    (target / "training.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return record
+
+
+def _train_command(args) -> int:
+    import pandas as pd
+
+    from src.cross_encoder import check_training_folds, text_maps
+    from src.ranker import TRAIN_FOLDS
+
+    matrix = pd.read_parquet("data/features/train.parquet",
+                             columns=["query_id", "product_id", "gain", "fold"])
+    matrix = matrix.loc[matrix["fold"].isin(TRAIN_FOLDS)].reset_index(drop=True)
+    check_training_folds(matrix)
+    query_text, doc_text = text_maps(
+        matrix, Path("data/combined/products.parquet"),
+        Path("data/combined/judgements.parquet"),
+    )
+    record = fine_tune_point(
+        matrix, query_text, doc_text, out_dir=args.out, backbone=args.backbone,
+        max_length=args.max_length, batch_size=args.batch_size,
+        grad_accum=args.grad_accum, epochs=args.epochs, lora_rank=args.lora_rank,
+        max_updates=args.probe,
+    )
+    print(json.dumps(record, indent=2))
+    return 0
+
+
 def truncation_share(tokenizer, pairs: Sequence[tuple[str, str]], max_length: int) -> float:
     """The share of pairs whose document `encode_pair` had to cut."""
     if not pairs:
@@ -261,7 +479,19 @@ def _main() -> int:
     score.add_argument("--model", default=DEFAULT_BACKBONE)
     score.add_argument("--max-length", type=int, default=DEFAULT_MAX_LENGTH)
     score.add_argument("--batch-size", type=int, default=32)
+    train = sub.add_parser("train", help="fine-tune on folds 2/3/4, or probe with --probe N")
+    train.add_argument("--out", default="models/llm-rank/point-0.6b")
+    train.add_argument("--backbone", default=DEFAULT_BACKBONE)
+    train.add_argument("--lora-rank", type=int, default=None)
+    train.add_argument("--batch-size", type=int, default=16)
+    train.add_argument("--grad-accum", type=int, default=1)
+    train.add_argument("--epochs", type=int, default=1)
+    train.add_argument("--max-length", type=int, default=DEFAULT_MAX_LENGTH)
+    train.add_argument("--probe", type=int, default=None,
+                       help="stop after N updates, report memory and pace, save nothing")
     args = parser.parse_args()
+    if args.command == "train":
+        return _train_command(args)
     if args.command == "score":
         return _score_command(args)
     return 1
