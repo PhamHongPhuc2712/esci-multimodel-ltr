@@ -11,6 +11,7 @@ from src.llm_point import (
     order_by_scores,
     p_yes,
     query_prefix,
+    truncation_share,
     yes_no_ids,
 )
 
@@ -127,3 +128,10 @@ def test_the_real_reranker_prefers_the_matching_product():
         ("red running shoes for women", "Stainless Steel Kitchen Sink Strainer"),
     ])
     assert match > 0.5 > other
+
+
+def test_truncation_share_counts_pairs_whose_document_was_cut():
+    tok = WordTokenizer()
+    long_doc = " ".join(f"w{i}" for i in range(500))
+    pairs = [("shoes", "short"), ("shoes", long_doc), ("shoes", "also short")]
+    assert truncation_share(tok, pairs, max_length=200) == pytest.approx(1 / 3)

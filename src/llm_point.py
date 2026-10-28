@@ -179,3 +179,93 @@ def load_point_model(path: str, *, device: str = "cuda", dtype: str = "bfloat16"
         path, dtype=getattr(torch, dtype)
     ).to(device)
     return model, tokenizer
+
+
+def truncation_share(tokenizer, pairs: Sequence[tuple[str, str]], max_length: int) -> float:
+    """The share of pairs whose document `encode_pair` had to cut."""
+    if not pairs:
+        raise ValueError("no pairs")
+    cut = sum(encode_pair(tokenizer, q, d, max_length)[1] for q, d in pairs)
+    return cut / len(pairs)
+
+
+def _score_command(args) -> int:
+    from pathlib import Path
+
+    import pandas as pd
+
+    from src.blend_report import per_query_ndcg
+    from src.cross_encoder import text_maps
+    from src.latency_profile import time_single_queries
+    from src.rank_report import qrels_from_frame
+    from src.stage_signals import scope_windows
+
+    windows_, matrix = scope_windows("fold0")
+    warmup_windows, warmup_matrix = warmup_scope()
+    both = pd.concat([matrix, warmup_matrix], ignore_index=True)
+    query_text, doc_text = text_maps(
+        both, Path("data/combined/products.parquet"),
+        Path("data/combined/judgements.parquet"),
+    )
+    query_text = {str(k): v for k, v in query_text.items()}
+    qrels = qrels_from_frame(matrix)
+
+    model, tok = load_point_model(args.model)
+    pairs = [(query_text[w.query_id], doc_text[d]) for w in windows_ for d in w.window]
+    share = truncation_share(tok, pairs, args.max_length)
+    orderings = rerank_point(model, tok, windows_, query_text, doc_text,
+                             max_length=args.max_length, batch_size=args.batch_size)
+    per_query = per_query_ndcg(orderings, windows_, qrels)
+    ndcg = sum(per_query.values()) / len(per_query)
+
+    def one(w):
+        rerank_point(model, tok, [w], query_text, doc_text,
+                     max_length=args.max_length, batch_size=len(w.window))
+
+    latency = time_single_queries(one, windows_[:200], warmup=warmup_windows[:20],
+                                  runtime="hf", precision="bf16")
+    print(f"{args.model}: fold-0 NDCG {ndcg:.4f} over {len(per_query):,} queries")
+    print(f"  {share:.1%} of {len(pairs):,} pairs truncated at {args.max_length} tokens")
+    print(f"  single query: mean {latency.mean_ms:.1f} ms, p50 {latency.p50_ms:.1f}, "
+          f"p95 {latency.p95_ms:.1f}")
+    return 0
+
+
+def warmup_scope() -> tuple[list, "pd.DataFrame"]:
+    """Fold-1 windows and their rows, for warm-up only: never scored, never timed.
+
+    Fold 1 is the early-stop fold. Nothing in Plan 13 is selected on it, so
+    running a model over a few of its queries to warm the GPU touches no
+    surface any number is reported on.
+    """
+    import pandas as pd
+
+    from src.ranker import EARLY_STOP_FOLD
+    from src.rerank_window import windows
+    from src.stage2_scores import load_stage2
+
+    matrix = pd.read_parquet("data/features/train.parquet")
+    matrix = matrix.loc[matrix["fold"] == EARLY_STOP_FOLD].reset_index(drop=True)
+    joined = matrix[["query_id", "product_id"]].merge(
+        load_stage2("train"), on=["query_id", "product_id"]
+    )
+    return windows(joined), matrix
+
+
+def _main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    score = sub.add_parser("score", help="fold-0 NDCG, truncation and latency for one model")
+    score.add_argument("--model", default=DEFAULT_BACKBONE)
+    score.add_argument("--max-length", type=int, default=DEFAULT_MAX_LENGTH)
+    score.add_argument("--batch-size", type=int, default=32)
+    args = parser.parse_args()
+    if args.command == "score":
+        return _score_command(args)
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())
