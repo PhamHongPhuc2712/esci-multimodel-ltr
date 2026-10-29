@@ -1,0 +1,112 @@
+{
+  "served_name": "point",
+  "model_dir": "models/llm-rank/point-4b",
+  "kind": "point",
+  "precision": "w8a8",
+  "server_flags": "VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve models/llm-rank/point-4b-w8a8 --served-model-name point --max-model-len 512 --gpu-memory-utilization 0.85 --port 8000 --enable-prefix-caching",
+  "device": "NVIDIA RTX A6000",
+  "vllm": "0.31.0",
+  "prefix_cache_hits_at_start": 0.0,
+  "rates": [
+    {
+      "rate": 1,
+      "n": 147,
+      "n_ok": 147,
+      "n_err": 0,
+      "error_share": 0.0,
+      "seconds": 149.78231952699934,
+      "achieved_qps": 0.9814242459604999,
+      "latency": {
+        "n": 147,
+        "mean_ms": 133.62779862328185,
+        "p50_ms": 128.55462472725776,
+        "p95_ms": 169.0794803780591,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w8a8"
+      }
+    },
+    {
+      "rate": 2,
+      "n": 152,
+      "n_ok": 152,
+      "n_err": 0,
+      "error_share": 0.0,
+      "seconds": 75.04700276099902,
+      "achieved_qps": 2.0253973431033874,
+      "latency": {
+        "n": 152,
+        "mean_ms": 142.39624717239215,
+        "p50_ms": 131.66486445697956,
+        "p95_ms": 222.84033236610412,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w8a8"
+      }
+    },
+    {
+      "rate": 4,
+      "n": 226,
+      "n_ok": 226,
+      "n_err": 0,
+      "error_share": 0.0,
+      "seconds": 59.09426035499928,
+      "achieved_qps": 3.8243984888268554,
+      "latency": {
+        "n": 226,
+        "mean_ms": 137.82394267739224,
+        "p50_ms": 129.51723772312107,
+        "p95_ms": 204.44019502247102,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w8a8"
+      }
+    },
+    {
+      "rate": 8,
+      "n": 490,
+      "n_ok": 490,
+      "n_err": 0,
+      "error_share": 0.0,
+      "seconds": 60.08640911799921,
+      "achieved_qps": 8.15492233922193,
+      "latency": {
+        "n": 490,
+        "mean_ms": 209.9081117410346,
+        "p50_ms": 169.53950301831355,
+        "p95_ms": 439.0776842756168,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w8a8"
+      }
+    },
+    {
+      "rate": 16,
+      "n": 983,
+      "n_ok": 983,
+      "n_err": 0,
+      "error_share": 0.0,
+      "seconds": 77.61232260899851,
+      "achieved_qps": 12.665514533719536,
+      "latency": {
+        "n": 983,
+        "mean_ms": 8776.658154338442,
+        "p50_ms": 9197.080572514096,
+        "p95_ms": 16229.240168597244,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w8a8"
+      }
+    }
+  ],
+  "slo_p95_ms": 300.0,
+  "max_rate_under_slo": 4,
+  "cost_per_1k_queries_usd": 0.02777777777777778,
+  "cost_basis": {
+    "gpu_usd_per_hour": 0.4,
+    "source": "gpu.ai on-demand RTX A6000, Canada, $0.40/hr as shown in the launch console on 2026-10-30",
+    "note": "throughput measured on NVIDIA RTX A6000; the rate prices that card"
+  },
+  "imputed_answers": 8,
+  "malformed_answers": 0
+}

@@ -1,0 +1,234 @@
+{
+  "rungs": {
+    "hf_bf16_batched": {
+      "runtime": "hf",
+      "precision": "bf16",
+      "model_dir": "models/llm-rank/point-4b",
+      "kind": "point",
+      "server_flags": "",
+      "versions": {
+        "torch": "2.13.0+cu126",
+        "transformers": "5.17.0"
+      },
+      "device": "NVIDIA RTX A6000",
+      "latency": {
+        "n": 200,
+        "mean_ms": 276.9998580249809,
+        "p50_ms": 277.2559589998309,
+        "p95_ms": 281.8098259999715,
+        "p99_ms": null,
+        "runtime": "hf",
+        "precision": "bf16"
+      },
+      "throughput_qps": 3.8543747526111134,
+      "ndcg": {
+        "point": 0.8808291616105153,
+        "low": 0.8761329937888687,
+        "high": 0.8852974742346239
+      },
+      "n_queries": 4130,
+      "delta_vs_reference": null,
+      "lossless": true
+    },
+    "hf_bf16_loop": {
+      "runtime": "hf",
+      "precision": "bf16",
+      "model_dir": "models/llm-rank/point-4b",
+      "kind": "point",
+      "server_flags": "",
+      "versions": {
+        "torch": "2.13.0+cu126",
+        "transformers": "5.17.0"
+      },
+      "device": "NVIDIA RTX A6000",
+      "latency": {
+        "n": 200,
+        "mean_ms": 752.4147033800068,
+        "p50_ms": 750.7260839997798,
+        "p95_ms": 772.7006559998699,
+        "p99_ms": null,
+        "runtime": "hf",
+        "precision": "bf16"
+      },
+      "throughput_qps": 1.2182641613315357,
+      "ndcg": {
+        "point": 0.8807808825827592,
+        "low": 0.8760428459297668,
+        "high": 0.8852179965773898
+      },
+      "n_queries": 4130,
+      "delta_vs_reference": {
+        "point": -4.8279027756031566e-05,
+        "low": -0.0006163864113428292,
+        "high": 0.00048023816491484666
+      },
+      "lossless": true
+    },
+    "vllm_bf16": {
+      "runtime": "vllm",
+      "precision": "bf16",
+      "model_dir": "models/llm-rank/point-4b",
+      "kind": "point",
+      "server_flags": "VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve models/llm-rank/point-4b --served-model-name point --dtype bfloat16 --max-model-len 512 --gpu-memory-utilization 0.85 --port 8000 --no-enable-prefix-caching",
+      "versions": {
+        "vllm": "0.31.0"
+      },
+      "device": "NVIDIA RTX A6000",
+      "latency": {
+        "n": 200,
+        "mean_ms": 201.0131258400088,
+        "p50_ms": 203.54132300053607,
+        "p95_ms": 216.37797200128261,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "bf16"
+      },
+      "throughput_qps": 6.629119301913115,
+      "ndcg": {
+        "point": 0.8804670097713035,
+        "low": 0.8758156781701804,
+        "high": 0.8849335447312762
+      },
+      "n_queries": 4130,
+      "delta_vs_reference": {
+        "point": -0.0003621518392117096,
+        "low": -0.0009439889096718324,
+        "high": 0.00020078858378278565
+      },
+      "lossless": true,
+      "imputed_answers": 25,
+      "malformed_answers": 0
+    },
+    "vllm_bf16_prefix": {
+      "runtime": "vllm",
+      "precision": "bf16",
+      "model_dir": "models/llm-rank/point-4b",
+      "kind": "point",
+      "server_flags": "VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve models/llm-rank/point-4b --served-model-name point --dtype bfloat16 --max-model-len 512 --gpu-memory-utilization 0.85 --port 8000 --enable-prefix-caching",
+      "versions": {
+        "vllm": "0.31.0"
+      },
+      "device": "NVIDIA RTX A6000",
+      "latency": {
+        "n": 200,
+        "mean_ms": 161.00737186499828,
+        "p50_ms": 163.62450000087847,
+        "p95_ms": 180.75773199961986,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "bf16"
+      },
+      "throughput_qps": 9.545959086449924,
+      "ndcg": {
+        "point": 0.8805681958402644,
+        "low": 0.8757724899940381,
+        "high": 0.8850201524516936
+      },
+      "n_queries": 4130,
+      "delta_vs_reference": {
+        "point": -0.0002609657702509087,
+        "low": -0.0008414968470226165,
+        "high": 0.00032907726691558755
+      },
+      "lossless": true,
+      "imputed_answers": 23,
+      "malformed_answers": 0
+    },
+    "vllm_w8a8_prefix": {
+      "runtime": "vllm",
+      "precision": "w8a8",
+      "model_dir": "models/llm-rank/point-4b",
+      "kind": "point",
+      "server_flags": "VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve models/llm-rank/point-4b-w8a8 --served-model-name point --max-model-len 512 --gpu-memory-utilization 0.85 --port 8000 --enable-prefix-caching",
+      "versions": {
+        "vllm": "0.31.0"
+      },
+      "device": "NVIDIA RTX A6000",
+      "latency": {
+        "n": 200,
+        "mean_ms": 126.51091467996594,
+        "p50_ms": 125.68468899917207,
+        "p95_ms": 145.95274299972516,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w8a8"
+      },
+      "throughput_qps": 12.730620374763907,
+      "ndcg": {
+        "point": 0.8803393397960734,
+        "low": 0.8757441400833974,
+        "high": 0.8845762947980367
+      },
+      "n_queries": 4130,
+      "delta_vs_reference": {
+        "point": -0.000489821814441982,
+        "low": -0.001485828735528125,
+        "high": 0.0004978335977789333
+      },
+      "lossless": true,
+      "imputed_answers": 9,
+      "malformed_answers": 0
+    },
+    "vllm_w4a16_prefix": {
+      "runtime": "vllm",
+      "precision": "w4a16",
+      "model_dir": "models/llm-rank/point-4b",
+      "kind": "point",
+      "server_flags": "VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve models/llm-rank/point-4b-w4a16 --served-model-name point --max-model-len 512 --gpu-memory-utilization 0.85 --port 8000 --enable-prefix-caching",
+      "versions": {
+        "vllm": "0.31.0"
+      },
+      "device": "NVIDIA RTX A6000",
+      "latency": {
+        "n": 200,
+        "mean_ms": 165.7994304600379,
+        "p50_ms": 167.9075189986179,
+        "p95_ms": 191.24556800124992,
+        "p99_ms": null,
+        "runtime": "vllm",
+        "precision": "w4a16"
+      },
+      "throughput_qps": 8.853323583374932,
+      "ndcg": {
+        "point": 0.8804903428010761,
+        "low": 0.8759120659430153,
+        "high": 0.8848725528498297
+      },
+      "n_queries": 4130,
+      "delta_vs_reference": {
+        "point": -0.0003388188094391189,
+        "low": -0.0015164596439881512,
+        "high": 0.0007436340758091545
+      },
+      "lossless": true,
+      "imputed_answers": 14,
+      "malformed_answers": 0
+    }
+  },
+  "deployed_rung": "vllm_w8a8_prefix",
+  "test_quality": {
+    "hf_bf16_batched": {
+      "ndcg": {
+        "point": 0.8847614460992245,
+        "low": 0.8819850674188127,
+        "high": 0.8877477064482486
+      },
+      "n_queries": 8956,
+      "device": "NVIDIA RTX A6000"
+    },
+    "vllm_w8a8_prefix": {
+      "ndcg": {
+        "point": 0.884334394421738,
+        "low": 0.881485079060314,
+        "high": 0.8871609967110705
+      },
+      "n_queries": 8956,
+      "device": "NVIDIA RTX A6000",
+      "delta_vs_reference": {
+        "point": -0.0004270516774863741,
+        "low": -0.0011701290942166189,
+        "high": 0.0002987097866738009
+      }
+    }
+  }
+}
