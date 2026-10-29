@@ -1,0 +1,546 @@
+{
+  "split": "test",
+  "n_queries": 8956,
+  "floor": {
+    "mean": 0.7467608255561118,
+    "low": 0.7448155391132996,
+    "high": 0.7487712838912295
+  },
+  "max_length": 256,
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8578682470296148,
+        "low": 0.8551287484668764,
+        "high": 0.8611095126231372
+      },
+      "lift_over_floor": {
+        "point": 0.11110742147350447,
+        "low": 0.10846836145759652,
+        "high": 0.11420653928567004
+      },
+      "latency": null
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8615798841565212,
+        "low": 0.8587866001079116,
+        "high": 0.8646633825474216
+      },
+      "lift_over_floor": {
+        "point": 0.11481905860041068,
+        "low": 0.11212428256675679,
+        "high": 0.11770258030835672
+      },
+      "latency": null
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8855121449084249,
+        "low": 0.8827036280052853,
+        "high": 0.8882521209733497
+      },
+      "lift_over_floor": {
+        "point": 0.1387513193523145,
+        "low": 0.13583808290429514,
+        "high": 0.14205268752862443
+      },
+      "latency": null
+    },
+    {
+      "name": "stage2+ce_bge_groups",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8711024658327957,
+        "low": 0.8681363832570799,
+        "high": 0.8742309394550516
+      },
+      "lift_over_floor": {
+        "point": 0.12434164027668543,
+        "low": 0.1215695873906992,
+        "high": 0.12735852553695096
+      },
+      "latency": {
+        "fp32": {
+          "n": 200,
+          "mean_ms": 36.787153394907364,
+          "p50_ms": 35.372490994632244,
+          "p95_ms": 46.20585500379093,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp32"
+        },
+        "fp16": {
+          "n": 200,
+          "mean_ms": 26.32667922996916,
+          "p50_ms": 25.476299997535534,
+          "p95_ms": 31.57747400109656,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp16"
+        }
+      }
+    },
+    {
+      "name": "stage2+ce_bge_large",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8769528660134382,
+        "low": 0.8741934155739868,
+        "high": 0.8800550420185981
+      },
+      "lift_over_floor": {
+        "point": 0.13019204045732796,
+        "low": 0.12731113645855588,
+        "high": 0.13314351550009418
+      },
+      "latency": {
+        "fp32": {
+          "n": 200,
+          "mean_ms": 89.98622669503675,
+          "p50_ms": 89.94338801130652,
+          "p95_ms": 92.37223899981473,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp32"
+        },
+        "fp16": {
+          "n": 200,
+          "mean_ms": 40.28202908477397,
+          "p50_ms": 39.763797001796775,
+          "p95_ms": 46.08639200159814,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_point_zs",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8570113304728237,
+        "low": 0.8541165722039904,
+        "high": 0.8602062778203523
+      },
+      "lift_over_floor": {
+        "point": 0.11025050491671334,
+        "low": 0.1074956697255568,
+        "high": 0.11305790041956026
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 81.98614958542748,
+          "p50_ms": 81.9768309884239,
+          "p95_ms": 86.6631300013978,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_point",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.87287049524156,
+        "low": 0.8697919841376368,
+        "high": 0.8758961349853883
+      },
+      "lift_over_floor": {
+        "point": 0.12610966968544962,
+        "low": 0.12310062430061634,
+        "high": 0.12916098291514003
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 79.29038239017245,
+          "p50_ms": 78.77378600824159,
+          "p95_ms": 86.97546400071587,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_list",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8640977238173059,
+        "low": 0.8613166673332868,
+        "high": 0.8672101239707894
+      },
+      "lift_over_floor": {
+        "point": 0.11733689826119541,
+        "low": 0.11467459266725148,
+        "high": 0.12051680381050353
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 3315.9186133351614,
+          "p50_ms": 3398.277650005184,
+          "p95_ms": 3451.451621003798,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_point_4b",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 8956,
+      "ndcg": {
+        "point": 0.8847614460992245,
+        "low": 0.8819850674188127,
+        "high": 0.8877477064482486
+      },
+      "lift_over_floor": {
+        "point": 0.13800062054311407,
+        "low": 0.1351056127317527,
+        "high": 0.14117948536105782
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 286.0242284947162,
+          "p50_ms": 286.7452889913693,
+          "p95_ms": 290.21179700794164,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "stage2+qwen_point_zs",
+      "baseline": "stage2",
+      "delta": {
+        "point": -0.0008569165567911418,
+        "low": -0.0031314739557006172,
+        "high": 0.0012464564442764173
+      },
+      "significant": false
+    },
+    {
+      "arm": "stage2+qwen_point_zs",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": -0.019941535540614622,
+        "low": -0.021918787161244884,
+        "high": -0.017967103300132
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_zs",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.028500814435601148,
+        "low": -0.030603324023165977,
+        "high": -0.026403426280778065
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.01500224821194517,
+        "low": 0.012609268495061348,
+        "high": 0.017202489848872078
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": -0.00408237077187831,
+        "low": -0.005683341212742083,
+        "high": -0.0024453024251723703
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.012641649666864839,
+        "low": -0.014693096255090222,
+        "high": -0.010494839581503303
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.006229476787690925,
+        "low": 0.0054007196278648955,
+        "high": 0.006998252047263691
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": -0.012855142196132556,
+        "low": -0.014795809382945732,
+        "high": -0.010755446140094788
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.021414421091119084,
+        "low": -0.023396099802243903,
+        "high": -0.01932039974598899
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0268931990696096,
+        "low": 0.024532750668300265,
+        "high": 0.029198874843289167
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": 0.007808580085786119,
+        "low": 0.006115250660563425,
+        "high": 0.009627207978258442
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0007506988092004104,
+        "low": -0.0024890898071017564,
+        "high": 0.0012605837332833316
+      },
+      "significant": false
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2+qwen_point_zs",
+      "delta": {
+        "point": 0.015859164768736313,
+        "low": 0.013762691593338004,
+        "high": 0.017888172777463435
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2+qwen_point",
+      "delta": {
+        "point": -0.008772771424254245,
+        "low": -0.01083587330177672,
+        "high": -0.006497933053897635
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2+qwen_point",
+      "delta": {
+        "point": 0.011890950857664428,
+        "low": 0.010206897547571491,
+        "high": 0.013647212394599689
+      },
+      "significant": true
+    }
+  ],
+  "precision_checks": {
+    "stage2+ce_bge_groups": {
+      "arm": "stage2+ce_bge_groups@fp16",
+      "baseline": "stage2+ce_bge_groups",
+      "delta": {
+        "point": -1.4327291365382703e-06,
+        "low": -8.124859117305099e-05,
+        "high": 7.201810587750865e-05
+      },
+      "significant": false
+    },
+    "stage2+ce_bge_large": {
+      "arm": "stage2+ce_bge_large@fp16",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": 3.036097623475357e-05,
+        "low": -8.313691372496749e-06,
+        "high": 7.393219365377109e-05
+      },
+      "significant": false
+    }
+  },
+  "malformed_answers": {
+    "stage2+qwen_list": 0
+  },
+  "hosted_llm_latency": {
+    "single_ms": 4712.817490798756,
+    "batched_ms": 1179.1363835334778,
+    "runtime": "hosted API",
+    "precision": "unknown",
+    "source": "docs/results/fine-rank-test.json"
+  },
+  "training": {
+    "stage2+qwen_point": {
+      "style": "pointwise",
+      "backbone": "Qwen/Qwen3-Reranker-0.6B",
+      "lora_rank": null,
+      "loss": "BCEWithLogits on logit(yes) - logit(no), gain as soft target",
+      "batch_size": 16,
+      "grad_accum": 1,
+      "pairs_per_update": 16,
+      "epochs": 1,
+      "learning_rate": 1e-05,
+      "max_length": 256,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "updates": 15656,
+      "minutes": 132.54285188913346,
+      "updates_per_second": 1.968671487102097,
+      "projected_epoch_hours": 2.2090475314855578,
+      "peak_reserved_gb": 18.580078125,
+      "gradient_checkpointing": false,
+      "device_name": "NVIDIA RTX A6000",
+      "seed": 0
+    },
+    "stage2+qwen_list": {
+      "style": "listwise",
+      "backbone": "Qwen/Qwen3-1.7B",
+      "lora_rank": 16,
+      "loss": "causal LM cross-entropy on the answer tokens",
+      "batch_size": 4,
+      "grad_accum": 4,
+      "windows_per_update": 16,
+      "epochs": 1,
+      "learning_rate": 0.0001,
+      "doc_chars": 300,
+      "n_windows": 12519,
+      "updates": 783,
+      "minutes": 75.06143032312393,
+      "updates_per_second": 0.173857598287462,
+      "projected_epoch_hours": 1.2510238387187322,
+      "peak_reserved_gb": 21.724609375,
+      "gradient_checkpointing": true,
+      "device_name": "NVIDIA RTX A6000",
+      "seed": 0
+    },
+    "stage2+qwen_point_4b": {
+      "style": "pointwise",
+      "backbone": "Qwen/Qwen3-Reranker-4B",
+      "lora_rank": 16,
+      "loss": "BCEWithLogits on logit(yes) - logit(no), gain as soft target",
+      "batch_size": 16,
+      "grad_accum": 1,
+      "pairs_per_update": 16,
+      "epochs": 1,
+      "learning_rate": 0.0001,
+      "max_length": 256,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "updates": 15656,
+      "minutes": 418.4176478266716,
+      "updates_per_second": 0.6236193303238114,
+      "projected_epoch_hours": 6.97362746377786,
+      "peak_reserved_gb": 38.806640625,
+      "gradient_checkpointing": false,
+      "device_name": "NVIDIA RTX A6000",
+      "seed": 0
+    }
+  },
+  "models": {
+    "stage2+qwen_point_zs": "Qwen/Qwen3-Reranker-0.6B",
+    "stage2+qwen_point": "models/llm-rank/point-0.6b",
+    "stage2+qwen_list": "models/llm-rank/list-1.7b",
+    "stage2+qwen_point_4b": "models/llm-rank/point-4b",
+    "stage2+ce_bge_groups": "models/cross-encoder/bge-groups/lambda",
+    "stage2+ce_bge_large": "models/cross-encoder/bge-large-groups/lambda"
+  },
+  "best_llm_arm": "stage2+qwen_point_4b",
+  "versions": {
+    "torch": "2.13.0+cu126",
+    "transformers": "5.17.0"
+  },
+  "device": "NVIDIA RTX A6000",
+  "latency_queries": 200,
+  "seed": 0
+}
