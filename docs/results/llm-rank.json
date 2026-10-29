@@ -1,0 +1,545 @@
+{
+  "split": "train",
+  "n_queries": 4130,
+  "floor": {
+    "mean": 0.7437492907608179,
+    "low": 0.7406747583770418,
+    "high": 0.7465897379380034
+  },
+  "max_length": 256,
+  "arms": [
+    {
+      "name": "stage2",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.851866040300354,
+        "low": 0.8469105568744915,
+        "high": 0.8564933524119186
+      },
+      "lift_over_floor": {
+        "point": 0.10811674953953607,
+        "low": 0.10411875942945206,
+        "high": 0.11184183460770254
+      },
+      "latency": null
+    },
+    {
+      "name": "stage2+ce",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8586628405345903,
+        "low": 0.8536051256564455,
+        "high": 0.8634481987115363
+      },
+      "lift_over_floor": {
+        "point": 0.11491354977377236,
+        "low": 0.11069610239524458,
+        "high": 0.11894968519517485
+      },
+      "latency": null
+    },
+    {
+      "name": "stage2+llm",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8814224315239988,
+        "low": 0.8767520992505652,
+        "high": 0.8858538470712276
+      },
+      "lift_over_floor": {
+        "point": 0.13767314076318082,
+        "low": 0.1333709847325301,
+        "high": 0.1417409078465728
+      },
+      "latency": null
+    },
+    {
+      "name": "stage2+ce_bge_groups",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8660968873028742,
+        "low": 0.8611989088152913,
+        "high": 0.870678920519895
+      },
+      "lift_over_floor": {
+        "point": 0.12234759654205599,
+        "low": 0.1179432875240146,
+        "high": 0.12621763211609777
+      },
+      "latency": {
+        "fp32": {
+          "n": 200,
+          "mean_ms": 36.20889069985424,
+          "p50_ms": 35.460441999020986,
+          "p95_ms": 42.21739999775309,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp32"
+        },
+        "fp16": {
+          "n": 200,
+          "mean_ms": 28.144321474828757,
+          "p50_ms": 26.410402002511546,
+          "p95_ms": 39.63085699797375,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp16"
+        }
+      }
+    },
+    {
+      "name": "stage2+ce_bge_large",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.874246227188337,
+        "low": 0.8695580229595622,
+        "high": 0.8784776988473443
+      },
+      "lift_over_floor": {
+        "point": 0.1304969364275191,
+        "low": 0.12626884415014858,
+        "high": 0.13480470421503213
+      },
+      "latency": {
+        "fp32": {
+          "n": 200,
+          "mean_ms": 94.48811265494442,
+          "p50_ms": 94.18239099613857,
+          "p95_ms": 98.56069600209594,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp32"
+        },
+        "fp16": {
+          "n": 200,
+          "mean_ms": 43.780419694849115,
+          "p50_ms": 43.52422500232933,
+          "p95_ms": 47.56931500014616,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "fp16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_point_zs",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8542419113780492,
+        "low": 0.8494148768823994,
+        "high": 0.8587400403668479
+      },
+      "lift_over_floor": {
+        "point": 0.11049262061723115,
+        "low": 0.1061896869308355,
+        "high": 0.1145147386036282
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 93.94038766455196,
+          "p50_ms": 93.36122000240721,
+          "p95_ms": 100.75266000058036,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_point",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8712039889330669,
+        "low": 0.8663453758644729,
+        "high": 0.8756863298122546
+      },
+      "lift_over_floor": {
+        "point": 0.127454698172249,
+        "low": 0.123041352941605,
+        "high": 0.13155195419205581
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 99.23128664540855,
+          "p50_ms": 93.93727000133367,
+          "p95_ms": 115.3793300036341,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_list",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8584648184213922,
+        "low": 0.853225075301236,
+        "high": 0.8628057174252145
+      },
+      "lift_over_floor": {
+        "point": 0.1147155276605742,
+        "low": 0.11051775027738789,
+        "high": 0.11853585084728331
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 2713.5790464998713,
+          "p50_ms": 2705.5818680019,
+          "p95_ms": 2930.825030998676,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    },
+    {
+      "name": "stage2+qwen_point_4b",
+      "groups": [
+        "retrieval"
+      ],
+      "n_features": 0,
+      "objective": "rerank",
+      "best_iteration": 0,
+      "n_queries": 4130,
+      "ndcg": {
+        "point": 0.8808293304968495,
+        "low": 0.8761331578014849,
+        "high": 0.8852976734055064
+      },
+      "lift_over_floor": {
+        "point": 0.1370800397360316,
+        "low": 0.1327968355689359,
+        "high": 0.1409785272799132
+      },
+      "latency": {
+        "bf16": {
+          "n": 200,
+          "mean_ms": 285.18411690518406,
+          "p50_ms": 285.58668199548265,
+          "p95_ms": 289.16706200107,
+          "p99_ms": null,
+          "runtime": "hf",
+          "precision": "bf16"
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "arm": "stage2+qwen_point_zs",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.0023758710776950877,
+        "low": -0.0006392562209465591,
+        "high": 0.005491350987452444
+      },
+      "significant": false
+    },
+    {
+      "arm": "stage2+qwen_point_zs",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": -0.020004315810287963,
+        "low": -0.0230682629245324,
+        "high": -0.017252449349877078
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_zs",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.027180520145949662,
+        "low": -0.030389484673023746,
+        "high": -0.02383404403358096
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.019337948632712924,
+        "low": 0.01638903106471386,
+        "high": 0.022588092901340187
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": -0.003042238255270125,
+        "low": -0.0054116959252499975,
+        "high": -0.000643130101652449
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.010218442590931822,
+        "low": -0.013400184390791084,
+        "high": -0.00726629612014277
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.006598778121038145,
+        "low": 0.005441370865074252,
+        "high": 0.007824709713760198
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": -0.015781408766944907,
+        "low": -0.018855876951069966,
+        "high": -0.012989206060164188
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.022957613102606602,
+        "low": -0.026014239835117307,
+        "high": -0.02009161849859154
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2",
+      "delta": {
+        "point": 0.02896329019649552,
+        "low": 0.025775966520413012,
+        "high": 0.03231456488343236
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": 0.006583103308512471,
+        "low": 0.003899133952752225,
+        "high": 0.009167761804070003
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2+llm",
+      "delta": {
+        "point": -0.0005931010271492262,
+        "low": -0.0032499054607748154,
+        "high": 0.0021379169041639257
+      },
+      "significant": false
+    },
+    {
+      "arm": "stage2+qwen_point",
+      "baseline": "stage2+qwen_point_zs",
+      "delta": {
+        "point": 0.01696207755501784,
+        "low": 0.0141243819308635,
+        "high": 0.020094897367097946
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_list",
+      "baseline": "stage2+qwen_point",
+      "delta": {
+        "point": -0.012739170511674783,
+        "low": -0.015775681947759548,
+        "high": -0.009763326931892033
+      },
+      "significant": true
+    },
+    {
+      "arm": "stage2+qwen_point_4b",
+      "baseline": "stage2+qwen_point",
+      "delta": {
+        "point": 0.009625341563782594,
+        "low": 0.007365354725231637,
+        "high": 0.011947453843070019
+      },
+      "significant": true
+    }
+  ],
+  "precision_checks": {
+    "stage2+ce_bge_groups": {
+      "arm": "stage2+ce_bge_groups@fp16",
+      "baseline": "stage2+ce_bge_groups",
+      "delta": {
+        "point": 1.309552244890187e-05,
+        "low": -1.8775133154232576e-05,
+        "high": 4.9431278069100584e-05
+      },
+      "significant": false
+    },
+    "stage2+ce_bge_large": {
+      "arm": "stage2+ce_bge_large@fp16",
+      "baseline": "stage2+ce_bge_large",
+      "delta": {
+        "point": 4.9302366304985486e-05,
+        "low": -1.9336927879774506e-05,
+        "high": 0.0001315373906627242
+      },
+      "significant": false
+    }
+  },
+  "malformed_answers": {
+    "stage2+qwen_list": 0
+  },
+  "hosted_llm_latency": {
+    "single_ms": 4712.817490798756,
+    "batched_ms": 1179.1363835334778,
+    "runtime": "hosted API",
+    "precision": "unknown",
+    "source": "docs/results/fine-rank-test.json"
+  },
+  "training": {
+    "stage2+qwen_point": {
+      "style": "pointwise",
+      "backbone": "Qwen/Qwen3-Reranker-0.6B",
+      "lora_rank": null,
+      "loss": "BCEWithLogits on logit(yes) - logit(no), gain as soft target",
+      "batch_size": 16,
+      "grad_accum": 1,
+      "pairs_per_update": 16,
+      "epochs": 1,
+      "learning_rate": 1e-05,
+      "max_length": 256,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "updates": 15656,
+      "minutes": 132.54285188913346,
+      "updates_per_second": 1.968671487102097,
+      "projected_epoch_hours": 2.2090475314855578,
+      "peak_reserved_gb": 18.580078125,
+      "gradient_checkpointing": false,
+      "device_name": "NVIDIA RTX A6000",
+      "seed": 0
+    },
+    "stage2+qwen_list": {
+      "style": "listwise",
+      "backbone": "Qwen/Qwen3-1.7B",
+      "lora_rank": 16,
+      "loss": "causal LM cross-entropy on the answer tokens",
+      "batch_size": 4,
+      "grad_accum": 4,
+      "windows_per_update": 16,
+      "epochs": 1,
+      "learning_rate": 0.0001,
+      "doc_chars": 300,
+      "n_windows": 12519,
+      "updates": 783,
+      "minutes": 75.06143032312393,
+      "updates_per_second": 0.173857598287462,
+      "projected_epoch_hours": 1.2510238387187322,
+      "peak_reserved_gb": 21.724609375,
+      "gradient_checkpointing": true,
+      "device_name": "NVIDIA RTX A6000",
+      "seed": 0
+    },
+    "stage2+qwen_point_4b": {
+      "style": "pointwise",
+      "backbone": "Qwen/Qwen3-Reranker-4B",
+      "lora_rank": 16,
+      "loss": "BCEWithLogits on logit(yes) - logit(no), gain as soft target",
+      "batch_size": 16,
+      "grad_accum": 1,
+      "pairs_per_update": 16,
+      "epochs": 1,
+      "learning_rate": 0.0001,
+      "max_length": 256,
+      "n_queries": 12519,
+      "n_pairs": 250485,
+      "updates": 15656,
+      "minutes": 418.4176478266716,
+      "updates_per_second": 0.6236193303238114,
+      "projected_epoch_hours": 6.97362746377786,
+      "peak_reserved_gb": 38.806640625,
+      "gradient_checkpointing": false,
+      "device_name": "NVIDIA RTX A6000",
+      "seed": 0
+    }
+  },
+  "models": {
+    "stage2+qwen_point_zs": "Qwen/Qwen3-Reranker-0.6B",
+    "stage2+qwen_point": "models/llm-rank/point-0.6b",
+    "stage2+qwen_list": "models/llm-rank/list-1.7b",
+    "stage2+qwen_point_4b": "models/llm-rank/point-4b",
+    "stage2+ce_bge_groups": "models/cross-encoder/bge-groups/lambda",
+    "stage2+ce_bge_large": "models/cross-encoder/bge-large-groups/lambda"
+  },
+  "best_llm_arm": "stage2+qwen_point_4b",
+  "versions": {
+    "torch": "2.13.0+cu126",
+    "transformers": "5.17.0"
+  },
+  "latency_queries": 200,
+  "seed": 0
+}
