@@ -223,6 +223,7 @@ def _main() -> int:
                   | {arm: str(p) for arm, p in CE_ARMS.items()},
         "best_llm_arm": best_llm_arm(ndcg),
         "versions": {"torch": torch.__version__, "transformers": transformers.__version__},
+        "device": torch.cuda.get_device_name(),
         "latency_queries": LATENCY_QUERIES,
         "seed": args.seed,
     }
