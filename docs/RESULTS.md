@@ -5,8 +5,8 @@ Every measured figure below is quoted from a committed file under
 baselines, cited from the papers listed under References and marked as
 published.
 `tests/test_results_doc.py` checks every four-decimal figure in this file
-against those sources. "Plan N" names the development step that measured a result;
-the plan documents themselves are kept at the `v1-with-retrieval` tag.
+against those sources. "Plan N" names the development step that measured a
+result.
 
 ## 1. What this is
 
