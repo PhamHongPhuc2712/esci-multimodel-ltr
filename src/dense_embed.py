@@ -1,4 +1,4 @@
-"""The dense-text retrieval channel: SBERT over the full product corpus.
+"""SBERT product embeddings, read by the coarse ranker's `dense_sim` feature.
 
 Mirrors src/embed_images.py in shape - a chunked, resumable pass into an
 append-only EmbeddingStore - but keyed by `product_id` rather than by image
@@ -19,7 +19,6 @@ import argparse
 import json
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +27,6 @@ import pandas as pd
 
 from src.baseline_sbert import DEFAULT_MODEL, product_text
 from src.embedding_store import EmbeddingStore, open_store
-from src.recall import Channel  # noqa: F401  (DenseChannel implements it)
 
 DEFAULT_STORE = Path("data/embeddings/dense")
 DEFAULT_PRODUCTS = Path("data/combined/products.parquet")
@@ -131,52 +129,6 @@ def embed_products(
         if progress is not None:
             progress(added, len(ids))
     return added
-
-
-@dataclass(frozen=True)
-class DenseChannel:
-    """Query text -> SBERT vector -> nearest products. Open it via open_channel."""
-
-    store: EmbeddingStore
-    model: Any
-    device: str
-
-    def search(self, queries: Sequence[str], k: int) -> list[list[str]]:
-        from src.vector_search import top_k
-
-        queries = list(queries)
-        if not queries:
-            return []
-        vectors = self.model.encode(
-            queries,
-            batch_size=256,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-        )
-        keys, _ = top_k(vectors, self.store, k, device=self.device)
-        return keys
-
-
-def open_channel(
-    store_dir: Path = DEFAULT_STORE,
-    model_name: str = DEFAULT_MODEL,
-    device: str = "auto",
-) -> DenseChannel:
-    """Open the dense store and load the query encoder onto the chosen device."""
-    from sentence_transformers import SentenceTransformer
-
-    from src.clip_encoder import resolve_device
-
-    check_model_record(store_dir, model_name)
-    resolved = resolve_device(device)
-    model = SentenceTransformer(model_name, device=resolved)
-    store = open_store(store_dir, dim=_embedding_dim(model))
-    if len(store) == 0:
-        raise FileNotFoundError(
-            f"the dense store at {store_dir} is empty; run python -m src.dense_embed"
-        )
-    return DenseChannel(store=store, model=model, device=resolved)
 
 
 def _embedding_dim(model: Any) -> int:

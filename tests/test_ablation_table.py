@@ -23,34 +23,18 @@ def _row(number=1, **kwargs):
     return Row(**base)
 
 
-# --- the seven ablations ----------------------------------------------------
+# --- the re-ranking ablations, 3 to 7 ----------------------------------------
 
-def test_all_seven_ablations_are_declared():
-    assert sorted({a["number"] for a in ABLATIONS}) == [1, 2, 3, 4, 5, 6, 7]
+def test_the_reranking_ablations_are_declared():
+    # 1 and 2 were Recall@k and left with the recall stage.
+    assert sorted({a["number"] for a in ABLATIONS}) == [3, 4, 5, 6, 7]
     assert len({a["label"] for a in ABLATIONS}) == len(ABLATIONS)
 
 
 def test_every_declared_ablation_names_its_source_and_metric():
     for ablation in ABLATIONS:
         assert ablation["source"].endswith(".json")
-        assert ablation["metric"] in {"NDCG", "Recall@100"}
-
-
-def test_the_recall_ablations_are_the_first_two():
-    # §6: Ablations 1 and 2 are Recall@k, the rest NDCG.
-    for ablation in ABLATIONS:
-        expected = "Recall@100" if ablation["number"] in (1, 2) else "NDCG"
-        assert ablation["metric"] == expected
-
-
-def test_ablation_2_is_reported_rung_by_rung():
-    # Fusion-vs-BM25 (+0.0661) credits the image channel with the whole fusion
-    # gain; its own step is +0.0048. Plan 4 stored the ladder for this reason.
-    import src.ablation_table as module
-
-    rungs = sorted(a["label"] for a in ABLATIONS if a["number"] == 2)
-    assert rungs == ["2a", "2b"]
-    assert "ablation_2_ladder" in __import__("inspect").getsource(module)
+        assert ablation["metric"] == "NDCG"
 
 
 # --- Review Focus 3: scope is not optional ---------------------------------
@@ -74,26 +58,22 @@ def test_the_table_prints_scope_and_n_as_columns():
 
 def test_rows_of_different_scopes_are_visibly_different():
     table = format_markdown([
-        _row(number=1, metric="Recall@100", scope="fold 0", n_queries=4130),
-        _row(number=6, metric="NDCG", scope="test sample", n_queries=2000),
+        _row(number=3, scope="fold 0", n_queries=4130),
+        _row(number=6, scope="test sample", n_queries=2000),
     ])
-    assert "4,130" in table
-    assert "2,000" in table
-    assert "Recall@100" in table
-    assert "NDCG" in table
+    assert "4,130" in table and "fold 0" in table
+    assert "2,000" in table and "test sample" in table
 
 
-def test_the_table_carries_a_scope_warning():
-    # The one sentence that stops the table being read as seven comparable
-    # numbers.
-    table = format_markdown([_row()])
-    assert "not comparable" in table.lower() or "different" in table.lower()
+def test_the_table_says_what_each_delta_is():
+    note = format_markdown([_row()]).splitlines()[-1]
+    assert "bootstrap" in note and "scope" in note
 
 
 # --- assembling from the committed files ------------------------------------
 
 def test_a_missing_results_file_is_named(tmp_path):
-    with pytest.raises(FileNotFoundError, match="recall.json"):
+    with pytest.raises(FileNotFoundError, match="coarse-rank-test.json"):
         load_results(tmp_path)
 
 
@@ -103,22 +83,13 @@ def test_results_load_by_stem(tmp_path):
     for name in REQUIRED_FILES:
         (tmp_path / f"{name}.json").write_text(json.dumps({"stem": name}))
     loaded = load_results(tmp_path)
-    assert loaded["recall"]["stem"] == "recall"
+    assert loaded["coarse-rank-test"]["stem"] == "coarse-rank-test"
     assert set(loaded) >= set(REQUIRED_FILES)
 
 
-def test_ablation_1_is_read_from_the_paired_bootstrap_not_re_derived():
-    # recall.json stores the rewrite comparison as its own paired bootstrap.
-    # Subtracting two vs-BM25 intervals is the interval arithmetic that
-    # over-corrected Plan 5's Ablation 4 by 0.0143.
-    import src.ablation_table as module
-    source = __import__("inspect").getsource(module)
-    assert "ablation_1_rewrite" in source
-
-
 def test_a_row_records_where_it_came_from():
-    rows = build_rows([_row(source="docs/results/recall.json")])
-    assert rows[0].source == "docs/results/recall.json"
+    rows = build_rows([_row(source="docs/results/coarse-rank-test.json")])
+    assert rows[0].source == "docs/results/coarse-rank-test.json"
 
 
 def test_an_ordered_table_is_numbered_one_to_seven():
@@ -128,8 +99,7 @@ def test_an_ordered_table_is_numbered_one_to_seven():
 
 def test_ablations_5_and_6_report_each_measured_comparison():
     # Ablation 5 measured two pointwise baselines and Ablation 6 two rerankers;
-    # showing one of each hides the other, the same way one fusion-vs-BM25 row
-    # hid Ablation 2's ladder.
+    # showing one of each hides the other.
     for number, expected in [(5, ["5a", "5b"]), (6, ["6a", "6b"])]:
         assert sorted(a["label"] for a in ABLATIONS if a["number"] == number) == expected
 
@@ -171,10 +141,10 @@ def test_every_finding_names_its_file_block_and_both_arms():
         assert finding["scope"] and finding["metric"] and finding["owner"]
 
 
-def test_the_findings_cover_stage_4_and_plans_8_to_13():
+def test_the_findings_cover_stage_4_and_the_reranking_plans():
     from src.ablation_table import FINDINGS
 
-    assert [f["label"] for f in FINDINGS] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11", "13a", "13b"]
+    assert [f["label"] for f in FINDINGS] == ["S4", "8a", "9a", "9b", "9c", "11", "13a", "13b"]
 
 
 def test_a_comparison_is_found_by_both_names():
@@ -185,16 +155,6 @@ def test_a_comparison_is_found_by_both_names():
         {"arm": "a", "baseline": "stage2+ce", "delta": 2},
     ]
     assert find_comparison(rows, "a", "stage2+ce")["delta"] == 2
-
-
-def test_a_comparison_at_a_depth_is_found_by_its_depth():
-    from src.ablation_table import find_comparison
-
-    rows = [
-        {"arm": "a", "baseline": "b", "k": 1000, "delta": 1},
-        {"arm": "a", "baseline": "b", "k": 100, "delta": 2},
-    ]
-    assert find_comparison(rows, "a", "b", k=100)["delta"] == 2
 
 
 def test_a_missing_pair_is_named_not_guessed():
@@ -215,7 +175,7 @@ def test_build_findings_reads_each_file_by_name():
             "delta": {"point": 0.5, "low": 0.4, "high": 0.6}, "significant": True,
         })
     rows = build_findings(results)
-    assert [row.label for row in rows] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11", "13a", "13b"]
+    assert [row.label for row in rows] == ["S4", "8a", "9a", "9b", "9c", "11", "13a", "13b"]
     assert all(row.n_queries == 10 and row.delta["point"] == 0.5 for row in rows)
 
 

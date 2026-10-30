@@ -44,9 +44,8 @@ from pathlib import Path
 
 import pandas as pd
 
-# The same constant src.rrf uses, so a reciprocal rank means the same thing in
-# Stage 1 and Stage 4.
-from src.rrf import DEFAULT_K as RRF_K
+# Reciprocal-rank constant, k = 60 from Cormack et al.'s original RRF paper.
+RRF_K = 60
 
 DEFAULT_DIR = Path("data/features")
 

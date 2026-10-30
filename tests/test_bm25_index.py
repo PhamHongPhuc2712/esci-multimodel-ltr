@@ -8,7 +8,6 @@ from src.bm25_index import (
     build_index,
     open_channel,
 )
-from src.recall import Channel
 
 
 def _products(n_extra: int = 0) -> pd.DataFrame:
@@ -70,9 +69,6 @@ def test_search_returns_one_list_per_query(index_dir):
 def test_search_respects_k(index_dir):
     assert len(open_channel(index_dir).search(["product"], k=2)[0]) <= 2
 
-
-def test_the_channel_satisfies_the_protocol(index_dir):
-    assert isinstance(open_channel(index_dir), Channel)
 
 
 def test_n_products_matches_what_was_indexed(index_dir):

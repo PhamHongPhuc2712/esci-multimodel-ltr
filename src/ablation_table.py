@@ -1,21 +1,17 @@
 """PROJECT_SPEC.md §6 as one table, assembled from the committed results.
 
-Seven ablations, owned by four plans, measured on **two query populations
-with two different metrics**:
-
-    1, 2       Recall@100   4,130 fold-0 queries, full 1.2M-product corpus
-    3 - 7      NDCG         8,956 test queries
+The spec's re-ranking ablations, 3 to 7, owned by two plans, each measured as
+NDCG on the 8,956 test queries. Ablations 1 and 2 belonged to the recall stage,
+which the project dropped to stay on ESCI Task 1; they live at the
+`v1-with-retrieval` tag.
 
 Ablation 6 was first measured on a frozen 2,000-query test sample, because
 its LLM arm is a paid call; the table reads the 2026-09-24 run over the whole
 split instead (`fine-rank-test-full.json`), which put it on the same queries
 as 3, 4, 5 and 7. The sample's numbers stay committed in `fine-rank-test.json`.
 
-Printed as rows of one "delta" column with no scope, those read as
-comparable, and the summary sentence anyone writes from the table inherits the
-error. So `scope` and `n_queries` are required on every row, the renderer
-prints them, and the table carries the sentence that says they are not
-comparable.
+`scope` and `n_queries` are still required on every row and printed: an
+interval without its population and sample size cannot be judged.
 
 Nothing here computes a number. Every value is read from a committed JSON, so
 the table cannot drift from the files it claims to summarise.
@@ -38,25 +34,21 @@ DEFAULT_DIR = Path("docs/results")
 DEFAULT_OUT = DEFAULT_DIR / "ablation-table.json"
 
 REQUIRED_FILES: tuple[str, ...] = (
-    "recall",
     "coarse-rank-test",
     "fine-rank-test-full",
     "blend-test-full",
-    "recall-tuned-test",
     "distill-test",
     "capacity-test",
     "size-test",
     "llm-rank-test",
 )
 
-_RECALL, _COARSE, _FINE = (
-    "docs/results/recall.json",
+_COARSE, _FINE = (
     "docs/results/coarse-rank-test.json",
     "docs/results/fine-rank-test-full.json",
 )
-_BLEND, _TUNED, _DISTILL, _CAPACITY, _SIZE = (
+_BLEND, _DISTILL, _CAPACITY, _SIZE = (
     "docs/results/blend-test-full.json",
-    "docs/results/recall-tuned-test.json",
     "docs/results/distill-test.json",
     "docs/results/capacity-test.json",
     "docs/results/size-test.json",
@@ -66,19 +58,10 @@ _LLM_RANK = "docs/results/llm-rank-test.json"
 # One row per measured comparison, named "A − B" so the sign reads the same
 # way on every row: negative means B won.
 #
-# Ablation 2 is a ladder - dense, +BM25, +image - and each rung's claim is
-# about the rung below it; one fusion-vs-BM25 row would credit the image
-# channel with the whole fusion gain (+0.0661) when its step is +0.0048.
-# Ablations 5 and 6 each measured two comparisons as well, and showing one
-# hides the other: 5a is §6's literal "pointwise classifier", 6a the
+# Ablations 5 and 6 each measured two comparisons, and showing one hides the
+# other: 5a is §6's literal "pointwise classifier", 6a the
 # fine-tuned cross-encoder beside 6b's LLM.
 ABLATIONS: tuple[dict, ...] = (
-    {"number": 1, "label": "1", "name": "LLM-rewritten − raw query", "metric": "Recall@100",
-     "scope": "fold 0, full corpus", "source": _RECALL, "owner": "Plan 4"},
-    {"number": 2, "label": "2a", "name": "dense+BM25 − dense-only (RRF)", "metric": "Recall@100",
-     "scope": "fold 0, full corpus", "source": _RECALL, "owner": "Plan 4"},
-    {"number": 2, "label": "2b", "name": "dense+BM25+image − dense+BM25 (RRF)", "metric": "Recall@100",
-     "scope": "fold 0, full corpus", "source": _RECALL, "owner": "Plan 4"},
     {"number": 3, "label": "3", "name": "text+image − text-only features", "metric": "NDCG",
      "scope": "test", "source": _COARSE, "owner": "Plan 5"},
     {"number": 4, "label": "4", "name": "behavioural values − text+presence indicators", "metric": "NDCG",
@@ -96,8 +79,7 @@ ABLATIONS: tuple[dict, ...] = (
 )
 
 # The findings after the spec. Each names the file, the block in it, and the
-# arm and baseline the row is found by - never a position. `k` picks the
-# depth for the recall rows, whose comparisons carry one row per depth.
+# arm and baseline the row is found by - never a position.
 FINDINGS: tuple[dict, ...] = (
     {"number": 0, "label": "S4", "name": "best blend (per-query selector) − LLM alone",
      "metric": "NDCG", "scope": "test", "source": _BLEND, "owner": "Plan 7",
@@ -119,14 +101,6 @@ FINDINGS: tuple[dict, ...] = (
      "metric": "NDCG", "scope": "test", "source": _CAPACITY, "owner": "Plan 9",
      "file": "capacity-test", "block": "comparisons",
      "arm": "stage2+ce_bge_groups", "baseline": "stage2+ce_bge"},
-    {"number": 10, "label": "10a", "name": "four channels, tuned fusion − Plan 4's fusion",
-     "metric": "Recall@100", "scope": "test, full corpus", "source": _TUNED, "owner": "Plan 10",
-     "file": "recall-tuned-test", "block": "comparisons",
-     "arm": "tuned fusion", "baseline": "published fusion", "k": 100},
-    {"number": 10, "label": "10b", "name": "fine-tuned retriever alone − off-the-shelf dense alone",
-     "metric": "Recall@100", "scope": "test, full corpus", "source": _TUNED, "owner": "Plan 10",
-     "file": "recall-tuned-test", "block": "comparisons",
-     "arm": "dense_ft", "baseline": "dense_base", "k": 100},
     {"number": 11, "label": "11", "name": "bge-large − bge-base, both on whole groups (the size)",
      "metric": "NDCG", "scope": "test", "source": _SIZE, "owner": "Plan 11",
      "file": "size-test", "block": "comparisons",
@@ -142,9 +116,8 @@ FINDINGS: tuple[dict, ...] = (
 )
 
 _SCOPE_WARNING = (
-    "> Rows 1–2 and 3–7 are **not comparable to each other**: they were "
-    "measured on different query populations with different metrics. The "
-    "scope and n columns say which."
+    "> Every row is a paired difference in NDCG with a 95% bootstrap interval "
+    "over queries; the scope and n columns name the queries it was measured on."
 )
 
 
@@ -206,24 +179,18 @@ def by_arm(rows: Sequence[Mapping], arm: str) -> Mapping:
     )
 
 
-def find_comparison(
-    rows: Sequence[Mapping], arm: str, baseline: str, *, k: int | None = None
-) -> Mapping:
-    """The comparison row for `arm` against `baseline` (and depth `k`), or a KeyError.
+def find_comparison(rows: Sequence[Mapping], arm: str, baseline: str) -> Mapping:
+    """The comparison row for `arm` against `baseline`, or a KeyError.
 
     By both names: a file carries every arm against several baselines, and the
     first row with the right arm is usually the one against Stage 2.
     """
     for row in rows:
-        if row.get("arm") != arm or row.get("baseline") != baseline:
-            continue
-        if k is not None and row.get("k") != k:
-            continue
-        return row
+        if row.get("arm") == arm and row.get("baseline") == baseline:
+            return row
     raise KeyError(
         f"no comparison of {arm!r} against {baseline!r}"
-        + (f" at k={k}" if k is not None else "")
-        + f" among {[(r.get('arm'), r.get('baseline'), r.get('k')) for r in rows]}"
+        f" among {[(r.get('arm'), r.get('baseline')) for r in rows]}"
     )
 
 
@@ -232,10 +199,7 @@ def build_findings(results: Mapping[str, Mapping]) -> list[Row]:
     rows = []
     for finding in FINDINGS:
         payload = results[finding["file"]]
-        entry = find_comparison(
-            payload[finding["block"]], finding["arm"], finding["baseline"],
-            k=finding.get("k"),
-        )
+        entry = find_comparison(payload[finding["block"]], finding["arm"], finding["baseline"])
         rows.append(Row(
             number=finding["number"], label=finding["label"], name=finding["name"],
             metric=finding["metric"], scope=finding["scope"],
@@ -251,7 +215,7 @@ def build_rows(rows: Sequence[Row]) -> list[Row]:
         if not row.scope:
             raise ValueError(
                 f"ablation {row.number} has no scope; a table without one "
-                "invites reading seven incomparable numbers as comparable"
+                "cannot say which queries its interval describes"
             )
         if not row.n_queries:
             raise ValueError(
@@ -288,28 +252,10 @@ def _main() -> int:
     args = parser.parse_args()
 
     results = load_results(args.results_dir)
-    recall, coarse = results["recall"], results["coarse-rank-test"]
+    coarse = results["coarse-rank-test"]
     fine, blend = results["fine-rank-test-full"], results["blend-test-full"]
 
     by_label = {a["label"]: dict(a) for a in ABLATIONS}
-
-    # 1 - the rewritten query against the same fused channel. Plan 4 already
-    # computed this as a *paired* bootstrap and stored it under
-    # `ablation_1_rewrite`; subtracting two vs-BM25 intervals instead would be
-    # the same interval arithmetic that over-corrected Plan 5's Ablation 4 by
-    # 0.0143. Read the file, never re-derive.
-    by_label["1"]["delta"] = recall["ablation_1_rewrite"]["delta"]
-    by_label["1"]["significant"] = recall["ablation_1_rewrite"]["significant"]
-    by_label["1"]["n_queries"] = recall["n_queries"]
-
-    # 2 - the ladder, rung by rung, from `ablation_2_ladder`. Never from
-    # `comparisons`, whose fusion-vs-BM25 row credits the image channel with
-    # the whole fusion gain - the over-credit Plan 4 stored the ladder to avoid.
-    for label, arm in [("2a", "dense+bm25"), ("2b", "dense+bm25+image")]:
-        entry = by_arm(recall["ablation_2_ladder"], arm)
-        by_label[label]["delta"] = entry["delta"]
-        by_label[label]["significant"] = entry["significant"]
-        by_label[label]["n_queries"] = recall["n_queries"]
 
     for label, key in [("3", "3_text_vs_image"), ("7", "7_learned_fusion")]:
         entry = coarse["ablations"][key]

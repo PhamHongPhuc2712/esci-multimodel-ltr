@@ -1,4 +1,4 @@
-"""The lexical retrieval channel: BM25 over the full product corpus.
+"""The BM25 index behind the coarse ranker's `bm25_score` feature.
 
 Built once by the CLI and memory-mapped by every consumer afterwards. That
 split is not tidiness - measured on the real 1,215,854-product corpus, the
@@ -12,8 +12,8 @@ never happens inside a consumer. The index is 1.1 GB on disk.
 `bm25s.retrieve` returns *positions into the indexed matrix*, not product ids,
 so the id array is written by the same function from the same frame and its
 length is asserted on open. A mismatched id array returns real-looking
-products for every query and raises nothing: recall simply comes out low,
-which reads as a weak retriever rather than a broken one.
+products for every query and raises nothing, and every score read through it
+belongs to some other product.
 """
 
 from __future__ import annotations
