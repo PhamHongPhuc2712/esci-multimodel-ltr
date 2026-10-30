@@ -25,3 +25,4 @@ models/
 
 # Cloud bundles built by scripts/cloud/
 build/
+.playwright-mcp/

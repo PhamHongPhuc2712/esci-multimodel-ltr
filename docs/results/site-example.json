@@ -1,0 +1,87 @@
+{
+  "scope": "validation fold 0",
+  "seed": 13,
+  "model": "models/llm-rank/point-4b",
+  "rule": "drawn at random among fold-0 windows mixing at least three labels",
+  "query_id": "36178",
+  "query": "dymo labelmanager 280",
+  "products": {
+    "B009NVTE5E": {
+      "title": "DYMO Label Maker | LabelManager 280 Rechargeable Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, PC and Mac Connectivity, for Home & Office Organization",
+      "label": "E"
+    },
+    "B0018NFYLS": {
+      "title": "DYMO Desktop Label Maker | LabelManager 210D All-Purpose Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, Large Display, for Home & Office Organization",
+      "label": "S"
+    },
+    "B004647694": {
+      "title": "DYMO Label Maker with Adapter | LabelManager 420P High-Performance Label Maker, Rechargeable, PC and Mac Connectivity, Bright Backlit Display, Easy-to-Use, Portable, for Home & Office Organization",
+      "label": "S"
+    },
+    "B00002NDS2": {
+      "title": "DYMO Standard D1 43610 Labeling Tape (Black Print on White Tape, 1/2'' W x 23' L, 1 Cartridge), DYMO Authentic",
+      "label": "C"
+    },
+    "B01EMJLXN2": {
+      "title": "Hard Travel Case Compatible Replacement with DYMO LabelManager 160/280 Rechargeable Handheld Label Maker by co2CREA",
+      "label": "C"
+    },
+    "B077TC7PF4": {
+      "title": "OfficeWorld 6-Pack Compatible Dymo D1 Label Tape 45013 S0720530 Black on White 1/2 Inch x 23 Feet for DYMO LabelManager 160 280 210D 360D 420P Wireless PnP 220P 260P 450D 500TS 450DUO Label Maker",
+      "label": "C"
+    },
+    "B01EJ5G528": {
+      "title": "Hermitshell Hard EVA Travel Case Fits DYMO LabelManager 280 Rechargeable Hand-Held Label Maker 1815990",
+      "label": "C"
+    },
+    "B019RONQNM": {
+      "title": "Anycolor Compatible Label Tape Replacement for DYMO 45013 Label Maker Tape Work with DYMO LabelManager 160 280 420P PnP 360D 210D, Black on White, 0.47 Inch (12mm) Width, 23 Feet (7m) Length, 4-Pack",
+      "label": "C"
+    },
+    "B07M5VS6WH": {
+      "title": "5-Pack Absonic Compatible Label Tape Replacement for Dymo D1 Labels Tape 45013 S0720530 A45013 12mm 1/2\" Black on White Refill for LabelManager 160 280 420P 360D PnP 450 Duo Label Maker, 0.47\" X 23'",
+      "label": "C"
+    },
+    "B01C5IN89O": {
+      "title": "DYMO Label Manager 160 Hand-Held Label Maker, 160 Count (1790415)",
+      "label": "S"
+    }
+  },
+  "coarse_order": [
+    "B009NVTE5E",
+    "B0018NFYLS",
+    "B004647694",
+    "B00002NDS2",
+    "B01EMJLXN2",
+    "B077TC7PF4",
+    "B01EJ5G528",
+    "B019RONQNM",
+    "B07M5VS6WH",
+    "B01C5IN89O"
+  ],
+  "reranked_order": [
+    "B009NVTE5E",
+    "B077TC7PF4",
+    "B01EJ5G528",
+    "B01EMJLXN2",
+    "B019RONQNM",
+    "B0018NFYLS",
+    "B004647694",
+    "B07M5VS6WH",
+    "B00002NDS2",
+    "B01C5IN89O"
+  ],
+  "ndcg": {
+    "coarse": 0.9892373007456533,
+    "reranked": 0.9558312862570157
+  },
+  "tail": 6,
+  "fold0": {
+    "n_queries": 4130,
+    "improved": 2418,
+    "worsened": 1222,
+    "unchanged": 490,
+    "coarse_ndcg": 0.8518660403003541,
+    "reranked_ndcg": 0.8807892023467365
+  }
+}

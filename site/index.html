@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESCI Product Re-Ranking</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231F7A55'/%3E%3Cpath d='M9 10h14M9 16h10M9 22h6' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="description" content="A multi-stage re-ranker for Amazon ESCI Task 1, measured against a computed floor with bootstrap intervals, ending in a fine-tuned 4B open model that ties a hosted LLM.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#EEF1F5;--panel:#F8FAFC;--ink:#1B2333;--soft:#525D70;--rule:#C8D0DB;
+--e:#1F7A55;--s:#B7801A;--c:#6A55C9;--i:#98A2B1;--accent:#1F7A55;--best:#E1EFE7;
+--font:"Schibsted Grotesk",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#141A24;--panel:#1B2230;
+--ink:#E6EAF1;--soft:#A3ADBD;--rule:#334055;--e:#4CC48F;--s:#E2AE47;--c:#A595F2;--i:#6E7889;
+--accent:#4CC48F;--best:#1C3328}}
+:root[data-theme="dark"]{--paper:#141A24;--panel:#1B2230;--ink:#E6EAF1;--soft:#A3ADBD;--rule:#334055;
+--e:#4CC48F;--s:#E2AE47;--c:#A595F2;--i:#6E7889;--accent:#4CC48F;--best:#1C3328}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--font)}
+a{color:inherit;text-decoration-color:var(--accent);text-underline-offset:3px;text-decoration-thickness:2px}
+a:hover{color:var(--accent)}
+a:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:2px}
+code{font-family:inherit;font-weight:500;background:var(--panel);padding:0 .25em;border-radius:3px}
+.top,main,footer{max-width:1080px;margin:0 auto;padding:0 24px}
+.top{display:flex;justify-content:space-between;align-items:baseline;padding-top:22px;padding-bottom:10px}
+.brand{font-weight:800;text-decoration:none;letter-spacing:-.01em}
+.top nav a{margin-left:20px;font-weight:500}
+section{padding:40px 0;border-top:1px solid var(--rule)}
+section.hero{border-top:0;padding-top:28px}
+h1{font-size:clamp(30px,4.6vw,50px);line-height:1.08;font-weight:800;letter-spacing:-.025em;
+max-width:20ch;margin:.2em 0 .4em}
+h2{font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-.015em;margin:0 0 .5em}
+h3{font-size:18px;margin:0 0 .25em;font-weight:700}
+p,li{max-width:68ch}
+.lede{font-size:19px;color:var(--soft);max-width:62ch}
+.rerank{margin:34px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:10px;
+padding:22px 22px 18px}
+.query{margin:0 0 14px;font-size:15px;color:var(--soft)}
+.query q{font-size:24px;font-weight:700;color:var(--ink);quotes:"\201C" "\201D";margin-left:.35em}
+.cols-head{display:grid;grid-template-columns:1fr 110px 1fr;font-size:14px;color:var(--soft)}
+.cols-head p:last-child{grid-column:3}
+.cols-head p{margin:0 0 8px}
+.score{display:block;color:var(--ink);font-weight:700;font-size:16px}
+.rerank-body{display:grid;grid-template-columns:1fr 110px 1fr}
+.list{list-style:none;margin:0;padding:0}
+.item{height:54px;display:grid;grid-template-columns:22px 26px 1fr;gap:8px;align-items:center;
+border-bottom:1px solid var(--rule);max-width:none}
+.item:last-child{border-bottom:0}
+.rank{color:var(--soft);font-size:13px;text-align:right}
+.title{font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+overflow:hidden}
+.chip{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:5px;font-size:13px;
+font-weight:800;color:#fff}
+.chip.l-E{background:var(--e)}.chip.l-S{background:var(--s)}.chip.l-C{background:var(--c)}
+.chip.l-I{background:var(--i)}
+.links{width:100%;height:540px;overflow:visible}
+.link{fill:none;stroke-width:2.6;vector-effect:non-scaling-stroke;stroke-dasharray:240;
+stroke-dashoffset:240;animation:draw .9s cubic-bezier(.3,.7,.2,1) forwards;animation-delay:calc(var(--i)*70ms + .2s)}
+.link.l-E{stroke:var(--e)}.link.l-S{stroke:var(--s)}.link.l-C{stroke:var(--c)}.link.l-I{stroke:var(--i)}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.link{animation:none;stroke-dashoffset:0}}
+figcaption{margin-top:16px;font-size:14px;color:var(--soft);max-width:none}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:10px;color:var(--ink)}
+.legend .chip{width:20px;height:20px;font-size:11px;margin-right:4px}
+.scroll{overflow-x:auto;margin:18px 0}
+table{border-collapse:collapse;width:100%;font-size:15px}
+table.narrow{width:auto;min-width:340px}
+th{text-align:left;font-weight:500;color:var(--soft);font-size:13px;border-bottom:2px solid var(--ink);
+padding:6px 12px 6px 0}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule)}
+.n{text-align:right}
+.ci-cell{color:var(--soft);white-space:nowrap}
+tr.best td{background:var(--best);font-weight:700}
+tr.best td:first-child{box-shadow:inset 3px 0 0 var(--accent);padding-left:10px}
+.chart{width:100%;height:auto;margin:22px 0 4px;font-family:var(--font)}
+.grid{stroke:var(--rule);stroke-width:1}
+.tick,.axis{fill:var(--soft);font-size:12px}
+.lbl{fill:var(--ink);font-size:12.5px}
+.lbl.strong{font-weight:800;fill:var(--accent)}
+.ci{stroke:var(--soft);stroke-width:1.5}
+.m-ce{fill:var(--ink)}.m-llm{fill:var(--paper);stroke:var(--ink);stroke-width:2}
+.m-served{fill:var(--accent)}.m-hosted{fill:none;stroke:var(--soft);stroke-width:2}
+.note{font-size:14px;color:var(--soft);max-width:none}
+.key{display:inline-flex;align-items:center;gap:6px;margin-right:16px;color:var(--ink)}
+.key svg{width:14px;height:14px}
+.stages{list-style:none;counter-reset:s;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+.stages li{counter-increment:s;border-top:3px solid var(--ink);padding-top:12px}
+.stages h3::before{content:counter(s) ". ";color:var(--soft);font-weight:500}
+.stages p{font-size:15.5px;margin:0}
+.forest{list-style:none;padding:0;margin:20px 0 0}
+.f-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 190px;gap:16px;align-items:center;
+padding:7px 0;border-bottom:1px solid var(--rule);max-width:none}
+.f-name{font-size:15px}
+.f-bar{width:100%;height:14px}
+.f-bar .zero{stroke:var(--soft);stroke-width:1;vector-effect:non-scaling-stroke}
+.f-bar .ci{stroke-width:2.2;vector-effect:non-scaling-stroke}
+.f-bar .dot{stroke-width:3.5;vector-effect:non-scaling-stroke}
+.f-row.gain .ci,.f-row.gain .dot{stroke:var(--e);fill:var(--e)}
+.f-row.loss .ci,.f-row.loss .dot{stroke:var(--s);fill:var(--s)}
+.f-row.tie .ci,.f-row.tie .dot{stroke:var(--i);fill:var(--i)}
+.f-num{font-size:14px;text-align:right;white-space:nowrap}
+.pitfalls{padding-left:1.1em}
+.pitfalls li{margin:.45em 0}
+.more{display:inline-block;margin-right:22px;font-weight:700}
+footer{padding-top:28px;padding-bottom:48px;border-top:1px solid var(--rule);font-size:14px;color:var(--soft)}
+@media (max-width:760px){body{font-size:16px}
+.rerank{padding:16px 12px}.cols-head,.rerank-body{grid-template-columns:1fr 34px 1fr}
+.item{grid-template-columns:20px 1fr;grid-template-rows:auto auto;height:54px;gap:0 6px}
+.item .rank{display:none}.title{font-size:12px;-webkit-line-clamp:2}.chip{width:20px;height:20px;font-size:11px}
+.query q{font-size:20px;display:block;margin:4px 0 0}
+.stages{grid-template-columns:1fr;gap:18px}
+.scroll table{min-width:600px}.scroll table.narrow{min-width:340px}
+.chart-wrap .chart{min-width:720px}
+.f-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name name" "bar num";gap:4px 12px}
+.f-num{font-size:13px}
+.f-name{grid-area:name}.f-bar{grid-area:bar}.f-num{grid-area:num}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./">ESCI re-ranking</a>
+  <nav><a href="https://github.com/PhamHongPhuc2712/esci-multimodel-ltr/blob/main/docs/RESULTS.md">Writeup</a><a href="https://github.com/PhamHongPhuc2712/esci-multimodel-ltr">Code</a></nav>
+</header>
+<main>
+<section class="hero">
+  <h1>Re-ranking Amazon product search, ending in a 4B open model that ties a hosted LLM</h1>
+  <p class="lede">A multi-stage re-ranker for ESCI Task 1: given a shopper's query and the products
+  judged for it, put the relevant ones first. A gradient-boosted ranker orders each list; a
+  fine-tuned model then re-orders its top 10. Every number on this page comes from a committed
+  results file, measured once on all 8,956 test queries.</p>
+  
+<figure class="rerank" aria-labelledby="rerank-caption">
+  <div class="rerank-head">
+    <p class="query">Query <q>dymo labelmanager 280</q></p>
+    <div class="cols-head">
+      <p>Coarse ranker <span class="score">NDCG 0.9892</span></p>
+      <p>Re-ranked by the 4B model <span class="score">NDCG 0.9558</span></p>
+    </div>
+  </div>
+  <div class="rerank-body">
+    <ol class="list left"><li class="item"><span class="rank">1</span><span class="chip l-E" title="Exact">E</span><span class="title">DYMO Label Maker | LabelManager 280 Rechargeable Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, PC and Mac Connectivity, for Home &amp; Office Organization</span></li><li class="item"><span class="rank">2</span><span class="chip l-S" title="Substitute">S</span><span class="title">DYMO Desktop Label Maker | LabelManager 210D All-Purpose Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, Large Display, for Home &amp; Office Organization</span></li><li class="item"><span class="rank">3</span><span class="chip l-S" title="Substitute">S</span><span class="title">DYMO Label Maker with Adapter | LabelManager 420P High-Performance Label Maker, Rechargeable, PC and Mac Connectivity, Bright Backlit Display, Easy-to-Use, Portable, for Home &amp; Office Organization</span></li><li class="item"><span class="rank">4</span><span class="chip l-C" title="Complement">C</span><span class="title">DYMO Standard D1 43610 Labeling Tape (Black Print on White Tape, 1/2&#x27;&#x27; W x 23&#x27; L, 1 Cartridge), DYMO Authentic</span></li><li class="item"><span class="rank">5</span><span class="chip l-C" title="Complement">C</span><span class="title">Hard Travel Case Compatible Replacement with DYMO LabelManager 160/280 Rechargeable Handheld Label Maker by co2CREA</span></li><li class="item"><span class="rank">6</span><span class="chip l-C" title="Complement">C</span><span class="title">OfficeWorld 6-Pack Compatible Dymo D1 Label Tape 45013 S0720530 Black on White 1/2 Inch x 23 Feet for DYMO LabelManager 160 280 210D 360D 420P Wireless PnP 220P 260P 450D 500TS 450DUO Label Maker</span></li><li class="item"><span class="rank">7</span><span class="chip l-C" title="Complement">C</span><span class="title">Hermitshell Hard EVA Travel Case Fits DYMO LabelManager 280 Rechargeable Hand-Held Label Maker 1815990</span></li><li class="item"><span class="rank">8</span><span class="chip l-C" title="Complement">C</span><span class="title">Anycolor Compatible Label Tape Replacement for DYMO 45013 Label Maker Tape Work with DYMO LabelManager 160 280 420P PnP 360D 210D, Black on White, 0.47 Inch (12mm) Width, 23 Feet (7m) Length, 4-Pack</span></li><li class="item"><span class="rank">9</span><span class="chip l-C" title="Complement">C</span><span class="title">5-Pack Absonic Compatible Label Tape Replacement for Dymo D1 Labels Tape 45013 S0720530 A45013 12mm 1/2&quot; Black on White Refill for LabelManager 160 280 420P 360D PnP 450 Duo Label Maker, 0.47&quot; X 23&#x27;</span></li><li class="item"><span class="rank">10</span><span class="chip l-S" title="Substitute">S</span><span class="title">DYMO Label Manager 160 Hand-Held Label Maker, 160 Count (1790415)</span></li></ol>
+    <svg class="links" viewBox="0 0 100 540" preserveAspectRatio="none" aria-hidden="true"><path class="link l-E" style="--i:0" d="M0 27.0 C50 27.0 50 27.0 100 27.0"/><path class="link l-S" style="--i:1" d="M0 81.0 C50 81.0 50 297.0 100 297.0"/><path class="link l-S" style="--i:2" d="M0 135.0 C50 135.0 50 351.0 100 351.0"/><path class="link l-C" style="--i:3" d="M0 189.0 C50 189.0 50 459.0 100 459.0"/><path class="link l-C" style="--i:4" d="M0 243.0 C50 243.0 50 189.0 100 189.0"/><path class="link l-C" style="--i:5" d="M0 297.0 C50 297.0 50 81.0 100 81.0"/><path class="link l-C" style="--i:6" d="M0 351.0 C50 351.0 50 135.0 100 135.0"/><path class="link l-C" style="--i:7" d="M0 405.0 C50 405.0 50 243.0 100 243.0"/><path class="link l-C" style="--i:8" d="M0 459.0 C50 459.0 50 405.0 100 405.0"/><path class="link l-S" style="--i:9" d="M0 513.0 C50 513.0 50 513.0 100 513.0"/></svg>
+    <ol class="list right"><li class="item"><span class="rank">1</span><span class="chip l-E" title="Exact">E</span><span class="title">DYMO Label Maker | LabelManager 280 Rechargeable Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, PC and Mac Connectivity, for Home &amp; Office Organization</span></li><li class="item"><span class="rank">2</span><span class="chip l-C" title="Complement">C</span><span class="title">OfficeWorld 6-Pack Compatible Dymo D1 Label Tape 45013 S0720530 Black on White 1/2 Inch x 23 Feet for DYMO LabelManager 160 280 210D 360D 420P Wireless PnP 220P 260P 450D 500TS 450DUO Label Maker</span></li><li class="item"><span class="rank">3</span><span class="chip l-C" title="Complement">C</span><span class="title">Hermitshell Hard EVA Travel Case Fits DYMO LabelManager 280 Rechargeable Hand-Held Label Maker 1815990</span></li><li class="item"><span class="rank">4</span><span class="chip l-C" title="Complement">C</span><span class="title">Hard Travel Case Compatible Replacement with DYMO LabelManager 160/280 Rechargeable Handheld Label Maker by co2CREA</span></li><li class="item"><span class="rank">5</span><span class="chip l-C" title="Complement">C</span><span class="title">Anycolor Compatible Label Tape Replacement for DYMO 45013 Label Maker Tape Work with DYMO LabelManager 160 280 420P PnP 360D 210D, Black on White, 0.47 Inch (12mm) Width, 23 Feet (7m) Length, 4-Pack</span></li><li class="item"><span class="rank">6</span><span class="chip l-S" title="Substitute">S</span><span class="title">DYMO Desktop Label Maker | LabelManager 210D All-Purpose Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, Large Display, for Home &amp; Office Organization</span></li><li class="item"><span class="rank">7</span><span class="chip l-S" title="Substitute">S</span><span class="title">DYMO Label Maker with Adapter | LabelManager 420P High-Performance Label Maker, Rechargeable, PC and Mac Connectivity, Bright Backlit Display, Easy-to-Use, Portable, for Home &amp; Office Organization</span></li><li class="item"><span class="rank">8</span><span class="chip l-C" title="Complement">C</span><span class="title">5-Pack Absonic Compatible Label Tape Replacement for Dymo D1 Labels Tape 45013 S0720530 A45013 12mm 1/2&quot; Black on White Refill for LabelManager 160 280 420P 360D PnP 450 Duo Label Maker, 0.47&quot; X 23&#x27;</span></li><li class="item"><span class="rank">9</span><span class="chip l-C" title="Complement">C</span><span class="title">DYMO Standard D1 43610 Labeling Tape (Black Print on White Tape, 1/2&#x27;&#x27; W x 23&#x27; L, 1 Cartridge), DYMO Authentic</span></li><li class="item"><span class="rank">10</span><span class="chip l-S" title="Substitute">S</span><span class="title">DYMO Label Manager 160 Hand-Held Label Maker, 160 Count (1790415)</span></li></ol>
+  </div>
+  <figcaption id="rerank-caption">
+    <span class="legend"><span><span class="chip l-E">E</span> Exact</span><span><span class="chip l-S">S</span> Substitute</span><span><span class="chip l-C">C</span> Complement</span><span><span class="chip l-I">I</span> Irrelevant</span></span>
+    One validation query, drawn at random among fold-0 windows mixing at least three labels with a fixed seed, not picked to flatter the model.
+    On this one the 4B model did worse, lifting Complements above Substitutes. Across all 4,130 validation queries it improved 2,418,
+    worsened 1,222 and left 490 unchanged, taking mean NDCG from
+    0.8519 to 0.8808.
+  </figcaption>
+</figure>
+</section>
+
+<section>
+  <h2>Results on the test split</h2>
+  <p>NDCG over each query's whole judged list, with a 95% bootstrap interval over queries. A
+  random order scores 0.7468; the published fine-tuned cross-encoder baseline scores
+  0.8562. Latency is the p95 one query adds, on an RTX A6000 unless noted.</p>
+  <div class="scroll"><table class="results">
+    <thead><tr><th>re-ranker on the coarse top 10</th><th class="n">NDCG</th><th class="n">95% interval</th><th class="n">p95</th></tr></thead>
+    <tbody><tr><td>coarse ranker, LambdaMART over 47 features</td><td class="n">0.8579</td><td class="n ci-cell">[0.8551, 0.8611]</td><td class="n">—</td></tr><tr><td>bge-reranker-base, fine-tuned</td><td class="n">0.8711</td><td class="n ci-cell">[0.8681, 0.8742]</td><td class="n">31.6 ms</td></tr><tr><td>bge-reranker-large, fine-tuned</td><td class="n">0.8770</td><td class="n ci-cell">[0.8742, 0.8801]</td><td class="n">46.1 ms</td></tr><tr><td>Qwen3-Reranker-0.6B, zero-shot</td><td class="n">0.8570</td><td class="n ci-cell">[0.8541, 0.8602]</td><td class="n">86.7 ms</td></tr><tr><td>Qwen3-Reranker-0.6B, fine-tuned</td><td class="n">0.8729</td><td class="n ci-cell">[0.8698, 0.8759]</td><td class="n">87.0 ms</td></tr><tr><td>Qwen3-1.7B listwise, fine-tuned</td><td class="n">0.8641</td><td class="n ci-cell">[0.8613, 0.8672]</td><td class="n">3,451.5 ms</td></tr><tr><td>Qwen3-Reranker-4B, fine-tuned</td><td class="n">0.8848</td><td class="n ci-cell">[0.8820, 0.8877]</td><td class="n">290.2 ms</td></tr><tr class="best"><td>Qwen3-Reranker-4B, served by vLLM in INT8</td><td class="n">0.8843</td><td class="n ci-cell">[0.8815, 0.8872]</td><td class="n">146.0 ms</td></tr><tr><td>hosted LLM, listwise</td><td class="n">0.8855</td><td class="n ci-cell">[0.8827, 0.8883]</td><td class="n">4,712.8 ms</td></tr></tbody>
+  </table></div>
+  <p>The fine-tuned 4B model beats <code>bge-reranker-large</code> by +0.0078 [+0.0061, +0.0096] and
+  ties the hosted LLM at −0.0008 [−0.0025, +0.0013], while answering in 146.0 ms
+  at p95 against the API's 4,712.8 ms for a single query. The hosted figure is
+  timed through its API; the coarse ranker's own latency is not part of this table.</p>
+  <div class="scroll chart-wrap"><svg class="chart" viewBox="0 0 960 470" role="img" aria-label="Test NDCG against single-query latency for every Stage 3 re-ranker"><line class="grid" x1="64" x2="936" y1="418.0" y2="418.0"/><text class="tick" x="56" y="422.0" text-anchor="end">0.850</text><line class="grid" x1="64" x2="936" y1="368.0" y2="368.0"/><text class="tick" x="56" y="372.0" text-anchor="end">0.855</text><line class="grid" x1="64" x2="936" y1="318.0" y2="318.0"/><text class="tick" x="56" y="322.0" text-anchor="end">0.860</text><line class="grid" x1="64" x2="936" y1="268.0" y2="268.0"/><text class="tick" x="56" y="272.0" text-anchor="end">0.865</text><line class="grid" x1="64" x2="936" y1="218.0" y2="218.0"/><text class="tick" x="56" y="222.0" text-anchor="end">0.870</text><line class="grid" x1="64" x2="936" y1="168.0" y2="168.0"/><text class="tick" x="56" y="172.0" text-anchor="end">0.875</text><line class="grid" x1="64" x2="936" y1="118.0" y2="118.0"/><text class="tick" x="56" y="122.0" text-anchor="end">0.880</text><line class="grid" x1="64" x2="936" y1="68.0" y2="68.0"/><text class="tick" x="56" y="72.0" text-anchor="end">0.885</text><line class="grid" x1="64" x2="936" y1="18.0" y2="18.0"/><text class="tick" x="56" y="22.0" text-anchor="end">0.890</text><line class="grid" x1="178.8" x2="178.8" y1="18" y2="418"/><text class="tick" x="178.8" y="436" text-anchor="middle">30 ms</text><line class="grid" x1="345.7" x2="345.7" y1="18" y2="418"/><text class="tick" x="345.7" y="436" text-anchor="middle">100 ms</text><line class="grid" x1="498.0" x2="498.0" y1="18" y2="418"/><text class="tick" x="498.0" y="436" text-anchor="middle">300 ms</text><line class="grid" x1="664.9" x2="664.9" y1="18" y2="418"/><text class="tick" x="664.9" y="436" text-anchor="middle">1,000 ms</text><line class="grid" x1="817.2" x2="817.2" y1="18" y2="418"/><text class="tick" x="817.2" y="436" text-anchor="middle">3,000 ms</text><text class="axis" x="500" y="460" text-anchor="middle">mean single-query latency, log scale</text><g class="pt"><title>hosted LLM [hosted API]: NDCG 0.8855, 4,712.8 ms</title><line class="ci" x1="879.8" x2="879.8" y1="35.5" y2="91.0"/><circle class="m-hosted" cx="879.8" cy="62.9" r="5.5"/></g><text class="lbl" x="869.8" y="56.9" text-anchor="end">hosted LLM (API)</text><g class="pt"><title>Qwen3-Reranker-4B, fine-tuned, bf16 [RTX A6000]: NDCG 0.8848, 286.0 ms</title><line class="ci" x1="491.4" x2="491.4" y1="40.5" y2="98.1"/><rect class="m-llm" x="486.9" y="65.9" width="9" height="9"/></g><text class="lbl" x="501.4" y="64.4" text-anchor="start">Qwen3 4B, in-process</text><g class="pt"><title>Qwen3-Reranker-4B, fine-tuned, served
+vllm_w8a8_prefix [RTX A6000]: NDCG 0.8843, 126.5 ms</title><line class="ci" x1="378.3" x2="378.3" y1="46.4" y2="103.1"/><path class="m-served" d="M378.3 67.7 L385.3 74.7 L378.3 81.7 L371.3 74.7 Z"/></g><text class="lbl strong" x="368.3" y="68.7" text-anchor="end">Qwen3 4B, served INT8</text><g class="pt"><title>bge-reranker-large, fp16 [RTX A6000]: NDCG 0.8770, 40.3 ms</title><line class="ci" x1="219.6" x2="219.6" y1="117.4" y2="176.1"/><circle class="m-ce" cx="219.6" cy="148.5" r="5"/></g><text class="lbl" x="229.6" y="128.5" text-anchor="start">bge-reranker-large, fp16</text><g class="pt"><title>bge-reranker-large, fp32 [RTX A6000]: NDCG 0.8770, 90.0 ms</title><line class="ci" x1="331.1" x2="331.1" y1="117.4" y2="176.1"/><circle class="m-ce" cx="331.1" cy="148.5" r="5"/></g><text class="lbl" x="341.1" y="163.5" text-anchor="start">bge-reranker-large, fp32</text><g class="pt"><title>Qwen3-Reranker-0.6B, fine-tuned, bf16 [RTX A6000]: NDCG 0.8729, 79.3 ms</title><line class="ci" x1="313.5" x2="313.5" y1="159.0" y2="220.1"/><rect class="m-llm" x="309.0" y="184.8" width="9" height="9"/></g><text class="lbl" x="323.5" y="183.3" text-anchor="start">Qwen3 0.6B, fine-tuned</text><g class="pt"><title>bge-reranker-base, fp16 [RTX A6000]: NDCG 0.8711, 26.3 ms</title><line class="ci" x1="160.7" x2="160.7" y1="175.7" y2="236.6"/><circle class="m-ce" cx="160.7" cy="207.0" r="5"/></g><text class="lbl" x="170.7" y="236.0" text-anchor="start">bge-reranker-base, fp16</text><g class="pt"><title>bge-reranker-base, fp32 [RTX A6000]: NDCG 0.8711, 36.8 ms</title><line class="ci" x1="207.1" x2="207.1" y1="175.7" y2="236.6"/><circle class="m-ce" cx="207.1" cy="207.0" r="5"/></g><text class="lbl" x="217.1" y="201.0" text-anchor="start">bge-reranker-base, fp32</text><g class="pt"><title>Qwen3-1.7B listwise, fine-tuned, bf16 [RTX A6000]: NDCG 0.8641, 3,315.9 ms</title><line class="ci" x1="831.1" x2="831.1" y1="245.9" y2="304.8"/><rect class="m-llm" x="826.6" y="272.5" width="9" height="9"/></g><text class="lbl" x="821.1" y="271.0" text-anchor="end">Qwen3 1.7B listwise</text><g class="pt"><title>MiniLM cross-encoder, fp32 [RTX 3080 laptop]: NDCG 0.8616, 19.7 ms</title><line class="ci" x1="120.2" x2="120.2" y1="271.4" y2="330.1"/><circle class="m-ce" cx="120.2" cy="302.2" r="5"/></g><text class="lbl" x="130.2" y="296.2" text-anchor="start">MiniLM cross-encoder (RTX 3080)</text><g class="pt"><title>Qwen3-Reranker-0.6B, zero-shot, bf16 [RTX A6000]: NDCG 0.8570, 82.0 ms</title><line class="ci" x1="318.2" x2="318.2" y1="315.9" y2="376.8"/><rect class="m-llm" x="313.7" y="343.4" width="9" height="9"/></g><text class="lbl" x="328.2" y="341.9" text-anchor="start">Qwen3 0.6B, zero-shot</text></svg></div>
+  <p class="note"><span class="key"><svg viewBox="0 0 14 14"><circle class="m-ce" cx="7" cy="7" r="5"/></svg> cross-encoder</span>
+  <span class="key"><svg viewBox="0 0 14 14"><rect class="m-llm" x="2.5" y="2.5" width="9" height="9"/></svg> open LLM, in-process</span>
+  <span class="key"><svg viewBox="0 0 16 16"><path class="m-served" d="M8 1 L15 8 L8 15 L1 8 Z"/></svg> open LLM, served</span>
+  <span class="key"><svg viewBox="0 0 14 14"><circle class="m-hosted" cx="7" cy="7" r="5"/></svg> hosted LLM</span></p>
+  <p class="note">Vertical bars are 95% intervals. MiniLM was timed on a laptop RTX 3080, the hosted
+  LLM through its API, and the rest on an RTX A6000.</p>
+</section>
+
+<section>
+  <h2>How the pipeline works</h2>
+  <ol class="stages">
+    <li><h3>Coarse rank</h3><p>LightGBM LambdaMART over 47 query–product features: BM25 and
+    dense text similarity, CLIP image similarity, text overlap, and prices, ratings, categories
+    and attributes from the ESCI-S scrape. It orders each query's whole judged list:
+    0.8579, level with the published baseline.</p></li>
+    <li><h3>Fine rank</h3><p>A slower model re-orders the coarse top 10. Cross-encoders fine-tuned
+    on the training folds, open LLMs fine-tuned the same way, and a hosted LLM asked for a
+    permutation were each measured, and each lies above the baseline.</p></li>
+    <li><h3>Blend</h3><p>Fixed-weight fusion, a learned combiner and a per-query selector over the
+    stages. None beats the best stage it contains, so the deployed path stops at fine rank.</p></li>
+  </ol>
+</section>
+
+<section>
+  <h2>Serving the 4B model</h2>
+  <p>One change a rung, each paired against the in-process reference on the validation queries.
+  Latency is single-query on queries the server had not seen; throughput runs 16 queries at a
+  time. No rung lost quality, so the fastest one, INT8, is deployed.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>rung</th><th class="n">p50 ms</th><th class="n">p95 ms</th><th class="n">queries/s</th><th class="n">NDCG change vs reference</th></tr></thead>
+    <tbody><tr><td>one pair at a time</td><td class="n">750.7</td><td class="n">772.7</td><td class="n">1.2</td><td class="n ci-cell">−0.0000 [−0.0006, +0.0005]</td></tr><tr><td>the window as one batch (reference)</td><td class="n">277.3</td><td class="n">281.8</td><td class="n">3.9</td><td class="n ci-cell">reference</td></tr><tr><td>served by vLLM</td><td class="n">203.5</td><td class="n">216.4</td><td class="n">6.6</td><td class="n ci-cell">−0.0004 [−0.0009, +0.0002]</td></tr><tr><td>+ prefix caching</td><td class="n">163.6</td><td class="n">180.8</td><td class="n">9.5</td><td class="n ci-cell">−0.0003 [−0.0008, +0.0003]</td></tr><tr class="best"><td>+ INT8 weights and activations</td><td class="n">125.7</td><td class="n">146.0</td><td class="n">12.7</td><td class="n ci-cell">−0.0005 [−0.0015, +0.0005]</td></tr><tr><td>4-bit weights instead</td><td class="n">167.9</td><td class="n">191.2</td><td class="n">8.9</td><td class="n ci-cell">−0.0003 [−0.0015, +0.0007]</td></tr></tbody>
+  </table></div>
+  <p>Under an open-loop load test with Poisson arrivals, the deployed rung holds a p95 under
+  300 ms up to 4 queries a second on one GPU, about
+  $0.0278 per 1,000 queries at the $0.40/hr
+  the card was rented for. Past that the queue grows without bound.</p>
+  <div class="scroll"><table class="narrow">
+    <thead><tr><th class="n">offered q/s</th><th class="n">achieved</th><th class="n">p50 ms</th><th class="n">p95 ms</th></tr></thead>
+    <tbody><tr><td class="n">1</td><td class="n">1.0</td><td class="n">128.6</td><td class="n">169.1</td></tr><tr><td class="n">2</td><td class="n">2.0</td><td class="n">131.7</td><td class="n">222.8</td></tr><tr><td class="n">4</td><td class="n">3.8</td><td class="n">129.5</td><td class="n">204.4</td></tr><tr><td class="n">8</td><td class="n">8.2</td><td class="n">169.5</td><td class="n">439.1</td></tr><tr><td class="n">16</td><td class="n">12.7</td><td class="n">9,197.1</td><td class="n">16,229.2</td></tr></tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>What each part is worth</h2>
+  <p>Paired differences in test NDCG, "A − B", with 95% intervals. A bar crossing the centre line
+  is a tie, and ties and losses are reported as results.</p>
+  <ol class="forest"><li class="f-row gain"><span class="f-name">text+image − text-only features</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="58.80" x2="63.54" y1="6" y2="6"/><line class="dot" x1="61.22" x2="61.22" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0075 [+0.0059, +0.0090]</span></li><li class="f-row gain"><span class="f-name">behavioural values − text+presence indicators</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="53.43" x2="57.67" y1="6" y2="6"/><line class="dot" x1="55.44" x2="55.44" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0036 [+0.0023, +0.0051]</span></li><li class="f-row loss"><span class="f-name">pointwise classifier − lambdarank</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="34.88" x2="39.60" y1="6" y2="6"/><line class="dot" x1="37.21" x2="37.21" y1="0.5" y2="11.5"/></svg><span class="f-num">−0.0085 [−0.0101, −0.0069]</span></li><li class="f-row loss"><span class="f-name">pointwise regression − lambdarank</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="33.16" x2="38.14" y1="6" y2="6"/><line class="dot" x1="35.57" x2="35.57" y1="0.5" y2="11.5"/></svg><span class="f-num">−0.0096 [−0.0112, −0.0079]</span></li><li class="f-row gain"><span class="f-name">coarse+cross-encoder − coarse-only</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="52.39" x2="58.67" y1="6" y2="6"/><line class="dot" x1="55.57" x2="55.57" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0037 [+0.0016, +0.0058]</span></li><li class="f-row gain"><span class="f-name">coarse+LLM listwise − coarse-only</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="88.28" x2="94.44" y1="6" y2="6"/><line class="dot" x1="91.46" x2="91.46" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0276 [+0.0255, +0.0296]</span></li><li class="f-row tie"><span class="f-name">learned fusion − fixed global weight</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="46.61" x2="50.06" y1="6" y2="6"/><line class="dot" x1="48.33" x2="48.33" y1="0.5" y2="11.5"/></svg><span class="f-num">−0.0011 [−0.0023, +0.0000]</span></li><li class="f-row loss"><span class="f-name">best blend (per-query selector) − LLM alone</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="48.72" x2="49.54" y1="6" y2="6"/><line class="dot" x1="49.14" x2="49.14" y1="0.5" y2="11.5"/></svg><span class="f-num">−0.0006 [−0.0009, −0.0003]</span></li><li class="f-row loss"><span class="f-name">MiniLM on top-10 windows − landed cross-encoder</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="43.30" x2="46.16" y1="6" y2="6"/><line class="dot" x1="44.75" x2="44.75" y1="0.5" y2="11.5"/></svg><span class="f-num">−0.0035 [−0.0045, −0.0026]</span></li><li class="f-row gain"><span class="f-name">bge − MiniLM, both on windows at batch 16 (the backbone)</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="64.05" x2="69.51" y1="6" y2="6"/><line class="dot" x1="66.80" x2="66.80" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0112 [+0.0094, +0.0130]</span></li><li class="f-row tie"><span class="f-name">bge at batch 8 − batch 16, on windows (the batch)</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="49.12" x2="51.48" y1="6" y2="6"/><line class="dot" x1="50.34" x2="50.34" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0002 [−0.0006, +0.0010]</span></li><li class="f-row gain"><span class="f-name">bge on whole groups − bge on windows (the recipe)</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="50.94" x2="53.83" y1="6" y2="6"/><line class="dot" x1="52.39" x2="52.39" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0016 [+0.0006, +0.0026]</span></li><li class="f-row gain"><span class="f-name">bge-large − bge-base, both on whole groups (the size)</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="56.60" x2="61.07" y1="6" y2="6"/><line class="dot" x1="58.77" x2="58.77" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0059 [+0.0044, +0.0074]</span></li><li class="f-row gain"><span class="f-name">best LLM reranker − bge-large (chosen on fold 0)</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="59.17" x2="64.44" y1="6" y2="6"/><line class="dot" x1="61.71" x2="61.71" y1="0.5" y2="11.5"/></svg><span class="f-num">+0.0078 [+0.0061, +0.0096]</span></li><li class="f-row tie"><span class="f-name">best LLM reranker − hosted LLM (chosen on fold 0)</span><svg class="f-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><line class="zero" x1="50" x2="50" y1="0" y2="12"/><line class="ci" x1="46.27" x2="51.89" y1="6" y2="6"/><line class="dot" x1="48.87" x2="48.87" y1="0.5" y2="11.5"/></svg><span class="f-num">−0.0008 [−0.0025, +0.0013]</span></li></ol>
+</section>
+
+<section>
+  <h2>What the data got wrong</h2>
+  <ul class="pitfalls">
+    <li><strong>The Hugging Face mirror is the wrong split.</strong> It encodes the large-version
+    split, 185,361 test judgements instead of 181,701. The loader asserts the official counts on
+    every load.</li>
+    <li><strong>The official evaluation script swaps the Substitute and Complement gains,</strong>
+    which moves the random floor by over three points, more than most method gains. The floor is
+    computed on every report, never quoted.</li>
+    <li><strong>About half the ESCI-S image URLs point at a retired CDN bucket.</strong> Stripping
+    one path segment makes them resolve.</li>
+    <li><strong>Books store their image under a different key,</strong> so reading only
+    <code>image</code> silently drops every book.</li>
+    <li><strong>"Has an image" and "has a price" are ranking signals by accident:</strong> they
+    record the 2022 scrape failing on a page, which a live system would not know. The
+    behavioural ablation controls for them.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>How it was measured</h2>
+  <p>Validation folds were carved from the training queries by query and frozen before anything
+  was tuned. Every model, prompt and serving rung was chosen on them; each test measurement sits
+  behind a <code>--final</code> flag and was run once. Every NDCG is reported beside a random
+  floor computed on the same queries, with bootstrap intervals over queries, and a test fails if
+  the writeup quotes a figure that no committed results file contains.</p>
+  <p><a class="more" href="https://github.com/PhamHongPhuc2712/esci-multimodel-ltr/blob/main/docs/RESULTS.md">Read the full writeup</a>
+  <a class="more" href="https://github.com/PhamHongPhuc2712/esci-multimodel-ltr">Browse the code</a></p>
+</section>
+</main>
+<footer>
+  <p>Data: the Amazon Shopping Queries Dataset (ESCI) and the ESCI-S enrichment. Generated by
+  <code>python -m src.site</code> from <code>docs/results/</code>.</p>
+</footer>
+</body>
+</html>
