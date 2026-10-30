@@ -22,3 +22,6 @@ models/
 
 # Frozen split artifacts live in splits/ (not data/) precisely so they escape
 # the data/ rule above and can be committed. Keep them there.
+
+# Cloud bundles built by scripts/cloud/
+build/
