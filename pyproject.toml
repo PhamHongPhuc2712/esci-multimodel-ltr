@@ -41,6 +41,10 @@ llm = [
     # LoRA for the listwise arm and the gated 4B pointwise arm.
     "peft>=0.21",
 ]
+report = [
+    # The Plan 13 quality-against-latency chart.
+    "matplotlib>=3.9",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

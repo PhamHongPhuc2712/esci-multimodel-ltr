@@ -83,9 +83,11 @@ def test_commands_are_found_through_loops_and_continuations(tmp_path):
 def test_the_module_accepts_every_flag_the_docs_use(command):
     module = module_of(command)
     sub = ""
-    # src.cli has subcommands; help for the subcommand is where its flags live.
+    # src.cli, src.llm_point and src.llm_list have subcommands; help for the
+    # subcommand is where its flags live. A module without subcommands still
+    # prints its help when a positional word comes before --help.
     parts = shlex.split(command)
-    if module == "src.cli" and len(parts) > 3 and not parts[3].startswith("-"):
+    if len(parts) > 3 and not parts[3].startswith("-"):
         sub = parts[3]
     argv = [sys.executable, "-m", module, *([sub] if sub else []), "--help"]
     result = subprocess.run(argv, capture_output=True, text=True, timeout=180)

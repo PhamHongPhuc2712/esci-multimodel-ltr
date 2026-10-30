@@ -21,7 +21,7 @@ Nothing here computes a number. Every value is read from a committed JSON, so
 the table cannot drift from the files it claims to summarise.
 
 A second block, FINDINGS, carries the results measured after the spec's seven
-ablations - Stage 4 against the LLM alone, and Plans 8 to 11 - read the same
+ablations - Stage 4 against the LLM alone, and Plans 8 to 13 - read the same
 way, by arm name, from the files those plans committed. Until Plan 12 the
 README quoted those rows by hand.
 """
@@ -46,6 +46,7 @@ REQUIRED_FILES: tuple[str, ...] = (
     "distill-test",
     "capacity-test",
     "size-test",
+    "llm-rank-test",
 )
 
 _RECALL, _COARSE, _FINE = (
@@ -60,6 +61,7 @@ _BLEND, _TUNED, _DISTILL, _CAPACITY, _SIZE = (
     "docs/results/capacity-test.json",
     "docs/results/size-test.json",
 )
+_LLM_RANK = "docs/results/llm-rank-test.json"
 
 # One row per measured comparison, named "A − B" so the sign reads the same
 # way on every row: negative means B won.
@@ -129,6 +131,14 @@ FINDINGS: tuple[dict, ...] = (
      "metric": "NDCG", "scope": "test", "source": _SIZE, "owner": "Plan 11",
      "file": "size-test", "block": "comparisons",
      "arm": "stage2+ce_bge_large", "baseline": "stage2+ce_bge_groups"},
+    {"number": 13, "label": "13a", "name": "best LLM reranker − bge-large (chosen on fold 0)",
+     "metric": "NDCG", "scope": "test", "source": _LLM_RANK, "owner": "Plan 13",
+     "file": "llm-rank-test", "block": "comparisons",
+     "arm": "stage2+qwen_point_4b", "baseline": "stage2+ce_bge_large"},
+    {"number": 13, "label": "13b", "name": "best LLM reranker − hosted LLM (chosen on fold 0)",
+     "metric": "NDCG", "scope": "test", "source": _LLM_RANK, "owner": "Plan 13",
+     "file": "llm-rank-test", "block": "comparisons",
+     "arm": "stage2+qwen_point_4b", "baseline": "stage2+llm"},
 )
 
 _SCOPE_WARNING = (

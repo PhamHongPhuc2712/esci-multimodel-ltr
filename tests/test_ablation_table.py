@@ -171,10 +171,10 @@ def test_every_finding_names_its_file_block_and_both_arms():
         assert finding["scope"] and finding["metric"] and finding["owner"]
 
 
-def test_the_findings_cover_stage_4_and_plans_8_to_11():
+def test_the_findings_cover_stage_4_and_plans_8_to_13():
     from src.ablation_table import FINDINGS
 
-    assert [f["label"] for f in FINDINGS] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11"]
+    assert [f["label"] for f in FINDINGS] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11", "13a", "13b"]
 
 
 def test_a_comparison_is_found_by_both_names():
@@ -215,7 +215,7 @@ def test_build_findings_reads_each_file_by_name():
             "delta": {"point": 0.5, "low": 0.4, "high": 0.6}, "significant": True,
         })
     rows = build_findings(results)
-    assert [row.label for row in rows] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11"]
+    assert [row.label for row in rows] == ["S4", "8a", "9a", "9b", "9c", "10a", "10b", "11", "13a", "13b"]
     assert all(row.n_queries == 10 and row.delta["point"] == 0.5 for row in rows)
 
 

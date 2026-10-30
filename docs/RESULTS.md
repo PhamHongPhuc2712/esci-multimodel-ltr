@@ -12,8 +12,8 @@ A five-stage product search funnel on the Amazon ESCI Shopping Queries Dataset
 (Task 1, English): LLM query rewriting, hybrid recall (BM25, an off-the-shelf
 and an ESCI-fine-tuned dense retriever, and CLIP image, fused with RRF), a
 LightGBM LambdaMART coarse ranker over 47 features,
-fine re-ranking of its top 10 by a fine-tuned cross-encoder or an LLM listwise
-call, and a blend stage. ESCI is enriched with images, prices, ratings,
+fine re-ranking of its top 10 by a fine-tuned cross-encoder, a fine-tuned
+open LLM served on one GPU, or a hosted LLM listwise call, and a blend stage. ESCI is enriched with images, prices, ratings,
 categories and attributes from the ESCI-S scrape.
 
 The task is **re-ranking**: only judged candidates are ranked, so ranking is
@@ -52,6 +52,15 @@ split was scored. It also lies wholly above the target, at 205.2 ms a query.
 The next size down, `bge-reranker-base` under the same recipe, scores 0.8711
 [0.8681, 0.8742] at 64.5 ms (`capacity-test.json`), so the larger model buys
 +0.0059 [+0.0044, +0.0074] for about three times the latency.
+
+**A fine-tuned open LLM closes the rest of the gap without the API.**
+`Qwen3-Reranker-4B`, fine-tuned on the training folds and served by vLLM in
+INT8 on one rented RTX A6000, scores **0.8843 [0.8815, 0.8872]** on the test
+split at a 146.0 ms p95 (`llm-speed.json`, Section 9). In-process, the same
+model scores 0.8848 [0.8820, 0.8877]: +0.0078 [+0.0061, +0.0096] over
+`bge-reranker-large`, and a tie with the hosted LLM at −0.0008 [−0.0025,
++0.0013] (`llm-rank-test.json`). It was chosen on fold 0, like every other
+arm, and serves 4 queries a second within a 300 ms p95.
 
 The floor is computed every time, never quoted: 0.7467 on the full test split
 with this project's gains and discount (`sbert-title-test.json`), against the
@@ -176,7 +185,7 @@ B won.
 among the seven ablations the spec asked for, but they are measured the same
 way, and since Plan 12 the same table carries them (`ablation-table.json`,
 `findings`), each read from the file its plan committed by arm name. Sections
-5 and 8 and the fine-tuned retriever's part of Section 3 are the prose for
+5, 8 and 9 and the fine-tuned retriever's part of Section 3 are the prose for
 these rows.
 
 | # | ablation | metric | scope | n | delta | |
@@ -189,6 +198,8 @@ these rows.
 | 10a | four channels, tuned fusion − Plan 4's fusion | Recall@100 | test, full corpus | 8,956 | +0.0567 [+0.0534, +0.0598] | significant |
 | 10b | fine-tuned retriever alone − off-the-shelf dense alone | Recall@100 | test, full corpus | 8,956 | +0.1030 [+0.0978, +0.1082] | significant |
 | 11 | bge-large − bge-base, both on whole groups (the size) | NDCG | test | 8,956 | +0.0059 [+0.0044, +0.0074] | significant |
+| 13a | best LLM reranker − bge-large (chosen on fold 0) | NDCG | test | 8,956 | +0.0078 [+0.0061, +0.0096] | significant |
+| 13b | best LLM reranker − hosted LLM (chosen on fold 0) | NDCG | test | 8,956 | -0.0008 [-0.0025, +0.0013] | ties |
 
 > Rows 1–2 and 3–7 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.
 
@@ -509,7 +520,133 @@ over MiniLM on the windows, +0.0059 for large over base on whole groups. The
 remaining gap to the LLM is −0.0086, and a model twice this size again would
 need more than the card's 16 GB for its weights and optimiser state alone.
 
-## 9. What would come next
+## 9. A fast self-served LLM reranker
+
+Section 8 left a gap: the hosted LLM leads `bge-reranker-large` by 0.0086 but
+answers in 4.7 s and bills per call. Plan 13 asked whether a small open LLM,
+fine-tuned on the training folds and served on one GPU, could close that gap
+fast enough to deploy. Three arms took Stage 2's top 10, as every Stage 3
+system does:
+
+- **pointwise `Qwen3-Reranker-0.6B`**, fully fine-tuned on every judged pair of
+  folds 2/3/4 (250,485 pairs), scoring each pair by P("yes") with the gain as
+  a soft target;
+- **listwise `Qwen3-1.7B`** with LoRA, trained on the 12,519 out-of-fold
+  windows to write the label order of a window directly, as the hosted LLM
+  does;
+- **pointwise `Qwen3-Reranker-4B`**, the 0.6B recipe on the larger backbone,
+  with LoRA.
+
+The 4B arm did not fit the laptop's training budget, so all three trained on
+a rented RTX A6000 (48 GB), and every Plan 13 latency below is an A6000
+latency. Each results file records its device. Every choice was made on fold
+0: the arm to serve, and then the serving rung. The test split was scored
+once, after both were fixed.
+
+**The 4B arm beats `bge-reranker-large` and ties the hosted LLM.** On all
+8,956 test queries (`llm-rank-test.json`):
+
+| Stage 3 arm | test NDCG | − bge-large | − hosted LLM | single query, mean / p95 |
+|---|---|---|---|---|
+| Qwen3-Reranker-0.6B, zero-shot | 0.8570 [0.8541, 0.8602] | −0.0199 [−0.0219, −0.0180] | −0.0285 [−0.0306, −0.0264] | 82.0 / 86.7 ms |
+| Qwen3-Reranker-0.6B, fine-tuned | 0.8729 [0.8698, 0.8759] | −0.0041 [−0.0057, −0.0024] | −0.0126 [−0.0147, −0.0105] | 79.3 / 87.0 ms |
+| Qwen3-1.7B listwise, fine-tuned | 0.8641 [0.8613, 0.8672] | −0.0129 [−0.0148, −0.0108] | −0.0214 [−0.0234, −0.0193] | 3,315.9 / 3,451.5 ms |
+| **Qwen3-Reranker-4B, fine-tuned** | **0.8848 [0.8820, 0.8877]** | **+0.0078 [+0.0061, +0.0096]** | **−0.0008 [−0.0025, +0.0013]** | 286.0 / 290.2 ms |
+| `bge-reranker-large`, fp16 | 0.8770 [0.8742, 0.8801] | — | −0.0086 | 40.3 / 46.1 ms |
+| `bge-reranker-base`, fp16 | 0.8711 [0.8681, 0.8742] | | | 26.3 / 31.6 ms |
+
+The cross-encoders are timed in fp16 on the same card, so the LLMs are
+compared against equally optimised baselines. fp16 ties fp32 for both, within
+0.0001, at under half the latency: 90.0 ms falls to 40.3 for the large model.
+Their committed RTX 3080 timings in Section 8 are a different card.
+
+- **Fine-tuning is what pays.** Zero-shot, `Qwen3-Reranker-0.6B` does not beat
+  the coarse ranker it re-ranks: −0.0009 [−0.0031, +0.0012], a tie.
+  Fine-tuned on the same pairs, it gains +0.0159 [+0.0138, +0.0179] over
+  itself. That still leaves it −0.0041 short of `bge-reranker-large`, which is
+  also faster in fp16.
+- **Pointwise beat listwise.** The listwise 1.7B model wrote a valid
+  permutation for every window, with no malformed answers, but scores
+  −0.0088 [−0.0108, −0.0065] under the 0.6B pointwise model, at about 40
+  times its latency. Writing a permutation token by token is the slow part,
+  and a model this small does not learn it as well as it learns a yes/no
+  score.
+- **Size pays again.** The 4B model gains +0.0119 [+0.0102, +0.0136] over the
+  0.6B one under the same recipe. It recovers 97% of the hosted LLM's gain over
+  the coarse ranker, against 69% for `bge-reranker-large`.
+
+On fold 0, where the arm was chosen, the 4B model scored 0.8808 [0.8761,
+0.8853] against the hosted LLM's 0.8814 and bge-large's 0.8742
+(`llm-rank.json`). The test split moved nothing.
+
+### The speed ladder
+
+The 4B arm then went through a ladder on fold 0, one change a rung, each
+rung paired against the in-process reference (`llm-speed.json`). Latency is
+single-query, on 200 queries the server had not seen, measured before the
+quality pass. Throughput runs 16 queries at a time over the rest of fold 0.
+
+| rung | changes | p50 / p95 | queries/s | fold-0 NDCG | − reference |
+|---|---|---|---|---|---|
+| `hf_bf16_loop` | one pair at a time | 750.7 / 772.7 ms | 1.2 | 0.8808 | −0.0000 [−0.0006, +0.0005] |
+| `hf_bf16_batched` | the window as one batch: the reference | 277.3 / 281.8 ms | 3.9 | 0.8808 | — |
+| `vllm_bf16` | served by vLLM 0.31.0 | 203.5 / 216.4 ms | 6.6 | 0.8805 | −0.0004 [−0.0009, +0.0002] |
+| `vllm_bf16_prefix` | + prefix caching | 163.6 / 180.8 ms | 9.5 | 0.8806 | −0.0003 [−0.0008, +0.0003] |
+| **`vllm_w8a8_prefix`** | **+ INT8 weights and activations** | **125.7 / 146.0 ms** | **12.7** | **0.8803** | −0.0005 [−0.0015, +0.0005] |
+| `vllm_w4a16_prefix` | 4-bit weights instead | 167.9 / 191.2 ms | 8.9 | 0.8805 | −0.0003 [−0.0015, +0.0007] |
+
+`vllm_bf16` is the agreement check: the served model must match the
+in-process one before any other rung counts, and it did. No rung lost
+quality: every interval contains zero. The deployed rung is the fastest
+lossless one, INT8. It halves the reference's p95 and more than triples its
+throughput. 4-bit was slower than INT8 on this card: the A6000 has INT8 tensor
+cores, and 4-bit weights are expanded back to 16 bits before each multiply.
+Both quantised checkpoints were calibrated on 512 pairs from folds 2/3/4.
+
+The server returns the top 20 log-probabilities of the next token. When "no"
+falls outside them, the client bounds P("yes") from below with the smallest
+of the 20 and counts it: 9 answers over the deployed rung's whole fold-0
+run, which scores ten pairs a query.
+
+### Under load, and on test
+
+An open-loop load test sent the deployed rung requests on a Poisson schedule
+at rising rates, never the same query twice in one server lifetime, timing
+each from its scheduled arrival (`llm-load.json`):
+
+| offered rate | achieved | p50 | p95 |
+|---|---|---|---|
+| 1 q/s | 1.0 q/s | 128.6 ms | 169.1 ms |
+| 2 q/s | 2.0 q/s | 131.7 ms | 222.8 ms |
+| **4 q/s** | **3.8 q/s** | **129.5 ms** | **204.4 ms** |
+| 8 q/s | 8.2 q/s | 169.5 ms | 439.1 ms |
+| 16 q/s | 12.7 q/s | 9,197.1 ms | 16,229.2 ms |
+
+No request failed. **The highest rate with a p95 under 300 ms is 4 queries a
+second on one A6000**, which at the $0.40/hr the instance was rented for is
+**$0.0278 per 1,000 queries**. At 16 queries a second the card saturates at
+its batch throughput and the queue grows without bound.
+
+On the test split, scored once, the deployed rung measures **0.8843
+[0.8815, 0.8872]**, −0.0004 [−0.0012, +0.0003] against the in-process 4B
+model's 0.8848: serving and INT8 cost nothing measurable on test either.
+
+![Stage 3 rerankers: quality against latency](figures/quality-vs-latency.svg)
+
+The chart is generated from the committed JSON by
+`python -m src.quality_latency_chart`. Each point's label names the runtime,
+precision and card it was timed on, and its x-axis is mean single-query
+latency. MiniLM's point is Plan 6's RTX 3080 timing, the only one not
+re-measured on the A6000.
+
+**Plainly: a fine-tuned 4B open model, served in INT8, beats the best
+cross-encoder by +0.0078 and ties the hosted LLM, at a 146.0 ms p95 against
+the hosted call's 4,712.8 ms for a single query and 1,179.1 ms batched.** The
+hosted LLM's lead is gone. What remains is cost of a different kind: one
+rented GPU at 4 queries a second, and three times `bge-reranker-large`'s fp16
+latency for its +0.0078.
+
+## 10. What would come next
 
 - **Predict when the LLM is wrong, from the LLM.** Section 5 shows label-free
   features cannot. A signal from the model itself — ask twice with the window
