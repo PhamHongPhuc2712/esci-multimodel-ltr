@@ -45,7 +45,7 @@ def test_image_coverage_counts_only_matched_products_with_a_url():
 
 
 def test_image_coverage_is_reported_against_the_product_set_not_the_matches():
-    # PROJECT_SPEC.md warns that the headline 91.5% is not image coverage:
+    # The original design warns that the headline 91.5% is not image coverage:
     # end to end it is ~75%. Dividing by matches rather than by the product
     # set would reproduce exactly that overstatement.
     result = join_coverage({"B1", "B2"}, _corpus(), scope="rerank")
@@ -153,7 +153,7 @@ def test_dense_and_sparse_fields_are_labelled():
 
 
 def test_a_sparse_field_confounded_with_the_label_is_reported_not_raised():
-    # PROJECT_SPEC.md expects sparse fields to correlate; they are carried
+    # The original design expects sparse fields to correlate; they are carried
     # with missingness indicators rather than rejected.
     judgements = _judgements()
     present = (judgements["gain"] > 0.5).to_numpy()

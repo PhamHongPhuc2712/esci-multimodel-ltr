@@ -1,4 +1,4 @@
-"""PROJECT_SPEC.md §6 as one table, assembled from the committed results.
+"""The original design as one table, assembled from the committed results.
 
 The spec's re-ranking ablations, 3 to 7, owned by two plans, each measured as
 NDCG on the 8,956 test queries. Ablations 1 and 2 belonged to the recall stage,
@@ -59,7 +59,7 @@ _LLM_RANK = "docs/results/llm-rank-test.json"
 # way on every row: negative means B won.
 #
 # Ablations 5 and 6 each measured two comparisons, and showing one hides the
-# other: 5a is §6's literal "pointwise classifier", 6a the
+# other: 5a is the design's literal "pointwise classifier", 6a the
 # fine-tuned cross-encoder beside 6b's LLM.
 ABLATIONS: tuple[dict, ...] = (
     {"number": 3, "label": "3", "name": "text+image − text-only features", "metric": "NDCG",
@@ -169,7 +169,7 @@ def by_arm(rows: Sequence[Mapping], arm: str) -> Mapping:
     """The comparison row for `arm`, or a KeyError naming it.
 
     Never by position: the plan as written read `5_objective[0]`, which is the
-    regression arm, under the name of §6's pointwise *classifier*.
+    regression arm, under the name of the design's pointwise *classifier*.
     """
     for row in rows:
         if row.get("arm") == arm:
@@ -226,7 +226,7 @@ def build_rows(rows: Sequence[Row]) -> list[Row]:
 
 
 def format_markdown(rows: Sequence[Row]) -> str:
-    """The §6 table, with the scope columns that keep it honest."""
+    """The ablation table, with the scope columns that keep it honest."""
     lines = [
         "| # | ablation | metric | scope | n | delta | |",
         "|---|---|---|---|---|---|---|",

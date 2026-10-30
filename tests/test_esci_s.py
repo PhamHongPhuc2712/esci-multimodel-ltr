@@ -153,7 +153,7 @@ def test_missing_category_becomes_an_empty_list():
 
 
 def test_review_count_is_kept_but_review_text_is_not():
-    # Review text is the bulk of the 3.4 GB and PROJECT_SPEC.md §3.2 marks it
+    # Review text is the bulk of the 3.4 GB and the original design marks it
     # optional, so the corpus carries the count by default and the text only
     # on request.
     row = normalise_record(_product())

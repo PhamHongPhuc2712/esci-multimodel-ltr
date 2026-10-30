@@ -56,7 +56,7 @@ def test_report_is_reproducible_for_a_given_seed():
 
 
 def test_formatted_report_shows_the_floor_next_to_the_headline():
-    # PROJECT_SPEC.md: "A headline number of 0.86 means nothing without that
+    # The original design: "A headline number of 0.86 means nothing without that
     # floor attached." The formatter is where that is enforced.
     qrels = _qrels()
     report = evaluate_run(
@@ -90,7 +90,7 @@ def test_evaluating_a_run_that_skips_a_query_raises():
 
 
 def test_the_published_baseline_has_one_definition():
-    # PROJECT_SPEC.md §5's target, imported by every report rather than typed
+    # The original design's target, imported by every report rather than typed
     # into three of them.
     from esci_rerank.blend import blend_report
     from esci_rerank.rerank import fine_rank_report

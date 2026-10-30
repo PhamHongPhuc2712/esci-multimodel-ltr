@@ -103,7 +103,7 @@ def test_a_non_permutation_is_refused():
         per_query_ndcg({"1": ["a", "b"], "2": ["x", "y"]}, _windows(), _qrels())
 
 
-# --- the comparison §4.4 actually asks for ---------------------------------
+# --- the comparison the design actually asks for -------------------------
 
 def test_the_best_single_stage_is_picked_by_ndcg():
     results = [_arm("stage2", [0.80, 0.80]), _arm("stage2+ce", [0.85, 0.85]),
@@ -182,7 +182,7 @@ def test_the_committed_blend_reports_answer_the_spec_question():
                  "docs/results/blend-test-full.json"):
         payload = json.loads(open(path).read())
         names = {arm["name"] for arm in payload["arms"]}
-        # §4.4: the blend is compared against each single stage alone.
+        # The design: the blend is compared against each single stage alone.
         assert set(SINGLE_STAGES) <= names
         assert set(BLEND_ARMS) <= names
         assert ORACLE in names

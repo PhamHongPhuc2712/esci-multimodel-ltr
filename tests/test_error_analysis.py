@@ -181,7 +181,7 @@ def test_the_failure_profile_counts_the_three_populations():
 
 def test_the_failure_profile_separates_mean_gain_from_mean_loss():
     # A single "mean delta" hides that the arm both helps a lot and hurts a
-    # lot; §6 asks for the failure cases, not the average.
+    # lot; the design asks for the failure cases, not the average.
     arm = {"a": 0.9, "b": 0.5}
     baseline = {"a": 0.5, "b": 0.9}
     profile = failure_profile(arm, baseline, {})

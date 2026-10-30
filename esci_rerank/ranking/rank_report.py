@@ -6,7 +6,7 @@
   7 - learned fusion vs. one fixed global weight  (the learned-combination gap)
 
 Every arm carries the computed random floor beside it, because
-PROJECT_SPEC.md §2 is explicit that a headline NDCG means nothing without one.
+the original design is explicit that a headline NDCG means nothing without one.
 Every comparison is a paired bootstrap over queries via esci_rerank.evaluation.bootstrap, which
 pairs on the query id rather than on position.
 
@@ -25,18 +25,18 @@ the ESCI-S *value* columns:
     values_over_indicators = text+behavioural − text+indicators
 
 Nothing is subtracted, so nothing has to be additive. That is the figure
-CLAUDE.md says to report, +0.0036 [+0.0023, +0.0051] on test, and
+docs/DATA.md says to report, +0.0036 [+0.0023, +0.0051] on test, and
 `check_ablation_4` refuses to report without the arm. The subtraction
 
     honest = (text+behavioural − text) − (indicators_only − floor)
 
 is still computed and committed beside it, as the artefact it is: it assumes
-the presence effects add, CLAUDE.md measured them as super- then sub-additive,
+the presence effects add, docs/DATA.md measured them as super- then sub-additive,
 and on test it lands at −0.0107. The caveat travels with it in the JSON.
 
 Selection happens on folds 1-4. `--split test` exists and requires `--final`,
 because running it before the configuration has settled is exactly the thing
-CLAUDE.md's evaluation discipline forbids.
+docs/DATA.md's evaluation discipline forbids.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ from esci_rerank.evaluation.report import ESCI_BASELINE
 
 DEFAULT_OUT = Path("docs/results/coarse-rank.json")
 
-# PROJECT_SPEC.md §5: the cross-encoder fine-tuned on SQD train. The project's
+# The original design: the cross-encoder fine-tuned on SQD train. The project's
 # stated realistic goal.
 
 ARMS: dict[str, tuple[str, ...]] = {
@@ -81,7 +81,7 @@ ARMS: dict[str, tuple[str, ...]] = {
     # no additivity assumption at all - see honest_behavioural_delta.
     "text+indicators": ("text", "esci_indicators", "retrieval", "s_indicators"),
     # Not an ablation arm - a cross-check against the presence-flag ceilings
-    # CLAUDE.md records at +0.0052, +0.0084 and +0.0166 over the floor.
+    # docs/DATA.md records at +0.0052, +0.0084 and +0.0166 over the floor.
     "esci_presence_only": ("esci_indicators",),
     "both_presence_only": ("esci_indicators", "s_indicators"),
     # The headline, and Ablation 5's feature set.
@@ -95,7 +95,7 @@ FUSION_FEATURES: tuple[str, ...] = ("dense_sim", "clip_image_sim", "has_image_ve
 
 ADDITIVITY_CAVEAT = (
     "Subtracting the indicators-only arm assumes the presence effects are "
-    "additive. CLAUDE.md measured them as super-additive (+0.0166 for both "
+    "additive. docs/DATA.md measured them as super-additive (+0.0166 for both "
     "presence sets together against +0.0052 + +0.0084 apart), so this is a "
     "point estimate under that assumption, not a bound."
 )
@@ -434,8 +434,8 @@ def _main() -> int:
     print(f"  {d['point']:+.4f} [{d['low']:+.4f}, {d['high']:+.4f}]  "
           f"{'significant' if ablations['7_learned_fusion']['significant'] else 'ties'}")
 
-    # The presence-flag cross-check against CLAUDE.md's recorded ceilings.
-    print("\n  -- presence-only cross-check (CLAUDE.md records "
+    # The presence-flag cross-check against docs/DATA.md's recorded ceilings.
+    print("\n  -- presence-only cross-check (docs/DATA.md records "
           "+0.0052 / +0.0084 / +0.0166 on test) --")
     for name in ("esci_presence_only", "indicators_only", "both_presence_only"):
         print(f"  {name:22s} {results[name].lift_over_floor.point:+.4f}")

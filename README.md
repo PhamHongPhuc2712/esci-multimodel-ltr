@@ -155,9 +155,28 @@ python -m esci_rerank.rerank.distill_report --size && python -m esci_rerank.rera
 ```
 
 The self-served LLM rerankers, their serving ladder and load test ran on a
-rented RTX A6000; `CLAUDE.md` lists those commands and `scripts/cloud/` holds
-the scripts that ran there. `python -m esci_rerank.reports.quality_latency_chart` regenerates
-the chart from the committed JSON.
+rented RTX A6000 (48 GB); `scripts/cloud/` holds the scripts that ran there.
+vLLM pins its own PyTorch, so it lives in a separate `.venv-serve`, and
+llm-compressor in a third `.venv-quant`.
+
+```bash
+python -m esci_rerank.rerank.llm_point train --out models/llm-rank/point-0.6b --batch-size 16 --grad-accum 1 --no-gradient-checkpointing
+python -m esci_rerank.rerank.llm_list train --out models/llm-rank/list-1.7b --batch-size 4 --grad-accum 4
+python -m esci_rerank.rerank.llm_point train --backbone Qwen/Qwen3-Reranker-4B --lora-rank 16 --out models/llm-rank/point-4b --batch-size 16 --grad-accum 1 --no-gradient-checkpointing
+python -m esci_rerank.rerank.llm_rank_report                     # fold 0; picks the arm to serve
+python -m esci_rerank.rerank.llm_rank_report --split test --final
+python -m esci_rerank.serving.llm_speed_report --rung hf_bf16_batched --kind point --model-dir models/llm-rank/point-4b
+python -m esci_rerank.serving.llm_speed_report --rung hf_bf16_loop --kind point --model-dir models/llm-rank/point-4b
+.venv-quant/bin/python -m esci_rerank.serving.quantize_llm --model-dir models/llm-rank/point-4b --kind point --scheme w8a8 --out models/llm-rank/point-4b-w8a8
+.venv-serve/bin/vllm serve models/llm-rank/point-4b --served-model-name point --dtype bfloat16 --max-model-len 512 --gpu-memory-utilization 0.85 --port 8000
+python -m esci_rerank.serving.llm_speed_report --rung vllm_bf16 --kind point --model-dir models/llm-rank/point-4b --served-name point
+python -m esci_rerank.serving.load_test --served-name point --model-dir models/llm-rank/point-4b --kind point --precision w8a8
+python -m esci_rerank.reports.quality_latency_chart              # the chart, from the committed JSON
+python -m esci_rerank.reports.site                               # the project site, from the committed JSON
+```
+
+Each served rung runs against a fresh `vllm serve` with the flags it records;
+`scripts/cloud/phase3.sh` runs the whole ladder.
 
 Every configuration is chosen on a validation fold carved from train by query.
 Each test measurement sits behind `--final` and was run once.
@@ -173,5 +192,6 @@ Each test measurement sits behind `--final` and was run once.
 | `docs/figures/` | the quality-against-latency chart, generated from `docs/results/` |
 | `site/` | the project site, generated from `docs/results/` and served by GitHub Pages |
 | `scripts/cloud/` | the scripts that ran the LLM training and serving on a rented GPU |
-| `PROJECT_SPEC.md` | the original motivation, design, baselines and ablation plan |
+| `docs/DATA.md` | what was measured about the data, and the evaluation rules it forced |
 | `splits/` | the frozen validation folds and their checksum |
+| `LICENSE` | MIT |

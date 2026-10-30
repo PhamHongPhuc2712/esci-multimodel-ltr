@@ -68,7 +68,7 @@ def test_real_test_split_floor_is_near_the_documented_measurement():
     qrels = qrels_from_judgements(load_split("test").judgements)
     result = random_floor(qrels, n_trials=100, seed=0)
     print(f"\nrandom floor (test) = {result.mean:.4f} [{result.low:.4f}, {result.high:.4f}]")
-    # CLAUDE.md records 0.7467 measured with the 1/log2(rank+1) discount; the
+    # docs/DATA.md records 0.7467 measured with the 1/log2(rank+1) discount; the
     # published SQID figure is 0.7483; under the swapped S/C mapping it is
     # 0.7141.
     #

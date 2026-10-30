@@ -125,7 +125,7 @@ def test_wrong_query_count_is_rejected():
 
 
 def test_train_split_has_no_label_share_expectation():
-    # CLAUDE.md documents the label distribution for test only. Asserting the
+    # docs/DATA.md documents the label distribution for test only. Asserting the
     # test shares against train would be inventing a number.
     assert "train" not in EXPECTED_LABEL_SHARE
     assert EXPECTED_STATS["train"].products is None

@@ -1,7 +1,7 @@
 """LightGBM for the coarse rank stage, on ESCI's gain mapping rather than its own.
 
-PROJECT_SPEC.md §4.2 asks for `objective: lambdarank` - a real LTR loss, not a
-binary classification - and §6's Ablation 5 asks for the pointwise comparison
+The original design asks for `objective: lambdarank` - a real LTR loss, not a
+binary classification - and the design's Ablation 5 asks for the pointwise comparison
 that shows whether the listwise loss earned its keep.
 
 **LightGBM will report an NDCG, and it is not this project's NDCG.** Two

@@ -1,6 +1,6 @@
 """Zero-shot SBERT re-ranking: the baseline that proves the harness.
 
-PROJECT_SPEC.md §5 puts SBERT_text zero-shot at 0.8292 on this split with
+The original design puts SBERT_text zero-shot at 0.8292 on this split with
 all-MiniLM-L12-v2. Reproducing it is the acceptance test for the loader, the
 metric and the floor together, which is why it is in Plan 1 rather than in the
 retrieval plan.

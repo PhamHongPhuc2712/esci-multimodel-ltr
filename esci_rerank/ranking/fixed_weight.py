@@ -1,7 +1,7 @@
 """Ablation 7's control: one hand-tuned global text/image weight.
 
-PROJECT_SPEC.md §5 records the published best zero-shot text+image combination
-as "a single hand-tuned global weight", and §6's Ablation 7 asks whether a
+The original design records the published best zero-shot text+image combination
+as "a single hand-tuned global weight", and the design's Ablation 7 asks whether a
 learned combination beats it. Al Ghossein et al. listed learned combination as
 out of scope; this module builds the thing they did, so the comparison is
 against their method rather than against a strawman.
@@ -22,7 +22,7 @@ control turns the ablation into a formality:
   * **Fall back to text where the image is absent**, rather than substituting
     the mean. 20.6% of judged pairs have no image vector, and pulling them
     toward the average would penalise a product for a 2022 scrape failure -
-    the thing CLAUDE.md forbids the learned arm from doing.
+    the thing docs/DATA.md forbids the learned arm from doing.
   * **Sweep finely.** 21 weights at 0.05, not 3 at 0.25.
 """
 

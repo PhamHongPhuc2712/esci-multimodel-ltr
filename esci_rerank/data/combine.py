@@ -4,7 +4,7 @@ Deliberately two tables, not one. ESCI carries the labels; ESCI-S carries
 product attributes. Putting both in one row would place `gain` beside every
 product field, and 34,756 products appear in both train and test - so a
 product-level target encoding would be one groupby away, which is exactly the
-leak CLAUDE.md forbids. Keeping the product table label-free makes that
+leak docs/DATA.md forbids. Keeping the product table label-free makes that
 mistake awkward rather than merely discouraged.
 
   products.parquet    one row per us product, no labels, joinable by product_id
@@ -19,7 +19,7 @@ The product table is always the whole `us` catalogue, 1,215,854 products.
 Until Plan 12 a `--scope rerank` wrote a judged-only table to the same path
 with nothing in the file to say so; a recall channel built from it would draw
 from a pool holding every relevant product and none of the ~450K non-judged
-distractors - the candidate-set leakage CLAUDE.md describes - and report an
+distractors - the candidate-set leakage docs/DATA.md describes - and report an
 inflated Recall@k with nothing raised.
 """
 

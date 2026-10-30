@@ -30,7 +30,7 @@ def test_the_baseline_arm_is_stage_2():
 
 
 def test_both_stage_3_variants_are_present():
-    # PROJECT_SPEC.md §6 Ablation 6: coarse-only vs +cross-encoder vs +LLM.
+    # The original design Ablation 6: coarse-only vs +cross-encoder vs +LLM.
     assert "stage2+ce" in ARMS
     assert "stage2+llm" in ARMS
 
@@ -153,12 +153,12 @@ def test_the_committed_report_carries_every_ablation_6_column():
     names = {arm["name"] for arm in payload["arms"]}
     assert {"stage2", "stage2+ce", "stage2+llm"} <= names
 
-    # Every arm carries the floor it beats. PROJECT_SPEC.md §2.
+    # Every arm carries the floor it beats. the original design
     assert 0.70 < payload["floor"]["mean"] < 0.80
     for arm in payload["arms"]:
         assert set(arm["lift_over_floor"]) == {"point", "low", "high"}
 
-    # §6 asks for NDCG, latency AND cost.
+    # The design asks for NDCG, latency AND cost.
     by_name = {arm["name"]: arm for arm in payload["arms"]}
     assert by_name["stage2+ce"]["cost"]["latency"]["single_ms"] > 0
     assert by_name["stage2+ce"]["cost"]["latency"]["batched_ms"] > 0

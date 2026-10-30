@@ -49,7 +49,7 @@ def test_the_gate_reflects_the_measured_baseline():
 
 
 def test_coverage_divides_by_the_product_set_not_the_matches():
-    # PROJECT_SPEC.md: report ~75% end to end, not ESCI-S's 91.5% headline.
+    # The original design: report ~75% end to end, not ESCI-S's 91.5% headline.
     # Dividing by products that have a URL rather than by all products is
     # exactly how the headline overstates it.
     frame = pd.DataFrame(

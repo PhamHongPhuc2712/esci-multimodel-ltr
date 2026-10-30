@@ -5,7 +5,7 @@ list already scores near 0.75 on full-list NDCG. A headline of 0.86 means
 nothing without that floor attached.
 
 The number is computed on every report because it moves with the gain mapping:
-CLAUDE.md records 0.7467 with the standard discount, the published SQID figure
+docs/DATA.md records 0.7467 with the standard discount, the published SQID figure
 is 0.7483, and under the S/C swap it is 0.7141. That 3.3-point spread is larger
 than most method gains, so a hard-coded constant would be a way to be wrong by
 more than the effect being measured.

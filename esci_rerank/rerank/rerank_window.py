@@ -1,6 +1,6 @@
 """The top-K window both Stage 3 arms re-rank, and the splice that puts it back.
 
-PROJECT_SPEC.md §4.3 compares the two fine-rank variants "on the top-K from
+The original design compares the two fine-rank variants "on the top-K from
 Stage 2". This module owns what that means, because it is the one piece of
 logic the two arms share and the one place a scale mismatch can corrupt a run.
 

@@ -26,3 +26,7 @@ models/
 # Cloud bundles built by scripts/cloud/
 build/
 .playwright-mcp/
+
+# Internal development files, kept local only
+CLAUDE.md
+PROJECT_SPEC.md

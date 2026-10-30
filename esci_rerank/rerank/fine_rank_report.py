@@ -1,6 +1,6 @@
 """Ablation 6: coarse-only vs. +cross-encoder vs. +LLM listwise.
 
-PROJECT_SPEC.md §6 asks for NDCG, latency and cost across the three arms. This
+The original design asks for NDCG, latency and cost across the three arms. This
 module produces all three, plus two context arms: the zero-shot cross-encoder
 (what the fine-tune bought) and the cascade (whether the two rerankers are
 complementary, which Plan 7's blend stage will need).
@@ -34,7 +34,7 @@ from esci_rerank.evaluation.report import ESCI_BASELINE
 
 DEFAULT_OUT = Path("docs/results/fine-rank.json")
 
-# PROJECT_SPEC.md §5. Plan 5 already matched it at 0.8579 [0.8551, 0.8611].
+# The original design Plan 5 already matched it at 0.8579 [0.8551, 0.8611].
 
 # All 8,956 test queries through the LLM is ~3.3 h and real money, so the
 # three-way test comparison runs on a frozen sample. Every arm uses the same

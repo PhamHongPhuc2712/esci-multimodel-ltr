@@ -266,7 +266,7 @@ def test_invariants_reject_a_field_that_sags():
 
 
 def test_invariants_reject_a_corpus_matching_the_product_only_figures():
-    # CLAUDE.md's attrs 0.579 / image 0.847 count the product key alone. A
+    # docs/DATA.md's attrs 0.579 / image 0.847 count the product key alone. A
     # corpus that reproduced them would be one that unified nothing.
     stats = _measured_stats()
     stats.present["attrs_json"] = 579

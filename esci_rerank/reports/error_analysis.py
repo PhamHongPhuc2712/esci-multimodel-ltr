@@ -1,4 +1,4 @@
-"""PROJECT_SPEC.md §6's last line: per-category error analysis, where images
+"""The original design's last line: per-category error analysis, where images
 help vs. hurt, and failure cases for the LLM reranker.
 
 Three breakdowns, each shaped by something measured first:
@@ -13,7 +13,7 @@ Three breakdowns, each shaped by something measured first:
     an image vector averages 0.78; 1.7% of queries have none and 25.4% have
     all. That spread is the axis for "where images help vs. hurt" - and the
     question is asked of Ablation 3's own two arms, because *presence* of an
-    image is itself a weak ranker (CLAUDE.md measured presence flags at
+    image is itself a weak ranker (docs/DATA.md measured presence flags at
     +0.0084 NDCG) and must not be allowed to stand in for the image signal.
 
   * **The LLM's damage.** Measured on fold 0: the best arm in the project is
@@ -127,7 +127,7 @@ def coverage_strata(
 
     The last default stratum is exactly 1.0 - every candidate imaged - and it
     stands apart on purpose. has_image_vector is a weak ranker in its own
-    right (CLAUDE.md: presence flags alone are worth +0.0084), and it can only
+    right (docs/DATA.md: presence flags alone are worth +0.0084), and it can only
     rank *within* a query whose candidates differ in it. Where all of them
     carry an image it is constant, so Ablation 3's delta there is the image
     signal alone.
@@ -218,7 +218,7 @@ def failure_profile(
     """Where an arm helps, where it hurts, and how those queries differ.
 
     A single mean delta hides that the LLM both gains +0.0772 where it helps
-    and loses -0.0607 where it hurts, on 26.4% of queries. §6 asks for the
+    and loses -0.0607 where it hurts, on 26.4% of queries. The design asks for the
     failure cases; this is the population, not a sample of it.
     """
     if set(arm) != set(baseline):
@@ -315,11 +315,11 @@ def _main() -> int:
 
     # --- where images help vs. hurt -----------------------------------------
     # Asked of Ablation 3's own arms, not of image *presence*, which is itself
-    # a weak ranker (CLAUDE.md: presence flags alone are worth +0.0084).
+    # a weak ranker (docs/DATA.md: presence flags alone are worth +0.0084).
     train = pd.read_parquet(args.features_dir / "train.parquet")
     # Plan 5's two fits: folds 2/3/4 when fold 0 is reported, every train fold
     # when test is. Fitting the narrow set for test lands 0.0020 low - more
-    # than Ablation 4's whole honest effect (CLAUDE.md).
+    # than Ablation 4's whole honest effect (docs/DATA.md).
     fit = train if args.scope != "fold0" else folds(train, TRAIN_FOLDS)
     early = folds(train, [EARLY_STOP_FOLD])
     text_only = select_columns(["text", "esci_indicators", "retrieval"])

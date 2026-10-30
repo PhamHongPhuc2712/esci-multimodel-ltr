@@ -1,6 +1,6 @@
 """The three retrieval scores, for judged (query, product) pairs.
 
-PROJECT_SPEC.md §4.2 lists BM25 score, dense text similarity and CLIP image
+The original design lists BM25 score, dense text similarity and CLIP image
 similarity as the coarse ranker's "Retrieval scores". They are the only
 features that need an artefact on disk, which is why they live apart from
 esci_rerank/features/features.py.

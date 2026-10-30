@@ -1,6 +1,6 @@
 """Stage 4: one ordering from three stages' opinions.
 
-PROJECT_SPEC.md §4.4 - "weighted combination, or a small learned combiner over
+The original design - "weighted combination, or a small learned combiner over
 stage scores" - and it asks for the comparison against each single stage alone.
 This module is the strategies; esci_rerank/blend/blend_report.py measures them.
 

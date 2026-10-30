@@ -16,7 +16,7 @@ distinct URLs, so keying on the product would fetch and store the same vector
 up to several times.
 
 Stored at float16 because float32 would put the catalogue store at 1.8 GB,
-past PROJECT_SPEC.md §9's "<1 GB". Measured: the round trip leaves top-1
+past the original design's "<1 GB". Measured: the round trip leaves top-1
 image-to-title retrieval identical at 75.333%, max cosine drift 1.22e-04.
 """
 

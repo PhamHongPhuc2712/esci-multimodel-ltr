@@ -320,7 +320,7 @@
         "high": -0.008021093343765752
       },
       "significant": true,
-      "caveat": "Subtracting the indicators-only arm assumes the presence effects are additive. CLAUDE.md measured them as super-additive (+0.0166 for both presence sets together against +0.0052 + +0.0084 apart), so this is a point estimate under that assumption, not a bound.",
+      "caveat": "Subtracting the indicators-only arm assumes the presence effects are additive. docs/DATA.md measured them as super-additive (+0.0166 for both presence sets together against +0.0052 + +0.0084 apart), so this is a point estimate under that assumption, not a bound.",
       "values_over_indicators": {
         "point": 0.003628931393247433,
         "low": 0.002288636973970238,

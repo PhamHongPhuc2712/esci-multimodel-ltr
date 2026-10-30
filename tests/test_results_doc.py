@@ -9,7 +9,7 @@ import pytest
 DOCS = (Path("docs/RESULTS.md"), Path("README.md"))
 RESULTS = Path("docs/results")
 
-# Cited from PROJECT_SPEC.md §5, not measured here. Everything else in the
+# Cited from the original design, not measured here. Everything else in the
 # writeup must come from a committed results file.
 PUBLISHED = {
     0.7483,   # the published random floor - wrong for this discount, quoted only to say so
@@ -44,19 +44,19 @@ def _committed_values():
 
 @pytest.mark.parametrize("doc", DOCS, ids=lambda d: d.name)
 def test_the_writeup_exists(doc):
-    assert doc.exists(), "PROJECT_SPEC.md §8.8 asks for the writeup"
+    assert doc.exists(), "the original design asks for the writeup"
 
 
 @pytest.mark.parametrize("doc", DOCS, ids=lambda d: d.name)
 def test_the_writeup_names_the_target_and_the_measured_floor(doc):
     text = doc.read_text(encoding="utf-8")
-    assert "0.8562" in text          # the target, §5
+    assert "0.8562" in text          # the target
     assert "0.7467" in text or "0.7454" in text or "0.7468" in text
 
 
 @pytest.mark.parametrize("doc", DOCS, ids=lambda d: d.name)
 def test_the_writeup_does_not_quote_the_published_floor_as_this_project_s(doc):
-    # CLAUDE.md: compute the floor, never quote it. If 0.7483 appears it must
+    # docs/DATA.md: compute the floor, never quote it. If 0.7483 appears it must
     # be in a sentence that says it is the published one.
     text = doc.read_text(encoding="utf-8")
     for line in text.splitlines():

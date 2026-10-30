@@ -1,6 +1,6 @@
 """Stage 3(a): a cross-encoder fine-tuned on the ESCI train folds.
 
-PROJECT_SPEC.md §4.3 asks for a fine-tuned modern cross-encoder, and §5's
+The original design asks for a fine-tuned modern cross-encoder, and the design's
 0.8562 ESCI_baseline is exactly that - `ms-marco-MiniLM-L-12-v2` fine-tuned on
 SQD train. The fine-tune is not an optimisation of this arm, it IS the arm:
 measured zero-shot on a 400-query fold-0 sample where Stage 2 scores 0.8577,

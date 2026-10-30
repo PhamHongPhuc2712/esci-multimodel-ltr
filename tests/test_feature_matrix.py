@@ -53,7 +53,7 @@ def test_the_image_indicator_travels_with_the_image_score():
 
 
 def test_the_two_presence_groups_stay_apart():
-    # CLAUDE.md: ESCI presence is legitimate, ESCI-S presence is an artefact.
+    # docs/DATA.md: ESCI presence is legitimate, ESCI-S presence is an artefact.
     assert set(FEATURE_GROUPS["esci_indicators"]).isdisjoint(
         FEATURE_GROUPS["s_indicators"]
     )

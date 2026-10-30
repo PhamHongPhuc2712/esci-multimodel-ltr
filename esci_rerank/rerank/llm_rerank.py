@@ -1,7 +1,7 @@
 """Stage 3(b): RankGPT-style listwise re-ranking of the Stage 2 window.
 
-PROJECT_SPEC.md §4.3 asks for an LLM listwise variant beside the cross-encoder,
-and §7.4 points at RankGPT's numbered-passage prompt. This is that, over the
+The original design asks for an LLM listwise variant beside the cross-encoder,
+and the design pointed at RankGPT's numbered-passage prompt. This is that, over the
 top-K window rather than the whole candidate list.
 
 Measured on gpt-5.6-luna, the model Plan 4 used for Stage 0:

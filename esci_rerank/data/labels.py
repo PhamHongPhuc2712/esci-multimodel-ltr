@@ -1,6 +1,6 @@
 """ESCI relevance labels and their gain values.
 
-The gains come from PROJECT_SPEC.md §2. The integer table exists because
+The gains come from the original design The integer table exists because
 pytrec_eval requires integer relevance values; NDCG is invariant to the
 scale factor, which tests/test_metrics.py pins.
 

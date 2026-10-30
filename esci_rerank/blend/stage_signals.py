@@ -1,6 +1,6 @@
 """Every stage's opinion of every window document, in one frame.
 
-PROJECT_SPEC.md §4.4 asks for "a small learned combiner over stage scores".
+The original design asks for "a small learned combiner over stage scores".
 This module is the stage scores. Plan 6 produced orderings and NDCG; the
 blend, the per-category analysis and the writeup all need the same per-document
 signals, and building them three times is how three sections of one report come

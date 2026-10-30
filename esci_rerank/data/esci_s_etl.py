@@ -61,14 +61,14 @@ SCHEMA = pa.schema(
 
 # Measured over all 1,080,262 `us` non-error rows of the real file.
 #
-# Two of these deliberately differ from the figures in CLAUDE.md, and the gap
-# is the books. CLAUDE.md counts the *product* key only; this corpus unifies
+# Two of these deliberately differ from the figures in docs/DATA.md, and the gap
+# is the books. docs/DATA.md counts the *product* key only; this corpus unifies
 # the book spelling into the same column, so the share is higher:
 #
 #   attrs_json  product `attrs` 0.5771 + book `attr` 0.0571 = 0.6342  (vs 0.579)
 #   image_url   product `image` 0.8213 + book `img`  0.0418 = 0.8630  (vs 0.847)
 #
-# A corpus that matched CLAUDE.md on these two would be one that had dropped
+# A corpus that matched docs/DATA.md on these two would be one that had dropped
 # every book.
 EXPECTED_PRESENCE: dict[str, float] = {
     "template": 1.000,
@@ -305,7 +305,7 @@ def _main() -> int:
     parser.add_argument(
         "--with-reviews",
         action="store_true",
-        help="carry review text; PROJECT_SPEC.md marks it optional and it is "
+        help="carry review text; the original design marks it optional and it is "
         "the bulk of the 3.4 GB",
     )
     args = parser.parse_args()

@@ -125,7 +125,7 @@ def test_ablation_4_refuses_to_report_without_the_indicators_arm():
 
 def test_ablation_4_refuses_to_report_without_the_control_arm():
     # Subtracting indicators_only over-corrects to -0.0107 on test; the
-    # number CLAUDE.md says to report needs text+indicators, and until Plan
+    # number docs/DATA.md says to report needs text+indicators, and until Plan
     # 12 that arm was optional here.
     with pytest.raises(ValueError, match="text\\+indicators"):
         check_ablation_4(["text", "text+behavioural", "indicators_only"])
@@ -153,7 +153,7 @@ def test_the_honest_delta_subtracts_the_artefact_lift():
 
 
 def test_the_honest_delta_records_the_additivity_caveat():
-    # CLAUDE.md measured the presence effects as super-additive, so the
+    # docs/DATA.md measured the presence effects as super-additive, so the
     # subtraction is a point estimate under an assumption, not a bound.
     out = honest_behavioural_delta(
         _per_query([0.86]), _per_query([0.75]), _per_query([0.84]), _per_query([0.74]),
@@ -178,7 +178,7 @@ def test_the_honest_delta_can_be_negative():
 # --- formatting and serialisation ------------------------------------------
 
 def test_the_table_carries_the_floor_on_every_row():
-    # PROJECT_SPEC.md §2: a headline NDCG means nothing without the floor.
+    # The original design: a headline NDCG means nothing without the floor.
     table = format_table([_arm("text", [0.82]), _arm("full", [0.86])])
     assert "floor" in table.lower()
     assert "0.82" in table and "0.86" in table
@@ -239,7 +239,7 @@ def test_the_committed_report_has_every_ablation():
     assert {"naive_delta", "artefact_lift", "honest_delta", "caveat"} <= set(a4)
     assert "super-additive" in a4["caveat"]
 
-    # Every arm carries the floor it beats. PROJECT_SPEC.md §2.
+    # Every arm carries the floor it beats. the original design
     assert 0.70 < payload["floor"]["mean"] < 0.80
     for arm in payload["arms"]:
         assert set(arm["lift_over_floor"]) == {"point", "low", "high"}

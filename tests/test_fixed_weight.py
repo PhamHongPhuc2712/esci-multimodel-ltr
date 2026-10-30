@@ -62,7 +62,7 @@ def test_a_weight_of_zero_is_image_only():
 
 def test_a_missing_image_falls_back_to_text_alone():
     # Not to the mean: substituting the average would penalise a product for a
-    # 2022 scrape failure, which is what CLAUDE.md forbids the learned arm from
+    # 2022 scrape failure, which is what docs/DATA.md forbids the learned arm from
     # doing. The control gets the same courtesy.
     out = blend(np.array([2.0, 2.0]), np.array([np.nan, 0.0]), 0.5)
     assert out[0] == pytest.approx(2.0)

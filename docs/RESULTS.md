@@ -2,7 +2,8 @@
 
 Every measured figure below is quoted from a committed file under
 `docs/results/`, named beside it. The only exceptions are the published
-baselines, cited from `PROJECT_SPEC.md` §5 and marked as published.
+baselines, cited from the papers listed under References and marked as
+published.
 `tests/test_results_doc.py` checks every four-decimal figure in this file
 against those sources. "Plan N" names the development step that measured a result;
 the plan documents themselves are kept at the `v1-with-retrieval` tag.
@@ -35,7 +36,7 @@ coarse ranker's own 0.8579 — a gain of +0.0276 [+0.0255, +0.0296]
 (`fine-rank-test-full.json`).
 
 That interval lies entirely above the **0.8562 `ESCI_baseline`** (a
-cross-encoder fine-tuned on the train split; published, `PROJECT_SPEC.md` §5),
+cross-encoder fine-tuned on the train split, published by Al Ghossein et al.),
 the target this project set itself, and it is measured on the same 8,956
 queries. **The pipeline beats the published baseline.** For the hosted arm
 the caveat is cost: the baseline is one cross-encoder pass, while this ends in
@@ -72,7 +73,7 @@ The floor is computed every time, never quoted: 0.7467 on the full test split
 with this project's gains and discount (`sbert-title-test.json`), against the
 published SQID figure of 0.7483.
 
-| baseline (published, §5) | NDCG | here |
+| baseline (published) | NDCG | here |
 |---|---|---|
 | Random — the published SQID figure | 0.7483 | measured 0.7467 on the same split |
 | CLIP text, zero-shot | 0.8107 | not re-run |
@@ -361,7 +362,7 @@ On all 8,956 test queries, measured once (`distill-test.json`):
   and the batch (16 against 8) — so it does not isolate the windows. A scratch
   run before the plan put `LambdaLoss` on the same windows at the same score,
   but that run is not committed. It is also not the contrastive hard-negative
-  training that `PROJECT_SPEC.md` §7.4 cites as matching distillation. It only
+  training that Xu et al. (2025) report as matching distillation. It only
   shows that the obvious cheap version of it does not help here.
 - **A larger backbone pays.** `bge-reranker-base` trains on the same windows,
   with the same loss and labels, at batch 8 rather than 16. It lands +0.0116
@@ -596,7 +597,24 @@ latency for its +0.0078.
   A6000. Its latency on a 16 GB card such as the laptop's RTX 3080, or a T4,
   has not been measured, and INT8 there may behave differently from the
   A6000, which has INT8 tensor cores.
-- **A demo.** `PROJECT_SPEC.md` §9 names a free-tier hosted demo as optional.
+- **A demo.** A free-tier hosted demo was an optional goal from the start.
   The coarse ranker and `bge-reranker-large` on its top 10 need no API key and
   no large GPU; the BM25 index and embedding stores the features read are the
   constraint to design around.
+
+## References
+
+- Reddy et al. (2022). *Shopping Queries Dataset: A Large-Scale ESCI Benchmark
+  for Improving Product Search.* arXiv:2206.06588. The dataset.
+- Al Ghossein, Chen & Tang (2024). *Shopping Queries Image Dataset (SQID).*
+  SIGIR eCom '24, arXiv:2405.15190. The published baselines above, and the
+  Substitute/Complement swap in the official evaluation script; its data files
+  are not used here.
+- `shuttie/esci-s`, extended product metadata for Amazon ESCI (Apache-2.0). The
+  enrichment.
+- Sun et al. (2023). *Is ChatGPT Good at Search? Investigating Large Language
+  Models as Re-Ranking Agents* (RankGPT). The listwise prompt.
+- Xu et al. (2025). *Distillation versus Contrastive Learning: How to Train
+  Your Rerankers.* arXiv:2507.08336.
+- Lin et al. (2022). *A Winning Solution of KDD Cup 2022 ESCI Challenge.* The
+  0.9043 context figure.

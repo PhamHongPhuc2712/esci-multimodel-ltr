@@ -1,6 +1,6 @@
 """Assemble an evaluation report: NDCG, its interval, and the floor it beats.
 
-PROJECT_SPEC.md §2: "A headline number of 0.86 means nothing without that floor
+The original design: "A headline number of 0.86 means nothing without that floor
 attached." This module is the only place a headline NDCG is produced, and it
 cannot produce one without the floor.
 """
@@ -15,7 +15,7 @@ from esci_rerank.evaluation.bootstrap import Interval, bootstrap_ci, paired_delt
 from esci_rerank.evaluation.floor import random_floor
 from esci_rerank.evaluation.metrics import Qrels, Run, ndcg_per_query
 
-# PROJECT_SPEC.md §5: `ms-marco-MiniLM-L-12-v2` fine-tuned on SQD train, the
+# The original design: `ms-marco-MiniLM-L-12-v2` fine-tuned on SQD train, the
 # published target this project set itself. One copy; every report imports it.
 ESCI_BASELINE = 0.8562
 

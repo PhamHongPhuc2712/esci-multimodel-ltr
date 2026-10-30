@@ -1,4 +1,4 @@
-"""Stage 4 against every stage alone - PROJECT_SPEC.md §4.4.
+"""Stage 4 against every stage alone - the original design
 
 The spec asks for "a weighted combination, or a small learned combiner over
 stage scores" and for the comparison "against each single stage alone". That
@@ -39,7 +39,7 @@ from esci_rerank.evaluation.report import ESCI_BASELINE
 
 DEFAULT_OUT = Path("docs/results/blend.json")
 
-# PROJECT_SPEC.md §5. Plan 5 matched it at 0.8579; Plan 6's LLM arm reached
+# The original design Plan 5 matched it at 0.8579; Plan 6's LLM arm reached
 # 0.8855 on the 2,000-query sample.
 
 SINGLE_STAGES: tuple[str, ...] = ("stage2", "stage2+ce", "stage2+llm")
@@ -72,7 +72,7 @@ def per_query_ndcg(
 
 
 def best_single(results: Sequence) -> object:
-    """The strongest single-stage arm - the baseline §4.4 actually asks for."""
+    """The strongest single-stage arm - the baseline the design actually asks for."""
     singles = [arm for arm in results if arm.name in SINGLE_STAGES]
     if not singles:
         raise ValueError(
@@ -270,7 +270,7 @@ def _main() -> int:
     print()
     print(format_table(results))
 
-    # §4.4's actual question: does Stage 4 beat the best stage it contains?
+    # The design's actual question: does Stage 4 beat the best stage it contains?
     baseline = best_single(results)
     by_name = {arm.name: arm for arm in results}
     against_best = [

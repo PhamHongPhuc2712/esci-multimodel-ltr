@@ -113,7 +113,7 @@ def test_score_pairs_raises_when_a_judged_product_has_no_metadata():
 @pytest.mark.data
 @pytest.mark.slow
 def test_published_sbert_number_is_reproduced():
-    # PROJECT_SPEC.md §5: SBERT_text zero-shot = 0.8292 (all-MiniLM-L12-v2).
+    # The original design: SBERT_text zero-shot = 0.8292 (all-MiniLM-L12-v2).
     # The cited paper does not state which product fields it encoded, so the
     # band allows a title-only vs. title+brand difference while still failing
     # loudly if the harness itself is wrong.
