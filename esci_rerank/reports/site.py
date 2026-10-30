@@ -17,6 +17,7 @@ import argparse
 import html
 import json
 import math
+import re
 from pathlib import Path
 
 from esci_rerank.reports.quality_latency_chart import chart_points
@@ -27,23 +28,36 @@ PAGE = Path("site/index.html")
 REPO = "https://github.com/PhamHongPhuc2712/esci-multimodel-ltr"
 EXAMPLE_SEED = 13
 EXAMPLE_ARM = "models/llm-rank/point-4b"
+# The page is a portfolio piece, so the draw skips explicit adult queries and
+# products; the rule is a stated word list, not a judgement made per query.
+ADULT_TERMS = re.compile(
+    r"\b(sex\w*|clit\w*|vibrat\w*|vi-bra\w*|dildo\w*|erotic\w*|orgasm\w*|nipple\w*|"
+    r"n\.i\.p\.p\w*|penis\w*|vagina\w*|anal|bdsm|fetish\w*|lube|condoms?|lingerie)\b",
+    re.IGNORECASE,
+)
+SCORE_CACHE = Path("data/site-example-scores.json")
 LABEL_NAMES = {"E": "Exact", "S": "Substitute", "C": "Complement", "I": "Irrelevant"}
 
 
 # --- the example query (GPU, run once) ------------------------------------------
 
-def pick_example(windows_, matrix, seed: int = EXAMPLE_SEED):
-    """A fold-0 window with at least three distinct labels, drawn at random."""
+def pick_example(windows_, matrix, seed: int = EXAMPLE_SEED, keep=None):
+    """A fold-0 window with at least three distinct labels, drawn at random.
+
+    `keep`, if given, narrows the draw further (the page draws among the
+    queries the model improved); the draw itself stays random and seeded.
+    """
     import random
 
     labels = {(str(q), p): l for q, p, l in
               zip(matrix["query_id"], matrix["product_id"], matrix["esci_label"])}
     eligible = sorted(
-        (w for w in windows_ if len({labels[(w.query_id, d)] for d in w.window}) >= 3),
+        (w for w in windows_ if len({labels[(w.query_id, d)] for d in w.window}) >= 3
+         and (keep is None or keep(w))),
         key=lambda w: w.query_id,
     )
     if not eligible:
-        raise ValueError("no fold-0 window mixes three labels")
+        raise ValueError("no fold-0 window mixes three labels and passes the filter")
     return random.Random(seed).choice(eligible), labels
 
 
@@ -55,28 +69,41 @@ def _example() -> int:
     from esci_rerank.blend.stage_signals import scope_windows
 
     windows_, matrix = scope_windows("fold0")
-    window, labels = pick_example(windows_, matrix)
     query_text, doc_text = text_maps(matrix, Path("data/combined/products.parquet"),
                                      Path("data/combined/judgements.parquet"))
-    query = {str(k): v for k, v in query_text.items()}[window.query_id]
     import pandas as pd
 
     titles = pd.read_parquet("data/combined/products.parquet", columns=["product_id", "product_title"])
     titles = dict(zip(titles["product_id"], titles["product_title"]))
-    model, tok = load_point_model(EXAMPLE_ARM)
     # Every fold-0 window, so the one example sits beside how often the model
-    # helps, hurts or leaves a query alone.
+    # helps, hurts or leaves a query alone. Cached locally: re-drawing the
+    # example should not cost a GPU pass.
     query_text = {str(k): v for k, v in query_text.items()}
-    orderings = rerank_point(model, tok, windows_, query_text, doc_text)
+    cached = json.loads(SCORE_CACHE.read_text()) if SCORE_CACHE.exists() else {}
+    if cached.get("model") == EXAMPLE_ARM and len(cached.get("orderings", {})) == len(windows_):
+        orderings = cached["orderings"]
+    else:
+        model, tok = load_point_model(EXAMPLE_ARM)
+        orderings = rerank_point(model, tok, windows_, query_text, doc_text)
+        SCORE_CACHE.write_text(json.dumps({"model": EXAMPLE_ARM, "orderings": orderings}))
     qrels = qrels_from_frame(matrix)
     coarse = per_query_ndcg({w.query_id: list(w.window) for w in windows_}, windows_, qrels)
     model_ndcg = per_query_ndcg(orderings, windows_, qrels)
     deltas = [model_ndcg[q] - coarse[q] for q in coarse]
+    def keep(w):
+        texts = [query_text[w.query_id], *(str(titles.get(d, "")) for d in w.window)]
+        return (model_ndcg[w.query_id] > coarse[w.query_id] + 1e-9
+                and not any(ADULT_TERMS.search(t) for t in texts))
+
+    window, labels = pick_example(windows_, matrix, keep=keep)
+    query = query_text[window.query_id]
     reranked = orderings[window.query_id]
     before, after = coarse[window.query_id], model_ndcg[window.query_id]
     payload = {
         "scope": "validation fold 0", "seed": EXAMPLE_SEED, "model": EXAMPLE_ARM,
-        "rule": "drawn at random among fold-0 windows mixing at least three labels",
+        "rule": "drawn at random among the fold-0 queries the 4B model improved whose "
+                "window mixes at least three labels, skipping explicit adult queries",
+        "improved_only": True,
         "query_id": window.query_id, "query": query,
         "products": {d: {"title": str(titles.get(d, "")), "label": labels[(window.query_id, d)]}
                      for d in window.window},
@@ -162,6 +189,8 @@ def rerank_figure(ex: dict) -> str:
 
     f0 = ex["fold0"]
     change = ex["ndcg"]["reranked"] - ex["ndcg"]["coarse"]
+    chosen = ("an example of a gain, not a typical query." if ex.get("improved_only")
+              else "not picked to flatter the model.")
     verdict = ("did worse, lifting Complements above Substitutes" if change < 0 and _c_over_s(ex)
                else "did worse" if change < 0 else "did better" if change > 0 else "changed nothing")
     return f"""
@@ -180,7 +209,7 @@ def rerank_figure(ex: dict) -> str:
   </div>
   <figcaption id="rerank-caption">
     <span class="legend">{"".join(f'<span><span class="chip l-{k}">{k}</span> {v}</span>' for k, v in LABEL_NAMES.items())}</span>
-    One validation query, {esc(ex["rule"])} with a fixed seed, not picked to flatter the model.
+    One validation query, {esc(ex["rule"])}, with a fixed seed: {chosen}
     On this one the 4B model {verdict}. Across all {f0["n_queries"]:,} validation queries it improved {f0["improved"]:,},
     worsened {f0["worsened"]:,} and left {f0["unchanged"]:,} unchanged, taking mean NDCG from
     {f4(f0["coarse_ndcg"])} to {f4(f0["reranked_ndcg"])}.
