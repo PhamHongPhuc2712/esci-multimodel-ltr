@@ -1,40 +1,45 @@
-# Results — Multi-Stage Multimodal Product Search Ranking on Amazon ESCI
+# Results — Multimodal Product Re-Ranking on Amazon ESCI (Task 1)
 
 Every measured figure below is quoted from a committed file under
 `docs/results/`, named beside it. The only exceptions are the published
 baselines, cited from `PROJECT_SPEC.md` §5 and marked as published.
 `tests/test_results_doc.py` checks every four-decimal figure in this file
-against those sources.
+against those sources. "Plan N" names the development step that measured a result;
+the plan documents themselves are kept at the `v1-with-retrieval` tag.
 
 ## 1. What this is
 
-A five-stage product search funnel on the Amazon ESCI Shopping Queries Dataset
-(Task 1, English): LLM query rewriting, hybrid recall (BM25, an off-the-shelf
-and an ESCI-fine-tuned dense retriever, and CLIP image, fused with RRF), a
-LightGBM LambdaMART coarse ranker over 47 features,
-fine re-ranking of its top 10 by a fine-tuned cross-encoder, a fine-tuned
-open LLM served on one GPU, or a hosted LLM listwise call, and a blend stage. ESCI is enriched with images, prices, ratings,
-categories and attributes from the ESCI-S scrape.
+A multi-stage re-ranker for ESCI Task 1 (English), the query–product ranking
+task of the Amazon Shopping Queries Dataset: a LightGBM LambdaMART coarse
+ranker over 47 features, fine re-ranking of its top 10 by a fine-tuned
+cross-encoder, a fine-tuned open LLM served on one GPU, or a hosted LLM
+listwise call, and a blend stage. ESCI is enriched with images, prices,
+ratings, categories and attributes from the ESCI-S scrape.
 
-The task is **re-ranking**: only judged candidates are ranked, so ranking is
-scored as full-list NDCG over each query's judged list (gains E 1.0, S 0.1,
-C 0.01, I 0.0). Recall is measured separately, as Recall@100 over the whole
-1.2M-product catalogue. Every NDCG sits beside a random floor computed on the
-same queries, with a 95% bootstrap interval over queries.
+The task is **re-ranking**: each query's judged candidates are the input, so
+ranking is scored as full-list NDCG over each query's judged list (gains
+E 1.0, S 0.1, C 0.01, I 0.0). Every NDCG sits beside a random floor computed
+on the same queries, with a 95% bootstrap interval over queries.
+
+An earlier version also had LLM query rewriting and a recall stage over the
+1.2M-product catalogue. Retrieval is not part of any ESCI task, so it was
+removed; its code and results live at the `v1-with-retrieval` tag.
 
 ## 2. Headline
 
-**The best ranker in the project is the LLM listwise re-ranking of the coarse
-ranker's top 10: NDCG 0.8855 [0.8827, 0.8883] over all 8,956 queries of the
-test split**, against a random floor of 0.7468 and the coarse ranker's own
-0.8579 — a gain of +0.0276 [+0.0255, +0.0296] (`fine-rank-test-full.json`).
+**The two best rankers tie: a hosted LLM's listwise re-ranking of the coarse
+ranker's top 10, NDCG 0.8855 [0.8827, 0.8883] over all 8,956 queries of the
+test split, and a fine-tuned open `Qwen3-Reranker-4B` served on one GPU**
+(below). The hosted arm stands against a random floor of 0.7468 and the
+coarse ranker's own 0.8579 — a gain of +0.0276 [+0.0255, +0.0296]
+(`fine-rank-test-full.json`).
 
 That interval lies entirely above the **0.8562 `ESCI_baseline`** (a
 cross-encoder fine-tuned on the train split; published, `PROJECT_SPEC.md` §5),
 the target this project set itself, and it is measured on the same 8,956
-queries. **The funnel beats the published baseline.** The caveat is cost: the
-baseline is one cross-encoder pass, while this is a three-stage funnel ending
-in an API call that takes 4.7 s for a single query.
+queries. **The pipeline beats the published baseline.** For the hosted arm
+the caveat is cost: the baseline is one cross-encoder pass, while this ends in
+an API call that takes 4.7 s for a single query.
 
 The LLM arm was first measured on a frozen random sample of 2,000 test
 queries, because each query is a paid call: 0.8855 [0.8799, 0.8910]
@@ -48,7 +53,8 @@ Without the LLM, the coarse LambdaMART ranker alone scores **0.8579 [0.8551,
 larger fine-tuned cross-encoder, `bge-reranker-large` trained on every judged
 pair, reaches **0.8770 [0.8742, 0.8801]** with no API call at all
 (`size-test.json`, Section 8). That arm was chosen on fold 0 before the test
-split was scored. It also lies wholly above the target, at 205.2 ms a query.
+split was scored. It also lies wholly above the target, at 205.2 ms a query on
+the laptop's RTX 3080.
 The next size down, `bge-reranker-base` under the same recipe, scores 0.8711
 [0.8681, 0.8742] at 64.5 ms (`capacity-test.json`), so the larger model buys
 +0.0059 [+0.0044, +0.0074] for about three times the latency.
@@ -75,7 +81,7 @@ published SQID figure of 0.7483.
 | `ESCI_baseline`, fine-tuned cross-encoder | 0.8562 | the target |
 | KDD Cup 2022 winner (context, not a target) | 0.9043 | — |
 
-## 3. The funnel, stage by stage
+## 3. The pipeline, stage by stage
 
 **Evaluation foundation.** Zero-shot SBERT reproduces the published 0.8292 at
 0.8294 [0.8265, 0.8325], +0.0827 [+0.0802, +0.0855] over the floor — the check
@@ -87,54 +93,8 @@ anything else was built (`sbert-title-test.json`).
 embedding (`image-embeddings.json`): about three quarters, not the 91.5% the
 scrape's headline suggests.
 
-**Stages 0–1, recall** — fold 0 (4,130 validation queries) against the full
-catalogue, `recall.json`:
-
-| channel | Recall@100 |
-|---|---|
-| BM25 | 0.4890 |
-| dense text (SBERT) | 0.4608 |
-| CLIP image | 0.1971 |
-| RRF of all three | **0.5551** |
-| RRF of all three, LLM-rewritten query | 0.5599 (ties; see Ablation 1) |
-
-**A fine-tuned retriever (Plan 10).** None of those three channels was ever
-trained on ESCI. Plan 10 fine-tuned `bge-base-en-v1.5` on folds 2/3/4: each
-training query against its Exact products, every other product in the batch a
-negative, reading 256 tokens of product text. It runs as a fourth channel
-beside Plan 4's three. RRF's constant and the four channel weights were chosen
-on fold 1, never on the surface they are reported on: k = 60, with weights
-fine-tuned dense 1, off-the-shelf dense 0.5, BM25 1, image 0.5
-(`recall-fusion-sweep.json`).
-
-| Recall over the full catalogue | fold 0, @100 | test, @10 | test, @100 | test, @1000 |
-|---|---|---|---|---|
-| Plan 4's fusion | 0.5551 | 0.2629 | 0.5606 | 0.7922 |
-| the fine-tuned retriever alone | 0.5672 | 0.2645 | 0.5589 | 0.8081 |
-| Plan 4's fusion with the fine-tuned retriever swapped in | 0.6000 | 0.2810 | 0.6010 | 0.8284 |
-| **four channels, tuned fusion** | **0.6187** | **0.2974** | **0.6172** | **0.8382** |
-
-Fold 0 is from `recall-tuned.json` and test from `recall-tuned-test.json`.
-Test covers all 8,956 queries, measured once, and one query with no Exact
-product is skipped and counted.
-
-- **On test, the tuned recall stage gains +0.0567 [+0.0534, +0.0598] at @100**
-  and +0.0460 [+0.0434, +0.0488] at @1000 over Plan 4's fusion. Fold 0
-  agrees: +0.0636 [+0.0587, +0.0685].
-- **The fine-tuned retriever alone** beats the off-the-shelf one by +0.1030
-  [+0.0978, +0.1082] at @100. On its own it roughly matches the whole
-  three-channel fusion at @100, and passes it at @1000.
-- **Of the +0.0567:**
-  - +0.0405 [+0.0374, +0.0435] is the fine-tuned retriever replacing the old
-    one;
-  - +0.0162 [+0.0139, +0.0186] is keeping the old one as a fourth channel and
-    tuning the weights.
-- **What this does to the ranking numbers: nothing.** ESCI Task 1 ranks each
-  query's judged candidates, so recall changes which products a deployed funnel
-  would hand the ranker, not any NDCG above.
-
 **Stage 2, coarse rank.** LightGBM `lambdarank` over 47 query × product features
-in eight groups — retrieval scores, text overlap, image similarity, ESCI-S
+in eight groups — BM25 and dense similarity, text overlap, image similarity, ESCI-S
 behavioural values, categories, attributes and presence flags — trained with
 ESCI's own gain mapping. **0.8579 [0.8551, 0.8611]** on the full test split
 (`coarse-rank-test.json`).
@@ -168,9 +128,6 @@ B won.
 
 | # | ablation | metric | scope | n | delta | |
 |---|---|---|---|---|---|---|
-| 1 | LLM-rewritten − raw query | Recall@100 | fold 0, full corpus | 4,130 | +0.0048 [-0.0007, +0.0107] | ties |
-| 2a | dense+BM25 − dense-only (RRF) | Recall@100 | fold 0, full corpus | 4,130 | +0.0895 [+0.0831, +0.0958] | significant |
-| 2b | dense+BM25+image − dense+BM25 (RRF) | Recall@100 | fold 0, full corpus | 4,130 | +0.0048 [+0.0008, +0.0088] | significant |
 | 3 | text+image − text-only features | NDCG | test | 8,956 | +0.0075 [+0.0059, +0.0090] | significant |
 | 4 | behavioural values − text+presence indicators | NDCG | test | 8,956 | +0.0036 [+0.0023, +0.0051] | significant |
 | 5a | pointwise classifier − lambdarank | NDCG | test | 8,956 | -0.0085 [-0.0101, -0.0069] | significant |
@@ -179,14 +136,15 @@ B won.
 | 6b | coarse+LLM listwise − coarse-only | NDCG | test | 8,956 | +0.0276 [+0.0255, +0.0296] | significant |
 | 7 | learned fusion − fixed global weight | NDCG | test | 8,956 | -0.0011 [-0.0023, +0.0000] | ties |
 
-> Rows 1–2 and 3–7 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.
+> Every row is a paired difference in NDCG with a 95% bootstrap interval over queries; the scope and n columns name the queries it was measured on.
 
-**Findings after the spec.** The results of Stage 4 and of Plans 8–11 are not
-among the seven ablations the spec asked for, but they are measured the same
-way, and since Plan 12 the same table carries them (`ablation-table.json`,
-`findings`), each read from the file its plan committed by arm name. Sections
-5, 8 and 9 and the fine-tuned retriever's part of Section 3 are the prose for
-these rows.
+Ablations 1 and 2 measured the recall stage and left with it.
+
+**Findings after the spec.** The results of Stage 4 and of the later
+fine-rank experiments are not among the ablations the spec asked for, but
+they are measured the same way, and the same table carries them
+(`ablation-table.json`, `findings`), each read from the file that measured it
+by arm name. Sections 5, 8 and 9 are the prose for these rows.
 
 | # | ablation | metric | scope | n | delta | |
 |---|---|---|---|---|---|---|
@@ -195,20 +153,17 @@ these rows.
 | 9a | bge − MiniLM, both on windows at batch 16 (the backbone) | NDCG | test | 8,956 | +0.0112 [+0.0094, +0.0130] | significant |
 | 9b | bge at batch 8 − batch 16, on windows (the batch) | NDCG | test | 8,956 | +0.0002 [-0.0006, +0.0010] | ties |
 | 9c | bge on whole groups − bge on windows (the recipe) | NDCG | test | 8,956 | +0.0016 [+0.0006, +0.0026] | significant |
-| 10a | four channels, tuned fusion − Plan 4's fusion | Recall@100 | test, full corpus | 8,956 | +0.0567 [+0.0534, +0.0598] | significant |
-| 10b | fine-tuned retriever alone − off-the-shelf dense alone | Recall@100 | test, full corpus | 8,956 | +0.1030 [+0.0978, +0.1082] | significant |
 | 11 | bge-large − bge-base, both on whole groups (the size) | NDCG | test | 8,956 | +0.0059 [+0.0044, +0.0074] | significant |
 | 13a | best LLM reranker − bge-large (chosen on fold 0) | NDCG | test | 8,956 | +0.0078 [+0.0061, +0.0096] | significant |
 | 13b | best LLM reranker − hosted LLM (chosen on fold 0) | NDCG | test | 8,956 | -0.0008 [-0.0025, +0.0013] | ties |
 
-> Rows 1–2 and 3–7 are **not comparable to each other**: they were measured on different query populations with different metrics. The scope and n columns say which.
+> Every row is a paired difference in NDCG with a 95% bootstrap interval over queries; the scope and n columns name the queries it was measured on.
 
 The two contributions this project set out to measure:
 
 - **Images help (Ablation 3).** Image features add +0.0075 to the coarse
   ranker. That was an open question in prior work, which only combined
-  zero-shot CLIP scores with a hand-set weight. In recall the image channel
-  helps far less (+0.0048, Ablation 2b).
+  zero-shot CLIP scores with a hand-set weight.
 - **Behavioural features help, a little (Ablation 4).** ESCI-S's values —
   price, stars, ratings, rank, categories, attributes — add +0.0036 over a
   control that already carries their *presence* flags. The flags alone are an
@@ -306,11 +261,6 @@ exactly why Section 5's selector found nothing to route on.
 
 Measured losses and ties, reported as results:
 
-- **LLM query rewriting (Ablation 1) ties** on Recall@100, +0.0048
-  [−0.0007, +0.0107], and *costs* precision at the top: Recall@10 falls from
-  0.2657 to 0.2571 (`recall.json`).
-- **Images barely help recall.** Adding the image channel to dense + BM25 buys
-  +0.0048 at Recall@100 (Ablation 2b), against +0.0895 for adding BM25 to dense.
 - **Learned fusion does not beat a hand-tuned weight (Ablation 7).** It ties on
   test, −0.0011 [−0.0023, +0.0000], and loses on fold 0, −0.0023 [−0.0040,
   −0.0008] (`coarse-rank.json`). The prior work's single global weight matched
@@ -348,17 +298,6 @@ Measured losses and ties, reported as results:
   worse than useless (`coarse-rank-test.json`). That subtraction assumes the
   presence effects add up, and they do not. The +0.0036 in the table comes from
   a control arm instead.
-- **Hard negatives did not help the retriever (Plan 10).** ESCI's own
-  Irrelevant and Complement judgements are natural hard negatives: Amazon's
-  search retrieved them, and a human said no. Adding one per training pair
-  tied plain in-batch negatives on fold 1, for both backbones tried, at three
-  times the training time. The scratch figures are in Plan 10's README; the
-  committed retriever uses in-batch negatives only.
-- **Storage is over budget.** The BM25 index and the three embedding stores
-  took 3.48 GB against the spec's 1.0 GB (`recall.json`). 0.40 GB of that was
-  a redundant image store, since deleted. Plan 10's 768-dimensional retriever
-  store added 1.88 GB more. Since Plan 12 the recall report measures the
-  figure on disk at run time rather than carrying a typed one.
 
 ## 8. Distilling the LLM
 
@@ -653,26 +592,11 @@ latency for its +0.0078.
   shuffled and measure how much the two answers agree — is the natural
   candidate. It doubles the LLM's cost: about another 454 + 382 tokens and
   1.2 s of batched time a query.
-- **Latency for the large cross-encoder.** Section 8's `bge-reranker-large`
-  answers in 205.2 ms, three times the base model, for +0.0059. Shortening
-  the window to the top 5, or distilling the large model into the base one
-  on its own windows, are the two cheap ways to try to keep the gain and
-  lose the latency; neither has been measured.
+- **The 4B reranker on smaller cards.** Section 9 measured it only on an RTX
+  A6000. Its latency on a 16 GB card such as the laptop's RTX 3080, or a T4,
+  has not been measured, and INT8 there may behave differently from the
+  A6000, which has INT8 tensor cores.
 - **A demo.** `PROJECT_SPEC.md` §9 names a free-tier hosted demo as optional.
-  With a 0.8770 arm that needs no API key, the whole no-API funnel - BM25 and
-  the fine-tuned retriever, the coarse ranker, `bge-reranker-large` on its top
-  10 - can run as one small app. The retrieval indexes are about 5 GB on
-  disk, which is the constraint to design around.
-- **The fine-tuned retriever as a coarse-ranker feature.** Section 3's
-  retriever beats the off-the-shelf one by +0.1030 at Recall@100, and Plan 5's
-  `dense_sim` feature still comes from the off-the-shelf model. Two things make
-  swapping it in more than a one-line change:
-  - **The score must be out-of-fold.** The retriever trained on folds 2/3/4,
-    and so did the coarse ranker. Its similarity on those folds is fitted, not
-    predicted, and a ranker trained on it would learn to trust a feature that
-    is weaker at serving time. Each training fold needs a retriever that never
-    saw it — the same reason Plan 8 carved its training windows out-of-fold.
-  - **It moves the LLM's windows.** A different coarse ranker puts different
-    products in each query's top 10. The cached LLM orderings are keyed on
-    those windows, so keeping the LLM arm current means a new paid pass over
-    the test split (Section 3: 6,958 calls in 2.3 hours).
+  The coarse ranker and `bge-reranker-large` on its top 10 need no API key and
+  no large GPU; the BM25 index and embedding stores the features read are the
+  constraint to design around.

@@ -1,93 +1,90 @@
-# Multi-Stage Multimodal Product Search Ranking on Amazon ESCI
+# Multimodal Product Re-Ranking on Amazon ESCI (Task 1)
 
-A full product-search funnel — query rewriting → hybrid recall → LambdaMART
-coarse rank → cross-encoder / LLM fine rank → blend — built on the Amazon ESCI
-Shopping Queries Dataset. ESCI-S adds images, prices, ratings, categories and
-attributes. Every stage is measured with an ablation against a computed random
-floor, with bootstrap intervals over queries.
+A multi-stage re-ranker for **ESCI Task 1**, the query–product ranking task of
+the Amazon Shopping Queries Dataset: given a query and its judged candidate
+products, order them so the relevant ones come first. A LightGBM LambdaMART
+ranker over 47 text, image and behavioural features orders each query's list.
+A fine-rank stage then re-orders its top 10: a fine-tuned cross-encoder, a
+fine-tuned open LLM served by vLLM, or a hosted LLM. A blend stage tests
+whether combining them helps. ESCI-S adds images, prices, ratings, categories
+and attributes.
 
+**Project site: [phamhongphuc2712.github.io/esci-multimodel-ltr](https://phamhongphuc2712.github.io/esci-multimodel-ltr/).**
 **Full writeup: [`docs/RESULTS.md`](docs/RESULTS.md).** Every number on this
 page is quoted from a committed file in [`docs/results/`](docs/results/), and
 a test fails if one is not.
 
 ## Headline
 
-ESCI Task 1 (English) is a **re-ranking** task: each query's judged candidates
-are ranked, scored by full-list NDCG with gains E 1.0 / S 0.1 / C 0.01 / I 0.0.
+Ranking is scored as full-list NDCG over each query's judged list, with gains
+E 1.0 / S 0.1 / C 0.01 / I 0.0, on all 8,956 queries of the test split.
 
-| ranker | NDCG | scope |
+| ranker | NDCG | p95 latency added |
 |---|---|---|
-| random ordering (computed floor) | 0.7467 | full test split, 8,956 queries |
-| zero-shot SBERT (published 0.8292, reproduced here) | 0.8294 | full test split |
-| `ESCI_baseline`, a fine-tuned cross-encoder (published, the target) | 0.8562 | full test split |
-| **coarse LambdaMART, 47 features** | **0.8579 [0.8551, 0.8611]** | full test split |
-| + fine-tuned cross-encoder on its top 10 | 0.8616 | full test split |
-| + a larger fine-tuned cross-encoder (`bge-reranker-base`) on its top 10 | 0.8711 [0.8681, 0.8742] | full test split |
-| + the next size up (`bge-reranker-large`) on its top 10 | 0.8770 [0.8742, 0.8801] | full test split |
-| + a fine-tuned `Qwen3-Reranker-4B` on its top 10, served by vLLM in INT8 (p95 146.0 ms on one RTX A6000) | **0.8843 [0.8815, 0.8872]** | full test split |
-| **+ LLM listwise re-ranking of its top 10** | **0.8855 [0.8827, 0.8883]** | full test split |
+| random ordering (computed floor) | 0.7467 | — |
+| zero-shot SBERT (published 0.8292, reproduced here) | 0.8294 | — |
+| `ESCI_baseline`, a fine-tuned cross-encoder (published, the target) | 0.8562 | — |
+| **coarse LambdaMART, 47 features** | **0.8579 [0.8551, 0.8611]** | — |
+| + fine-tuned MiniLM cross-encoder on its top 10 | 0.8616 | — |
+| + fine-tuned `bge-reranker-base` on its top 10 | 0.8711 [0.8681, 0.8742] | 31.6 ms (fp16, RTX A6000) |
+| + fine-tuned `bge-reranker-large` on its top 10 | 0.8770 [0.8742, 0.8801] | 46.1 ms (fp16, RTX A6000) |
+| **+ fine-tuned `Qwen3-Reranker-4B` on its top 10, served by vLLM in INT8** | **0.8843 [0.8815, 0.8872]** | **146.0 ms (RTX A6000)** |
+| + hosted LLM listwise re-ranking of its top 10 | 0.8855 [0.8827, 0.8883] | a 4.7 s API call |
 
-**The funnel beats the published baseline on the same 8,956 queries.** The
-LLM arm's interval sits wholly above 0.8562, at the price of an API call that
-takes 4.7 s a query. Without the LLM, the coarse ranker alone **matches** the
-target: its interval contains 0.8562. A larger cross-encoder on its top 10
-**beats** it with no API call: `bge-reranker-base` at 64.5 ms a query, and
-`bge-reranker-large` at 205.2 ms for a further +0.0059. The LLM arm was first measured on a frozen
-2,000-query sample (0.8855 [0.8799, 0.8910]); running the whole split once
-left the point estimate unchanged and halved the interval.
+**Every arm from the coarse ranker up beats or matches the published
+baseline on the same queries.** The coarse ranker alone **matches** the
+0.8562 target: its interval contains it. Each fine-rank arm lies wholly above
+it.
 
-**A self-served open LLM now ties the hosted one.** `Qwen3-Reranker-4B`,
-fine-tuned on the training folds and chosen on fold 0, beats
-`bge-reranker-large` by +0.0078 and ties the hosted LLM. Served by vLLM in
-INT8 on one rented A6000, it answers at a 146.0 ms p95, against the API's
-4.7 s a query, and holds a p95 under 300 ms at 4 queries a second. The
-writeup's [Section 9](docs/RESULTS.md#9-a-fast-self-served-llm-reranker)
-has the speed ladder, the load test and the quality-against-latency chart.
+**The recommended re-ranker is the fine-tuned `Qwen3-Reranker-4B`.** It beats
+`bge-reranker-large` by +0.0078 and **ties** the hosted LLM, self-served on
+one GPU, with no per-call cost. Served by vLLM in INT8 it answers at a
+146.0 ms p95 and holds a p95 under 300 ms at 4 queries a second. Where a GPU
+that size is not available, `bge-reranker-large` in fp16 is three times
+faster for −0.0078.
 
-Retrieval is measured on its own, as Recall@100 of Exact products over the
-whole 1.2M-product catalogue. With a dense retriever fine-tuned on ESCI it
-reaches **0.6172** on the test split, up from 0.5606 for the untuned channels.
+The hosted LLM arm was first measured on a frozen 2,000-query sample (0.8855
+[0.8799, 0.8910]); running the whole split once left the point estimate
+unchanged and halved the interval.
+
+![Stage 3 rerankers: quality against latency](docs/figures/quality-vs-latency.svg)
 
 ## What the ablations found
 
 | | finding | delta |
 |---|---|---|
-| images, coarse rank | CLIP image features help the ranker | +0.0075 [+0.0059, +0.0090] NDCG |
-| images, recall | …but barely help retrieval | +0.0048 Recall@100 |
-| recall, fine-tuned retriever | a dense retriever fine-tuned on ESCI, fused as a fourth channel at weights chosen on fold 1, lifts retrieval on the test split | +0.0567 [+0.0534, +0.0598] Recall@100 |
+| images | CLIP image features help the coarse ranker | +0.0075 [+0.0059, +0.0090] NDCG |
 | behavioural features | help a little, once the scrape's presence artefact is controlled | +0.0036 [+0.0023, +0.0051] NDCG |
 | learning to rank | `lambdarank` beats pointwise classification | +0.0085 NDCG |
-| fine rank | the LLM buys about seven times the cross-encoder's gain at over two hundred times its latency | +0.0276 vs +0.0037 NDCG |
-| query rewriting | an LLM rewrite of the query **ties** | +0.0048 [−0.0007, +0.0107] Recall@100 |
+| fine rank | the hosted LLM buys about seven times the MiniLM cross-encoder's gain | +0.0276 vs +0.0037 NDCG |
 | learned fusion | **ties** a single hand-tuned text/image weight | −0.0011 [−0.0023, +0.0000] NDCG |
-| blending | **no blend beats the LLM alone** — all three lose to it, though a per-query oracle would add +0.0257 | best: −0.0006 [−0.0009, −0.0003] NDCG |
+| blending | **no blend beats the LLM alone**, though a per-query oracle would add +0.0257 | best: −0.0006 [−0.0009, −0.0003] NDCG |
 | distillation | in a fold-0 pilot the LLM's ordering was **not a better training target than the labels**, so the paid labelling was not run | ties from both starting points |
-| model size, fine rank | with everything else held fixed, the larger backbone (`bge-reranker-base` against MiniLM) is what pays; the batch ties and the training recipe adds little | +0.0112 [+0.0094, +0.0130] NDCG |
-| one size up, fine rank | the next size (`bge-reranker-large` against -base, same recipe, 8 queries an update) pays again, for three times the latency | +0.0059 [+0.0044, +0.0074] NDCG |
-| self-served LLM, fine rank | a fine-tuned 4B open LLM beats `bge-reranker-large`… | +0.0078 [+0.0061, +0.0096] NDCG |
+| model size | with everything else held fixed, the larger backbone (`bge-reranker-base` against MiniLM) is what pays | +0.0112 [+0.0094, +0.0130] NDCG |
+| one size up | `bge-reranker-large` against -base, same recipe, pays again | +0.0059 [+0.0044, +0.0074] NDCG |
+| self-served LLM | a fine-tuned 4B open LLM beats `bge-reranker-large`… | +0.0078 [+0.0061, +0.0096] NDCG |
 | | …and **ties** the hosted LLM | −0.0008 [−0.0025, +0.0013] NDCG |
 
 Every row with an interval is in [`docs/results/ablation-table.json`](docs/results/ablation-table.json),
-read from the file its plan committed, and a test checks that. The scope,
-`n` and source of each are in the full table in
-[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table); the prose for the
-retriever row is in [its Section 3](docs/RESULTS.md#3-the-funnel-stage-by-stage)
-for the model-size rows in [its Section 8](docs/RESULTS.md#8-distilling-the-llm),
-and for the self-served LLM in [its Section 9](docs/RESULTS.md#9-a-fast-self-served-llm-reranker).
-The ties and losses are reported as results.
+read from the file that measured it, and a test checks that. The scope, `n`
+and source of each are in the full table in
+[`docs/RESULTS.md`](docs/RESULTS.md#4-the-ablation-table). The ties and
+losses are reported as results.
 
-## The funnel
+## The pipeline
+
+Stages keep the numbers the code and results files use.
 
 | stage | what | measured by |
 |---|---|---|
-| 0 | LLM query rewriting (`gpt-5.6-luna`), cached | Recall@100 lift |
-| 1 | BM25 + two dense retrievers (off-the-shelf SBERT, and `bge-base` fine-tuned on ESCI) + CLIP image, fused with RRF at weights chosen on fold 1, over the 1.2M-product catalogue | Recall@100 |
-| 2 | LightGBM `lambdarank` over 47 query × product features: retrieval scores, text overlap, image similarity, ESCI-S behavioural values, categories, attributes | NDCG |
-| 3 | a fine-tuned cross-encoder (`ms-marco-MiniLM-L6-v2`, `bge-reranker-base` or `bge-reranker-large`), a fine-tuned open LLM served by vLLM (`Qwen3-Reranker-4B`), or a hosted LLM listwise call, re-ranking Stage 2's top 10 | NDCG, latency, tokens, load |
-| 4 | fixed-weight RRF, a learned combiner, or a per-query selector over the three stages | NDCG against each stage alone |
+| input | each query's judged candidates, as ESCI Task 1 defines them | — |
+| 2 | LightGBM `lambdarank` over 47 query × product features: BM25 and dense similarity, text overlap, CLIP image similarity, ESCI-S behavioural values, categories, attributes | NDCG |
+| 3 | re-ranking Stage 2's top 10: a fine-tuned cross-encoder (`ms-marco-MiniLM-L6-v2`, `bge-reranker-base`, `bge-reranker-large`), a fine-tuned open LLM (`Qwen3-Reranker-4B`) served by vLLM, or a hosted LLM listwise call | NDCG, latency, load |
+| 4 | fixed-weight RRF, a learned combiner, or a per-query selector over the stages | NDCG against each stage alone |
 
-Recall is evaluated on its own, over the whole catalogue. Stages 2–4 rank only
-the judged candidates, as the task defines.
+An earlier version also had LLM query rewriting and a recall stage over the
+1.2M-product catalogue. Retrieval is not part of any ESCI task, so it was
+removed; it lives at the `v1-with-retrieval` tag.
 
 ## Things that were wrong in the data, and would have corrupted results
 
@@ -110,7 +107,7 @@ the judged candidates, as the task defines.
 
 ```bash
 uv venv --python 3.13 .venv && source .venv/bin/activate
-uv pip install -e ".[dev,baselines,retrieval,ranking]"
+uv pip install -e ".[dev,baselines,retrieval,ranking,llm,report]"
 python -m pytest                      # fast suite; -m data needs the datasets below
 ```
 
@@ -128,16 +125,14 @@ every LLM call is cached.
 
 ```bash
 python -m src.esci_s_etl && python -m src.combine        # enrichment corpus, joined tables
-python -m src.embed_images --scope catalogue             # CLIP vectors, network-bound, ~6 h
-python -m src.bm25_index && python -m src.dense_embed    # retrieval indexes
-python -m src.query_rewrite --split train --folds 0      # Stage 0 (paid)
-python -m src.recall_report --split train --folds 0 --rewrites data/rewrites.json   # --split test needs --final
+python -m src.embed_images --scope rerank                # CLIP vectors for the judged products, network-bound
+python -m src.bm25_index && python -m src.dense_embed    # the BM25 and dense similarity features
 for s in train test; do python -m src.pair_scores --split $s; python -m src.feature_matrix --split $s; done
 python -m src.rank_report                                # Stage 2 ablations on validation fold 0
 python -m src.rank_report --split test --final --out docs/results/coarse-rank-test.json
 for s in train test; do python -m src.stage2_scores --split $s; done
 python -m src.cross_encoder --loss lambda && python -m src.cross_encoder --loss bce
-python -m src.llm_rerank --split train --folds 0         # Stage 3 LLM (paid)
+python -m src.llm_rerank --split train --folds 0         # Stage 3 hosted LLM (paid)
 python -m src.fine_rank_report --llm-latency-probe 40
 python -m src.fine_rank_report --split test --final --llm-latency-probe 40 --out docs/results/fine-rank-test.json
 python -m src.llm_rerank --split test --folds all --usage-out docs/results/llm-rerank-test-full.json   # (paid, ~2.3 h)
@@ -147,20 +142,22 @@ python -m src.blend_report --scope fold0
 python -m src.blend_report --scope test-sample --final --out docs/results/blend-test.json
 python -m src.blend_report --scope test --final --out docs/results/blend-test-full.json
 python -m src.error_analysis && python -m src.ablation_table
-python -m src.stage2_scores --split train --out-of-fold  # Plan 8: training windows from a Stage 2 that never saw them
+python -m src.stage2_scores --split train --out-of-fold  # training windows from a Stage 2 that never saw them
 python -m src.distill --target labels --out models/cross-encoder/windows
 python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 8 --out models/cross-encoder/bge
 python -m src.distill_report && python -m src.distill_report --pilot
 python -m src.distill_report --split test --final --arms stage2+ce_windows stage2+ce_bge --out docs/results/distill-test.json
-python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16   # Plan 9
+python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16
 python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base --gradient-checkpointing --out-dir models/cross-encoder/bge-groups
 python -m src.distill_report --capacity && python -m src.distill_report --capacity --split test --final
-python -m src.dense_finetune                             # Plan 10: the fine-tuned retriever
-python -m src.dense_embed --model models/retriever/bge-base --store data/embeddings/dense-ft --half --max-seq 256
-python -m src.tuned_recall_report --sweep && python -m src.tuned_recall_report && python -m src.tuned_recall_report --split test --final
-python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-large --gradient-checkpointing --batch-size 4 --grad-accum 2 --out-dir models/cross-encoder/bge-large-groups   # Plan 11
+python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-large --gradient-checkpointing --batch-size 4 --grad-accum 2 --out-dir models/cross-encoder/bge-large-groups
 python -m src.distill_report --size && python -m src.distill_report --size --split test --final
 ```
+
+The self-served LLM rerankers, their serving ladder and load test ran on a
+rented RTX A6000; `CLAUDE.md` lists those commands and `scripts/cloud/` holds
+the scripts that ran there. `python -m src.quality_latency_chart` regenerates
+the chart from the committed JSON.
 
 Every configuration is chosen on a validation fold carved from train by query.
 Each test measurement sits behind `--final` and was run once.
@@ -173,6 +170,8 @@ Each test measurement sits behind `--final` and was run once.
 | `tests/` | one test module per source module; `-m data` runs against the real datasets |
 | `docs/results/` | every committed measurement, as JSON |
 | `docs/RESULTS.md` | the writeup |
-| `docs/superpowers/plans/` | the twelve implementation plans, with what each measured and corrected |
-| `PROJECT_SPEC.md` | motivation, funnel design, baselines and the ablation plan |
+| `docs/figures/` | the quality-against-latency chart, generated from `docs/results/` |
+| `site/` | the project site, generated from `docs/results/` and served by GitHub Pages |
+| `scripts/cloud/` | the scripts that ran the LLM training and serving on a rented GPU |
+| `PROJECT_SPEC.md` | the original motivation, design, baselines and ablation plan |
 | `splits/` | the frozen validation folds and their checksum |
