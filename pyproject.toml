@@ -47,7 +47,7 @@ report = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["esci_rerank"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

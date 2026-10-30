@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.distill import (
+from esci_rerank.rerank.distill import (
     INITS,
     TARGETS,
     cross_fit_orderings,
@@ -12,7 +12,7 @@ from src.distill import (
     window_dataset,
     window_targets,
 )
-from src.rerank_window import Window
+from esci_rerank.rerank.rerank_window import Window
 
 # Window order a, b, c, d. Grades: b and d Exact, c Substitute, a Irrelevant.
 GAINS = {
@@ -116,7 +116,7 @@ def test_a_window_without_a_teacher_answer_is_dropped_and_reported():
 
 
 def test_a_dropped_window_is_never_filled_with_the_stage_2_order():
-    # src.llm_rerank falls back to the Stage 2 order on a malformed answer. A
+    # esci_rerank.rerank.llm_rerank falls back to the Stage 2 order on a malformed answer. A
     # student taught that would be learning Stage 2 under the teacher's name.
     dataset, _ = window_dataset(
         _windows(), QUERY_TEXT, DOC_TEXT, kind="hybrid", gains=GAINS,
@@ -263,9 +263,9 @@ def test_pairwise_accuracy_needs_an_ordering_for_every_window():
 def test_the_training_windows_are_carved_out_of_fold():
     # Review Focus 1. Measured 2026-09-27: 12,519 windows, and only 34.5% of
     # them hold the same ten documents as the in-sample ordering's windows.
-    from src.distill import training_windows
-    from src.rerank_window import windows
-    from src.stage2_scores import load_stage2
+    from esci_rerank.rerank.distill import training_windows
+    from esci_rerank.rerank.rerank_window import windows
+    from esci_rerank.ranking.stage2_scores import load_stage2
 
     windows_, matrix = training_windows()
     assert len(windows_) == 12_519

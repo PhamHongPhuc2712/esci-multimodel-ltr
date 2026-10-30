@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.rerank_window import Window
-from src.stage_signals import (
+from esci_rerank.rerank.rerank_window import Window
+from esci_rerank.blend.stage_signals import (
     BLEND_FEATURES,
     MAX_FALLBACK_SHARE,
     RRF_K,
@@ -137,7 +137,7 @@ def test_labels_without_a_stage_2_score_raise():
 # --- Review Focus 2: the cache covers these windows, or it says so ---------
 
 def test_cached_permutations_become_orderings():
-    from src.llm_rerank import window_key
+    from esci_rerank.rerank.llm_rerank import window_key
 
     query_text = {"1": "red shoes", "2": "blue hat"}
     cache = FakeCache({
@@ -160,7 +160,7 @@ def test_a_cache_miss_is_reported_not_papered_over():
 
 
 def test_a_permutation_of_the_wrong_length_counts_as_a_miss():
-    from src.llm_rerank import window_key
+    from esci_rerank.rerank.llm_rerank import window_key
 
     query_text = {"1": "red shoes", "2": "blue hat"}
     cache = FakeCache({window_key("red shoes", ["a", "b", "c"]): [2, 1]})
@@ -255,7 +255,7 @@ def _ordering(frame, column, ascending):
 
 @pytest.mark.data
 def test_the_real_frames_are_complete():
-    from src.stage_signals import load_signals
+    from esci_rerank.blend.stage_signals import load_signals
 
     # The whole split's 7 are the 2026-09-24 pass's malformed answers, retried
     # once by the full-split report; 49855 and 66028 failed on the sample too.
@@ -282,10 +282,10 @@ def test_the_frames_reproduce_plan_6s_three_arms():
     # The frame is only the stage scores if ordering by each column gives back
     # the NDCG Plan 6 published for that stage. This also pins the test sample:
     # a different 2,000 queries could not land on all three numbers.
-    from src.metrics import ndcg_per_query
-    from src.rank_report import qrels_from_frame
-    from src.rerank_window import spliced_run
-    from src.stage_signals import load_signals
+    from esci_rerank.evaluation.metrics import ndcg_per_query
+    from esci_rerank.ranking.rank_report import qrels_from_frame
+    from esci_rerank.rerank.rerank_window import spliced_run
+    from esci_rerank.blend.stage_signals import load_signals
 
     for scope, path in _PLAN_6_RESULTS.items():
         published = {

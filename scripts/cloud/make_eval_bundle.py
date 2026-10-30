@@ -1,9 +1,9 @@
-"""Build the Plan 13 evaluation bundle: the data `src.llm_rank_report` reads, plus the two bge arms.
+"""Build the Plan 13 evaluation bundle: the data `esci_rerank.rerank.llm_rank_report` reads, plus the two bge arms.
 
 The file list was taken by tracing every open the report's inputs make on the
 laptop (fold 0, test, the fold-1 warm-up and the published references). Only
 the product table is slimmed: 1.8 GB whole, it is cut to the judged products
-of both splits with the three columns `src.cross_encoder.text_maps` reads.
+of both splits with the three columns `esci_rerank.rerank.cross_encoder.text_maps` reads.
 The trained LLMs are already on the server and do not go up.
 """
 import subprocess
@@ -40,7 +40,7 @@ products = pd.read_parquet(ROOT / "data/combined/products.parquet", columns=["pr
 products = products.loc[products["product_id"].isin(judged)]
 products.to_parquet(STAGE / "data/combined/products.parquet", index=False)
 
-subprocess.run(["git", "archive", "--format=tar", "-o", str(STAGE / "code.tar"), "HEAD", "src", "pyproject.toml"],
+subprocess.run(["git", "archive", "--format=tar", "-o", str(STAGE / "code.tar"), "HEAD", "esci_rerank", "pyproject.toml"],
                cwd=ROOT, check=True)
 
 # Plain tar: the models are already-compressed safetensors and gzip buys nothing.

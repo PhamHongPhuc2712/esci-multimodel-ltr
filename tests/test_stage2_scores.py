@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.ranker import EARLY_STOP_FOLD, REPORT_FOLD, TRAIN_FOLDS
-from src.stage2_scores import (
+from esci_rerank.ranking.ranker import EARLY_STOP_FOLD, REPORT_FOLD, TRAIN_FOLDS
+from esci_rerank.ranking.stage2_scores import (
     DEFAULT_DIR,
     OOF_SPLIT,
     STAGE2_COLUMNS,
@@ -116,7 +116,7 @@ def test_the_published_numbers_are_the_three_surfaces_a_dump_reproduces():
 
 
 def test_the_dead_out_of_sample_filter_is_gone():
-    import src.stage2_scores as module
+    import esci_rerank.ranking.stage2_scores as module
 
     assert not hasattr(module, "require_out_of_sample")
 
@@ -132,7 +132,7 @@ def test_the_default_directory_is_the_feature_directory():
 
 # --- the fit set, which differs by split ------------------------------------
 # Plan 5 trained fold 0's model on folds 2/3/4 but its *test* model on every
-# train fold (src/rank_report.py: `fit = train` when --split test). Reproducing
+# train fold (esci_rerank/ranking/rank_report.py: `fit = train` when --split test). Reproducing
 # both of its headlines means mirroring both fits, and `in_sample` must follow
 # whichever one ran rather than a knob a caller can set to disagree with it.
 
@@ -182,7 +182,7 @@ def test_no_fold_is_scored_by_a_model_that_trained_on_it(monkeypatch):
     # Review Focus 1. `in_sample` is derived from the fit, so check the fits
     # themselves: record the folds each model trained on and the folds it
     # then scored.
-    import src.stage2_scores as module
+    import esci_rerank.ranking.stage2_scores as module
 
     real_train, real_predict = module.train_ranker, module.predict
     fitted: dict[int, set] = {}
@@ -307,7 +307,7 @@ def test_a_score_frame_that_misses_rows_is_refused():
 
 @pytest.mark.data
 def test_the_persisted_ordering_reproduces_plan_5():
-    from src.metrics import ndcg_per_query
+    from esci_rerank.evaluation.metrics import ndcg_per_query
 
     scores = load_stage2("train")
     matrix = pd.read_parquet("data/features/train.parquet")
@@ -339,7 +339,7 @@ def test_the_persisted_test_ordering_reproduces_plan_5():
     # Plan 5's 0.8579 came from a model fitted on every train fold. Fitting
     # only 2/3/4 lands at 0.8559, so this pins the fit set as much as the
     # score.
-    from src.metrics import ndcg_per_query
+    from esci_rerank.evaluation.metrics import ndcg_per_query
 
     scores = load_stage2("test")
     matrix = pd.read_parquet("data/features/test.parquet")

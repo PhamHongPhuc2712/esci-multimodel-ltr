@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from src.rerank_window import Window
-from src.site import PAGE, RESULTS, pick_example, render, signed
+from esci_rerank.rerank.rerank_window import Window
+from esci_rerank.reports.site import PAGE, RESULTS, pick_example, render, signed
 
 NUMBER = re.compile(r"\b0\.\d{4}\b")
 # Cited, not measured: the published ESCI_baseline the project targets.
@@ -34,7 +34,7 @@ def _committed_values():
 
 
 def test_the_committed_page_is_up_to_date():
-    assert PAGE.read_text(encoding="utf-8") == render(), "run python -m src.site"
+    assert PAGE.read_text(encoding="utf-8") == render(), "run python -m esci_rerank.reports.site"
 
 
 def test_every_figure_on_the_page_comes_from_a_committed_result():

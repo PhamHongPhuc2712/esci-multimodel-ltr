@@ -2,13 +2,13 @@
 
 import pytest
 
-from src.llm_speed_report import (
+from esci_rerank.serving.llm_speed_report import (
     check_agreement,
     deployed_rung,
     lossless,
     run_rung,
 )
-from src.rerank_window import Window
+from esci_rerank.rerank.rerank_window import Window
 
 
 def test_a_rung_whose_interval_excludes_zero_is_not_lossless():

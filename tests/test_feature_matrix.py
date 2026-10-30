@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.feature_matrix import (
+from esci_rerank.features.feature_matrix import (
     ALL_FEATURES,
     CATEGORICAL_FEATURES,
     FEATURE_GROUPS,
@@ -15,7 +15,7 @@ from src.feature_matrix import (
     select_columns,
     sort_for_ranking,
 )
-from src.labels import ESCI_GAINS
+from esci_rerank.data.labels import ESCI_GAINS
 
 
 # --- the groups -------------------------------------------------------------

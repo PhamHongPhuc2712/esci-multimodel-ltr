@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.latency_profile import (
+from esci_rerank.serving.latency_profile import (
     MIN_FOR_P95,
     MIN_FOR_P99,
     hosted_cost_per_1k,

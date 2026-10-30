@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.llm_rank_report import (
+from esci_rerank.rerank.llm_rank_report import (
     CE_ARMS,
     LLM_ARMS,
     OPTIONAL_ARMS,

@@ -4,9 +4,9 @@ import threading
 
 import pytest
 
-from src.llm_point import encode_pair
-from src.rerank_window import Window
-from src.serve_client import (
+from esci_rerank.rerank.llm_point import encode_pair
+from esci_rerank.rerank.rerank_window import Window
+from esci_rerank.serving.serve_client import (
     ServedRanker,
     p_yes_from_top,
     point_payload,

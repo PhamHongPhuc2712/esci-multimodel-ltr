@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.baseline_sbert import product_text, score_pairs
+from esci_rerank.evaluation.baseline_sbert import product_text, score_pairs
 
 
 def _products() -> pd.DataFrame:
@@ -123,7 +123,8 @@ def test_published_sbert_number_is_reproduced():
 
 
 def test_the_device_and_normalise_helpers_are_clip_encoder_s():
-    from src import baseline_sbert, clip_encoder
+    from esci_rerank.evaluation import baseline_sbert
+    from esci_rerank.features import clip_encoder
 
     assert baseline_sbert.resolve_device is clip_encoder.resolve_device
     assert baseline_sbert.l2_normalise is clip_encoder.l2_normalise

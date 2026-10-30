@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.metrics import ndcg_per_query
-from src.rerank_window import (
+from esci_rerank.evaluation.metrics import ndcg_per_query
+from esci_rerank.rerank.rerank_window import (
     DEFAULT_K,
     Window,
     splice_scores,
@@ -171,9 +171,9 @@ def test_stage2_run_matches_the_original_scores():
 
 @pytest.mark.data
 def test_the_identity_splice_reproduces_plan_5_on_the_real_ordering():
-    from src.rank_report import qrels_from_frame
-    from src.ranker import REPORT_FOLD
-    from src.stage2_scores import load_stage2
+    from esci_rerank.ranking.rank_report import qrels_from_frame
+    from esci_rerank.ranking.ranker import REPORT_FOLD
+    from esci_rerank.ranking.stage2_scores import load_stage2
 
     matrix = pd.read_parquet("data/features/train.parquet")
     fold0 = matrix.loc[matrix["fold"] == REPORT_FOLD]
@@ -201,8 +201,8 @@ def test_the_identity_splice_reproduces_plan_5_on_the_real_ordering():
 
 @pytest.mark.data
 def test_the_real_windows_cover_every_judged_pair():
-    from src.ranker import REPORT_FOLD
-    from src.stage2_scores import load_stage2
+    from esci_rerank.ranking.ranker import REPORT_FOLD
+    from esci_rerank.ranking.stage2_scores import load_stage2
 
     matrix = pd.read_parquet("data/features/train.parquet")
     fold0 = matrix.loc[matrix["fold"] == REPORT_FOLD]

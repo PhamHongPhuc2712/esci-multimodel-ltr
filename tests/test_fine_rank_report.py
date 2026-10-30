@@ -2,16 +2,16 @@ import json
 
 import pytest
 
-from src.fine_rank_report import (
+from esci_rerank.rerank.fine_rank_report import (
     ARMS,
     TEST_SAMPLE,
     check_same_queries,
     cost_usd,
     select_test_queries,
 )
-from src.cross_encoder import Latency
-from src.llm_rerank import Usage
-from src.rank_report import evaluate_arm
+from esci_rerank.rerank.cross_encoder import Latency
+from esci_rerank.rerank.llm_rerank import Usage
+from esci_rerank.ranking.rank_report import evaluate_arm
 
 
 def _arm(name, values):
@@ -117,7 +117,7 @@ def test_latency_and_usage_both_reach_the_payload():
 # wall clock of a fully cached replay. The uncached pass had measured 1,180
 # ms/query. Latency is only a latency if calls were actually made.
 
-from src.fine_rank_report import llm_latency  # noqa: E402
+from esci_rerank.rerank.fine_rank_report import llm_latency  # noqa: E402
 
 
 def test_a_fully_cached_pass_has_no_latency():

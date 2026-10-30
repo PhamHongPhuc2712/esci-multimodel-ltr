@@ -6,7 +6,7 @@
 # Waits for the listwise retry, unpacks the evaluation bundle over the repo
 # (its full train.parquet replaces the training bundle's folds-2/3/4 slice),
 # installs what the report imports without moving torch, transformers or peft,
-# then runs src.llm_rank_report on fold 0. The test split is not touched here.
+# then runs esci_rerank.rerank.llm_rank_report on fold 0. The test split is not touched here.
 set -uo pipefail
 
 WORK=/root/plan13
@@ -27,10 +27,10 @@ python3 -m pip install --quiet -c constraints.txt \
 
 cd "$REPO"
 export PYTHONPATH="$REPO" HF_HUB_DISABLE_PROGRESS_BARS=1
-python3 -c "import src.llm_rank_report as r, src.distill_report, src.blend_report, src.stage_signals, src.cross_encoder, src.rank_report; print('imports ok', r.available_arms())" \
+python3 -c "import esci_rerank.rerank.llm_rank_report as r, esci_rerank.rerank.distill_report, esci_rerank.blend.blend_report, esci_rerank.blend.stage_signals, esci_rerank.rerank.cross_encoder, esci_rerank.ranking.rank_report; print('imports ok', r.available_arms())" \
     >> "$LOGS/eval-fold0.log" 2>&1 || { echo "eval: failed imports; see eval-fold0.log" >> "$LOGS/run.log"; exit 1; }
 
-python3 -u -m src.llm_rank_report >> "$LOGS/eval-fold0.log" 2>&1
+python3 -u -m esci_rerank.rerank.llm_rank_report >> "$LOGS/eval-fold0.log" 2>&1
 rc=$?
 echo "eval: exit $rc  ($(date))" >> "$LOGS/run.log"
 echo "EVAL DONE $(date)" >> "$LOGS/run.log"

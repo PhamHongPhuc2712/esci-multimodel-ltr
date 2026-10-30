@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.bootstrap import bootstrap_ci, cluster_delta_ci, paired_delta_ci
+from esci_rerank.evaluation.bootstrap import bootstrap_ci, cluster_delta_ci, paired_delta_ci
 
 
 def test_point_estimate_is_the_plain_mean():

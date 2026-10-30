@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.error_analysis import (
+from esci_rerank.reports.error_analysis import (
     MIN_CATEGORY_QUERIES,
     OTHER,
     category_breakdown,
@@ -216,13 +216,13 @@ def _committed(tmp_path, point):
 
 
 def test_a_reproduced_ablation_3_passes(tmp_path):
-    from src.error_analysis import check_ablation_3
+    from esci_rerank.reports.error_analysis import check_ablation_3
 
     check_ablation_3(0.00752, _committed(tmp_path, 0.0075))
 
 
 def test_a_drifted_ablation_3_raises_naming_both_numbers(tmp_path):
-    from src.error_analysis import check_ablation_3
+    from esci_rerank.reports.error_analysis import check_ablation_3
 
     with pytest.raises(ValueError) as excinfo:
         check_ablation_3(0.0085, _committed(tmp_path, 0.0075))
@@ -230,14 +230,14 @@ def test_a_drifted_ablation_3_raises_naming_both_numbers(tmp_path):
 
 
 def test_every_scope_names_where_ablation_3_is_committed_or_says_it_is_not():
-    from src.error_analysis import COMMITTED_ABLATION_3
+    from esci_rerank.reports.error_analysis import COMMITTED_ABLATION_3
 
     assert set(COMMITTED_ABLATION_3) == {"fold0", "test-sample", "test"}
     assert COMMITTED_ABLATION_3["test-sample"] is None
 
 
 def test_an_empty_population_prints_rather_than_raising():
-    from src.error_analysis import format_attribute
+    from esci_rerank.reports.error_analysis import format_attribute
 
     assert format_attribute(None).strip() == "n/a"
     assert format_attribute(0.5).strip() == "0.500"

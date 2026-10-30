@@ -1,6 +1,6 @@
 import pytest
 
-from src.labels import (
+from esci_rerank.data.labels import (
     ESCI_GAINS,
     ESCI_QRELS,
     QREL_SCALE,

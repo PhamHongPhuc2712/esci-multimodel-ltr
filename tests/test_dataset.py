@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.dataset import (
+from esci_rerank.data.dataset import (
     EXPECTED_LABEL_SHARE,
     EXPECTED_STATS,
     DataInvariantError,

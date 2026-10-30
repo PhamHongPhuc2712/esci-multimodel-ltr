@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.coverage import (
+from esci_rerank.data.coverage import (
     MAX_DENSE_GAIN_SHIFT,
     MIN_JOIN_COVERAGE,
     MissingnessError,
@@ -188,21 +188,21 @@ def test_real_dense_fields_are_not_confounded_with_the_label():
 # --- Plan 12: the join gate is enforced, not only tested ----------------------
 
 def test_a_join_below_the_gate_raises():
-    from src.coverage import CoverageError, check_join_coverage
+    from esci_rerank.data.coverage import CoverageError, check_join_coverage
 
     with pytest.raises(CoverageError, match="0.88"):
         check_join_coverage([{"scope": "rerank", "coverage": 0.8599}])
 
 
 def test_a_join_at_the_gate_passes():
-    from src.coverage import check_join_coverage
+    from esci_rerank.data.coverage import check_join_coverage
 
     check_join_coverage([{"scope": "catalogue", "coverage": 0.5},
                          {"scope": "rerank", "coverage": 0.8959}])
 
 
 def test_a_missing_rerank_scope_cannot_pass_the_gate():
-    from src.coverage import CoverageError, check_join_coverage
+    from esci_rerank.data.coverage import CoverageError, check_join_coverage
 
     with pytest.raises(CoverageError, match="rerank"):
         check_join_coverage([{"scope": "catalogue", "coverage": 0.99}])

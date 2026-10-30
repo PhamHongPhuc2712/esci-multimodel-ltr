@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from src.llm_rerank import (
+from esci_rerank.rerank.llm_rerank import (
     DEFAULT_CONCURRENCY,
     DEFAULT_MODEL,
     MAX_COMPLETION_TOKENS,
@@ -19,8 +19,8 @@ from src.llm_rerank import (
     rerank_windows,
     window_key,
 )
-from src.rerank_window import DEFAULT_K
-from src.rerank_window import Window
+from esci_rerank.rerank.rerank_window import DEFAULT_K
+from esci_rerank.rerank.rerank_window import Window
 
 
 # --- Review Focus 2: only an exact permutation is accepted ------------------
@@ -388,7 +388,7 @@ def test_a_mismatch_can_be_allowed_but_is_printed(tmp_path, capsys):
 
 
 def test_the_prompt_fingerprint_follows_the_prompt(monkeypatch):
-    import src.llm_rerank as module
+    import esci_rerank.rerank.llm_rerank as module
 
     before = prompt_fingerprint()
     monkeypatch.setattr(module, "PROMPT", PROMPT + " ")

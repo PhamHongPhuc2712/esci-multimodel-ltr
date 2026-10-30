@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.dense_embed import (
+from esci_rerank.features.dense_embed import (
     DEFAULT_FIELDS,
     DENSE_DIM,
     MAX_SEQ_TOKENS,
     embed_products,
 )
-from src.embedding_store import open_store
+from esci_rerank.features.embedding_store import open_store
 
 
 def _products(n: int = 3) -> pd.DataFrame:
@@ -96,7 +96,7 @@ def test_the_text_handed_to_the_encoder_leads_with_the_title(tmp_path):
 
 
 def test_a_null_field_is_dropped_rather_than_stringified(tmp_path):
-    # src.baseline_sbert.product_text exists because str(None) would embed the
+    # esci_rerank.evaluation.baseline_sbert.product_text exists because str(None) would embed the
     # literal "None" as product text.
     store = _store(tmp_path)
     encode_texts, seen = _fake_encode()
@@ -117,10 +117,10 @@ def test_a_missing_field_raises(tmp_path):
 
 @pytest.mark.data
 def test_the_real_dense_store_covers_the_corpus():
-    from src.dense_embed import DEFAULT_STORE
+    from esci_rerank.features.dense_embed import DEFAULT_STORE
 
     if not (DEFAULT_STORE / "keys.txt").exists():
-        pytest.skip(f"no store at {DEFAULT_STORE}; run python -m src.dense_embed")
+        pytest.skip(f"no store at {DEFAULT_STORE}; run python -m esci_rerank.features.dense_embed")
     store = open_store(DEFAULT_STORE, dim=DENSE_DIM)
     assert len(store) == 1_215_854
     sample = np.asarray(store.vectors()[:256], dtype=np.float32)
@@ -130,7 +130,7 @@ def test_the_real_dense_store_covers_the_corpus():
 # --- which encoder wrote a store ---------------------------------------------
 
 def test_a_store_remembers_the_encoder_that_wrote_it(tmp_path):
-    from src.dense_embed import check_model_record, write_model_record
+    from esci_rerank.features.dense_embed import check_model_record, write_model_record
 
     write_model_record(tmp_path, "BAAI/bge-small-en-v1.5", max_seq=256)
     check_model_record(tmp_path, "BAAI/bge-small-en-v1.5")  # no raise
@@ -140,7 +140,7 @@ def test_querying_a_store_with_another_encoder_raises(tmp_path):
     # bge-small and all-MiniLM-L12-v2 are both 384-d, so the dimension check
     # passes and every query returns real-looking products from the wrong
     # space. Nothing else would catch it.
-    from src.dense_embed import check_model_record, write_model_record
+    from esci_rerank.features.dense_embed import check_model_record, write_model_record
 
     write_model_record(tmp_path, "BAAI/bge-small-en-v1.5", max_seq=256)
     with pytest.raises(ValueError, match="bge-small"):
@@ -149,7 +149,7 @@ def test_querying_a_store_with_another_encoder_raises(tmp_path):
 
 def test_the_landed_store_has_no_record_and_belongs_to_the_default_model(tmp_path):
     # data/embeddings/dense was written before stores recorded their encoder.
-    from src.dense_embed import DEFAULT_MODEL, check_model_record
+    from esci_rerank.features.dense_embed import DEFAULT_MODEL, check_model_record
 
     store = _store(tmp_path)
     encode_texts, _ = _fake_encode()
@@ -160,7 +160,7 @@ def test_the_landed_store_has_no_record_and_belongs_to_the_default_model(tmp_pat
 
 
 def test_an_empty_store_accepts_any_encoder(tmp_path):
-    from src.dense_embed import check_model_record
+    from esci_rerank.features.dense_embed import check_model_record
 
     check_model_record(tmp_path / "fresh", "models/retriever/bge-base")  # no raise
 
@@ -168,7 +168,7 @@ def test_an_empty_store_accepts_any_encoder(tmp_path):
 def test_the_record_carries_the_token_budget(tmp_path):
     import json
 
-    from src.dense_embed import MODEL_RECORD, write_model_record
+    from esci_rerank.features.dense_embed import MODEL_RECORD, write_model_record
 
     write_model_record(tmp_path, "m", max_seq=256)
     assert json.loads((tmp_path / MODEL_RECORD).read_text()) == {"model": "m", "max_seq": 256}
@@ -177,7 +177,7 @@ def test_the_record_carries_the_token_budget(tmp_path):
 # --- Plan 12: the record checks the token budget too --------------------------
 
 def test_a_different_token_budget_is_refused_naming_both(tmp_path):
-    from src.dense_embed import check_model_record, write_model_record
+    from esci_rerank.features.dense_embed import check_model_record, write_model_record
 
     write_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)
     with pytest.raises(ValueError, match="max_seq") as excinfo:
@@ -186,7 +186,7 @@ def test_a_different_token_budget_is_refused_naming_both(tmp_path):
 
 
 def test_the_same_model_and_budget_pass(tmp_path):
-    from src.dense_embed import check_model_record, write_model_record
+    from esci_rerank.features.dense_embed import check_model_record, write_model_record
 
     write_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)
     check_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)  # no raise
@@ -195,14 +195,14 @@ def test_the_same_model_and_budget_pass(tmp_path):
 def test_a_reader_that_does_not_say_its_budget_is_checked_on_the_model_only(tmp_path):
     # Readers (open_channel) compare the model; only a writer has a budget to
     # disagree about.
-    from src.dense_embed import check_model_record, write_model_record
+    from esci_rerank.features.dense_embed import check_model_record, write_model_record
 
     write_model_record(tmp_path, "BAAI/bge-base-en-v1.5", max_seq=256)
     check_model_record(tmp_path, "BAAI/bge-base-en-v1.5")  # no raise
 
 
 def test_a_refused_resume_leaves_the_record_as_it_was(tmp_path):
-    from src.dense_embed import MODEL_RECORD, check_model_record, write_model_record
+    from esci_rerank.features.dense_embed import MODEL_RECORD, check_model_record, write_model_record
 
     write_model_record(tmp_path, "m", max_seq=256)
     before = (tmp_path / MODEL_RECORD).read_text(encoding="utf-8")

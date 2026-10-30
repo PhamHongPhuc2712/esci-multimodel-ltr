@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.llm_list import (
+from esci_rerank.rerank.llm_list import (
     MAX_MALFORMED_SHARE,
     answer_text,
     check_malformed_share,
@@ -13,8 +13,8 @@ from src.llm_list import (
     target_permutation,
     user_message,
 )
-from src.llm_rerank import parse_permutation
-from src.rerank_window import Window
+from esci_rerank.rerank.llm_rerank import parse_permutation
+from esci_rerank.rerank.rerank_window import Window
 
 
 class ChatTokenizer:

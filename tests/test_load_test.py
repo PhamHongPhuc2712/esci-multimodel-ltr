@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.load_test import (
+from esci_rerank.serving.load_test import (
     MIN_SAMPLES,
     RateResult,
     duration_for,
@@ -12,8 +12,8 @@ from src.load_test import (
     run_rate,
     should_stop,
 )
-from src.latency_profile import profile
-from src.rerank_window import Window
+from esci_rerank.serving.latency_profile import profile
+from esci_rerank.rerank.rerank_window import Window
 
 
 def _windows(n):

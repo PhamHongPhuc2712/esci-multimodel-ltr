@@ -25,7 +25,7 @@ python3 -m pip install --quiet uv "transformers==5.17.0" pandas pyarrow numpy sc
 
 cd "$REPO"
 export PYTHONPATH="$REPO" UV_EXCLUDE_NEWER=2026-10-16T00:00:00Z
-python3 -c "import torch, transformers, src.llm_speed_report, src.load_test, src.serve_client; print('project', torch.__version__, transformers.__version__, torch.cuda.get_device_name())" \
+python3 -c "import torch, transformers, esci_rerank.serving.llm_speed_report, esci_rerank.serving.load_test, esci_rerank.serving.serve_client; print('project', torch.__version__, transformers.__version__, torch.cuda.get_device_name())" \
     >> "$LOGS/build-serve.log" 2>&1 || { log "setup: failed, project imports"; exit 1; }
 
 { uv venv --python 3.12 .venv-serve && uv pip install --python .venv-serve/bin/python vllm \

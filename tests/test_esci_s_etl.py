@@ -4,7 +4,7 @@ import pyarrow.parquet as pq
 import pytest
 import zstandard
 
-from src.esci_s_etl import (
+from esci_rerank.data.esci_s_etl import (
     SCHEMA,
     CorpusInvariantError,
     EtlStats,
@@ -283,7 +283,7 @@ def test_invariants_reject_an_empty_corpus():
 def test_real_corpus_satisfies_every_invariant():
     import pandas as pd
 
-    from src.esci_s_etl import DEFAULT_DEST, EXPECTED_PRESENCE, PRESENCE_TOLERANCE
+    from esci_rerank.data.esci_s_etl import DEFAULT_DEST, EXPECTED_PRESENCE, PRESENCE_TOLERANCE
 
     corpus = pd.read_parquet(DEFAULT_DEST, columns=list(EXPECTED_PRESENCE))
     for column, expected in EXPECTED_PRESENCE.items():

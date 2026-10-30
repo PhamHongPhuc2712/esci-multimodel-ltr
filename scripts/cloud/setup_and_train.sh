@@ -18,7 +18,7 @@ LOGS=$WORK/logs
 mkdir -p "$REPO" "$OUT" "$LOGS"
 cd "$WORK"
 
-if [ ! -d "$REPO/src" ]; then
+if [ ! -d "$REPO/esci_rerank" ]; then
     tar xzf plan13-bundle.tar.gz
     tar xf code.tar -C "$REPO"
     mv data "$REPO/data"
@@ -91,9 +91,9 @@ train_arm() {
 
 for arm in $ARMS; do
     case $arm in
-        point) train_arm point src.llm_point models/llm-rank/point-0.6b ;;
-        list)  train_arm list  src.llm_list  models/llm-rank/list-1.7b ;;
-        4b)    train_arm 4b    src.llm_point models/llm-rank/point-4b \
+        point) train_arm point esci_rerank.rerank.llm_point models/llm-rank/point-0.6b ;;
+        list)  train_arm list  esci_rerank.rerank.llm_list  models/llm-rank/list-1.7b ;;
+        4b)    train_arm 4b    esci_rerank.rerank.llm_point models/llm-rank/point-4b \
                    --backbone Qwen/Qwen3-Reranker-4B --lora-rank 16 ;;
         *)     echo "unknown arm $arm" ;;
     esac

@@ -2,8 +2,8 @@ import random
 
 import pytest
 
-from src.labels import ESCI_QRELS
-from src.metrics import ndcg_per_query
+from esci_rerank.data.labels import ESCI_QRELS
+from esci_rerank.evaluation.metrics import ndcg_per_query
 
 pytrec_eval = pytest.importorskip(
     "pytrec_eval",

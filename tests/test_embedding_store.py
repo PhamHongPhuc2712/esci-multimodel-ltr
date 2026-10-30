@@ -3,9 +3,9 @@ import json
 import numpy as np
 import pytest
 
-from src.clip_encoder import EMBEDDING_DIM
-from src.embed_images import DEFAULT_STORE_ROOT, STORE_NAME
-from src.embedding_store import (
+from esci_rerank.features.clip_encoder import EMBEDDING_DIM
+from esci_rerank.features.embed_images import DEFAULT_STORE_ROOT, STORE_NAME
+from esci_rerank.features.embedding_store import (
     KEYS_NAME,
     META_NAME,
     STORE_DTYPE,
@@ -189,7 +189,7 @@ def test_the_default_dim_is_clips(tmp_path):
 # --- the real run -----------------------------------------------------------
 
 # The one image store every scope reads and writes since 2026-09-30. Taken
-# from src.embed_images rather than spelled out: the rerank path this used to
+# from esci_rerank.features.embed_images rather than spelled out: the rerank path this used to
 # name was deleted, and the test then skipped instead of checking anything.
 REAL_STORE = DEFAULT_STORE_ROOT / STORE_NAME
 
@@ -202,10 +202,10 @@ def test_the_real_store_agrees_with_itself_and_round_trips():
     half-finished write by truncating to min(rows, keys), so opening the store
     is what hides the very disagreement this asserts - and because the repair
     writes, a store must have exactly one writer: do not run this while
-    `python -m src.embed_images` is going.
+    `python -m esci_rerank.features.embed_images` is going.
     """
     if not (REAL_STORE / VECTORS_NAME).exists():
-        pytest.skip(f"no store at {REAL_STORE}; run python -m src.embed_images")
+        pytest.skip(f"no store at {REAL_STORE}; run python -m esci_rerank.features.embed_images")
 
     dim = json.loads((REAL_STORE / META_NAME).read_text(encoding="utf-8"))["dim"]
     row_bytes = dim * np.dtype(STORE_DTYPE).itemsize

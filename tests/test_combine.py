@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.combine import (
+from esci_rerank.data.combine import (
     JUDGEMENT_COLUMNS,
     NO_FOLD,
     combine_judgements,
@@ -158,13 +158,14 @@ def test_unknown_train_query_without_a_fold_raises():
 
 def test_the_product_table_has_no_judged_only_scope():
     # A judged-only product table is candidate-set leakage one flag away.
-    from src.combine import build_parser
+    from esci_rerank.data.combine import build_parser
 
     assert "--scope" not in build_parser()._option_string_actions
 
 
 def test_presence_has_one_definition():
-    from src import combine, coverage
+    from esci_rerank.data import combine
+    from esci_rerank.data import coverage
 
     assert combine.non_empty is coverage.non_empty
     assert not hasattr(combine, "_non_empty")

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.clip_encoder import (
+from esci_rerank.features.clip_encoder import (
     DEFAULT_BATCH_SIZE,
     EMBEDDING_DIM,
     encode_in_batches,
@@ -135,7 +135,7 @@ def test_resolve_device_refuses_cuda_when_it_is_unavailable(monkeypatch):
 def test_real_clip_encodes_images_and_text_into_one_unit_space():
     from PIL import Image
 
-    from src.clip_encoder import load_encoder
+    from esci_rerank.features.clip_encoder import load_encoder
 
     encoder = load_encoder()
     assert encoder.dim == EMBEDDING_DIM

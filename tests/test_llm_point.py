@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from src.llm_point import (
+from esci_rerank.rerank.llm_point import (
     fine_tune_point,
     iterate_batches,
     point_record,
@@ -124,7 +124,7 @@ def test_the_real_reranker_prefers_the_matching_product():
     torch = pytest.importorskip("torch")
     if not torch.cuda.is_available():
         pytest.skip("needs a GPU")
-    from src.llm_point import DEFAULT_BACKBONE, load_point_model, score_pairs
+    from esci_rerank.rerank.llm_point import DEFAULT_BACKBONE, load_point_model, score_pairs
 
     model, tok = load_point_model(DEFAULT_BACKBONE)
     match, other = score_pairs(model, tok, [

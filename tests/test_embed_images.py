@@ -5,16 +5,16 @@ import pandas as pd
 import pytest
 from PIL import Image
 
-from src.clip_encoder import EMBEDDING_DIM
-from src.embed_images import (
+from esci_rerank.features.clip_encoder import EMBEDDING_DIM
+from esci_rerank.features.embed_images import (
     DEFAULT_CHUNK,
     STORE_NAME,
     embed_urls,
     pending_urls,
     product_image_urls,
 )
-from src.embedding_store import open_store
-from src.image_fetch import FetchResult
+from esci_rerank.features.embedding_store import open_store
+from esci_rerank.data.image_fetch import FetchResult
 
 
 def open_store_in_memory():

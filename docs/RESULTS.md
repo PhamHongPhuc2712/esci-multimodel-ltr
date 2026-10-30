@@ -573,7 +573,7 @@ model's 0.8848: serving and INT8 cost nothing measurable on test either.
 ![Stage 3 rerankers: quality against latency](figures/quality-vs-latency.svg)
 
 The chart is generated from the committed JSON by
-`python -m src.quality_latency_chart`. Each point's label names the runtime,
+`python -m esci_rerank.reports.quality_latency_chart`. Each point's label names the runtime,
 precision and card it was timed on, and its x-axis is mean single-query
 latency. MiniLM's point is Plan 6's RTX 3080 timing, the only one not
 re-measured on the A6000.

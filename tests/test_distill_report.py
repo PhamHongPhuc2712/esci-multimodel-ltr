@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from src.distill import INITS, TARGETS
-from src.distill_report import (
+from esci_rerank.rerank.distill import INITS, TARGETS
+from esci_rerank.rerank.distill_report import (
     CAPACITY_ARMS,
     CAPACITY_PAIRS,
     FREE_ARMS,
@@ -105,7 +105,7 @@ def test_the_pilot_arm_name_carries_its_start_and_target():
 
 
 def test_each_pilot_start_has_an_epoch_count():
-    from src.distill import INITS
+    from esci_rerank.rerank.distill import INITS
 
     assert set(PILOT_EPOCHS) == set(INITS)
 
@@ -140,7 +140,7 @@ def test_an_unknown_arm_is_refused():
 
 
 def test_a_missing_model_names_the_command_that_trains_it(tmp_path):
-    with pytest.raises(FileNotFoundError, match="python -m src.distill"):
+    with pytest.raises(FileNotFoundError, match="python -m esci_rerank.rerank.distill"):
         resolve_model_arms(["stage2+ce_windows"], root=tmp_path)
 
 
@@ -185,7 +185,7 @@ def test_every_model_arm_says_what_trained_it(tmp_path):
 
 def test_a_model_with_no_training_record_is_refused(tmp_path):
     # A directory someone copied in by hand could be any model at all.
-    with pytest.raises(FileNotFoundError, match="python -m src.distill"):
+    with pytest.raises(FileNotFoundError, match="python -m esci_rerank.rerank.distill"):
         training_records({"stage2+ce_windows": tmp_path})
 
 
@@ -272,13 +272,13 @@ def test_the_commands_differ_where_the_pairs_say_they_do():
     assert "--batch-size 8" in bge and "--batch-size 16" in b16
     assert "BAAI/bge-reranker-base" in bge and "BAAI/bge-reranker-base" in b16
     groups = TRAIN_COMMANDS["stage2+ce_bge_groups"]
-    assert "src.cross_encoder --loss lambda" in groups
+    assert "esci_rerank.rerank.cross_encoder --loss lambda" in groups
     assert "--batch-size" not in groups            # the landed recipe's own 8
     assert "--gradient-checkpointing" in groups and "--gradient-checkpointing" in b16
 
 
 def _arm(name, per_query):
-    from src.rank_report import evaluate_arm
+    from esci_rerank.ranking.rank_report import evaluate_arm
 
     return evaluate_arm(
         name, per_query, {q: 0.5 for q in per_query}, groups=("retrieval",),
@@ -321,7 +321,7 @@ def test_no_scored_candidate_raises():
 def test_capacity_refuses_a_hand_picked_arm_list(monkeypatch):
     import sys
 
-    from src.distill_report import _main
+    from esci_rerank.rerank.distill_report import _main
 
     monkeypatch.setattr(sys, "argv", ["distill_report", "--capacity", "--arms", "stage2+ce_bge"])
     with pytest.raises(SystemExit, match="--capacity"):
@@ -396,7 +396,7 @@ def test_the_size_arms_take_the_same_queries_per_update():
     # step, or 4 twice - and must agree on how many queries it holds.
     import re
 
-    from src.cross_encoder import DEFAULT_BATCH_SIZE
+    from esci_rerank.rerank.cross_encoder import DEFAULT_BATCH_SIZE
 
     def per_update(command):
         batch = re.search(r"--batch-size (\d+)", command)
@@ -422,7 +422,7 @@ def test_every_preset_names_scored_arms_and_its_own_outputs():
 def test_size_refuses_a_hand_picked_arm_list(monkeypatch):
     import sys
 
-    from src.distill_report import _main
+    from esci_rerank.rerank.distill_report import _main
 
     monkeypatch.setattr(sys, "argv", ["distill_report", "--size", "--arms", "stage2+ce_bge"])
     with pytest.raises(SystemExit, match="--size"):
@@ -432,7 +432,7 @@ def test_size_refuses_a_hand_picked_arm_list(monkeypatch):
 def test_size_and_capacity_are_one_or_the_other(monkeypatch):
     import sys
 
-    from src.distill_report import _main
+    from esci_rerank.rerank.distill_report import _main
 
     monkeypatch.setattr(sys, "argv", ["distill_report", "--size", "--capacity"])
     with pytest.raises(SystemExit):

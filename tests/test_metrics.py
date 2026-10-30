@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from src.metrics import mean_ndcg, ndcg_per_query
+from esci_rerank.evaluation.metrics import mean_ndcg, ndcg_per_query
 
 
 def test_perfect_ranking_scores_one():

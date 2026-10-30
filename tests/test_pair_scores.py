@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.pair_scores import (
+from esci_rerank.features.pair_scores import (
     PAIR_SCORE_COLUMNS,
     bm25_pair_scores,
     bm25_token_lists,

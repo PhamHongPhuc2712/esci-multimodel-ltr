@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from src.quality_latency_chart import chart_points
+from esci_rerank.reports.quality_latency_chart import chart_points
 
 
 def _profile(mean, runtime, precision):

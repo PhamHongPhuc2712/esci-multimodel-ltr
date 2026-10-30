@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from src.report import evaluate_run, format_report, write_report
+from esci_rerank.evaluation.report import evaluate_run, format_report, write_report
 
 
 def _qrels(n_queries: int = 60) -> dict[str, dict[str, int]]:
@@ -92,8 +92,10 @@ def test_evaluating_a_run_that_skips_a_query_raises():
 def test_the_published_baseline_has_one_definition():
     # PROJECT_SPEC.md §5's target, imported by every report rather than typed
     # into three of them.
-    from src import blend_report, fine_rank_report, rank_report
-    from src.report import ESCI_BASELINE
+    from esci_rerank.blend import blend_report
+    from esci_rerank.rerank import fine_rank_report
+    from esci_rerank.ranking import rank_report
+    from esci_rerank.evaluation.report import ESCI_BASELINE
 
     assert ESCI_BASELINE == 0.8562
     assert rank_report.ESCI_BASELINE is fine_rank_report.ESCI_BASELINE is blend_report.ESCI_BASELINE is ESCI_BASELINE

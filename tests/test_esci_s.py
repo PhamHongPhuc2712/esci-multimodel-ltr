@@ -1,6 +1,6 @@
 import pytest
 
-from src.esci_s import (
+from esci_rerank.data.esci_s import (
     CORPUS_COLUMNS,
     is_book,
     normalise_record,

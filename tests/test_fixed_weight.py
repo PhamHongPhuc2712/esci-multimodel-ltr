@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.fixed_weight import (
+from esci_rerank.ranking.fixed_weight import (
     DEFAULT_WEIGHTS,
     apply_normaliser,
     best_weight,

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from src.ablation_table import (
+from esci_rerank.reports.ablation_table import (
     ABLATIONS,
     Row,
     by_arm,
@@ -78,7 +78,7 @@ def test_a_missing_results_file_is_named(tmp_path):
 
 
 def test_results_load_by_stem(tmp_path):
-    from src.ablation_table import REQUIRED_FILES
+    from esci_rerank.reports.ablation_table import REQUIRED_FILES
 
     for name in REQUIRED_FILES:
         (tmp_path / f"{name}.json").write_text(json.dumps({"stem": name}))
@@ -132,7 +132,7 @@ def test_rows_sharing_a_number_order_by_label():
 # --- Plan 12: the findings after the spec ---------------------------------------
 
 def test_every_finding_names_its_file_block_and_both_arms():
-    from src.ablation_table import FINDINGS, REQUIRED_FILES
+    from esci_rerank.reports.ablation_table import FINDINGS, REQUIRED_FILES
 
     for finding in FINDINGS:
         assert finding["file"] in REQUIRED_FILES, finding["label"]
@@ -142,13 +142,13 @@ def test_every_finding_names_its_file_block_and_both_arms():
 
 
 def test_the_findings_cover_stage_4_and_the_reranking_plans():
-    from src.ablation_table import FINDINGS
+    from esci_rerank.reports.ablation_table import FINDINGS
 
     assert [f["label"] for f in FINDINGS] == ["S4", "8a", "9a", "9b", "9c", "11", "13a", "13b"]
 
 
 def test_a_comparison_is_found_by_both_names():
-    from src.ablation_table import find_comparison
+    from esci_rerank.reports.ablation_table import find_comparison
 
     rows = [
         {"arm": "a", "baseline": "stage2", "delta": 1},
@@ -158,14 +158,14 @@ def test_a_comparison_is_found_by_both_names():
 
 
 def test_a_missing_pair_is_named_not_guessed():
-    from src.ablation_table import find_comparison
+    from esci_rerank.reports.ablation_table import find_comparison
 
     with pytest.raises(KeyError, match="'a' against 'c'"):
         find_comparison([{"arm": "a", "baseline": "b"}], "a", "c")
 
 
 def test_build_findings_reads_each_file_by_name():
-    from src.ablation_table import FINDINGS, build_findings
+    from esci_rerank.reports.ablation_table import FINDINGS, build_findings
 
     results = {}
     for finding in FINDINGS:

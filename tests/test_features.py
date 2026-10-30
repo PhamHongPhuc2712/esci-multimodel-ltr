@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from src.features import (
+from esci_rerank.features.features import (
     ESCI_INDICATORS,
     PAIR_FEATURES,
     PRODUCT_FEATURES,

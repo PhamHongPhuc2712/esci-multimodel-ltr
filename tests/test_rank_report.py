@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.feature_matrix import FEATURE_GROUPS
-from src.rank_report import (
+from esci_rerank.features.feature_matrix import FEATURE_GROUPS
+from esci_rerank.ranking.rank_report import (
     ARMS,
     FUSION_FEATURES,
     ArmResult,

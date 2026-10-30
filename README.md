@@ -124,39 +124,39 @@ used where one is present. The steps marked paid need `OPENAI_API_KEY`, and
 every LLM call is cached.
 
 ```bash
-python -m src.esci_s_etl && python -m src.combine        # enrichment corpus, joined tables
-python -m src.embed_images --scope rerank                # CLIP vectors for the judged products, network-bound
-python -m src.bm25_index && python -m src.dense_embed    # the BM25 and dense similarity features
-for s in train test; do python -m src.pair_scores --split $s; python -m src.feature_matrix --split $s; done
-python -m src.rank_report                                # Stage 2 ablations on validation fold 0
-python -m src.rank_report --split test --final --out docs/results/coarse-rank-test.json
-for s in train test; do python -m src.stage2_scores --split $s; done
-python -m src.cross_encoder --loss lambda && python -m src.cross_encoder --loss bce
-python -m src.llm_rerank --split train --folds 0         # Stage 3 hosted LLM (paid)
-python -m src.fine_rank_report --llm-latency-probe 40
-python -m src.fine_rank_report --split test --final --llm-latency-probe 40 --out docs/results/fine-rank-test.json
-python -m src.llm_rerank --split test --folds all --usage-out docs/results/llm-rerank-test-full.json   # (paid, ~2.3 h)
-python -m src.fine_rank_report --split test --final --sample 0 --skip-cascade --out docs/results/fine-rank-test-full.json
-for s in fold0 test-sample test; do python -m src.stage_signals --scope $s; done
-python -m src.blend_report --scope fold0
-python -m src.blend_report --scope test-sample --final --out docs/results/blend-test.json
-python -m src.blend_report --scope test --final --out docs/results/blend-test-full.json
-python -m src.error_analysis && python -m src.ablation_table
-python -m src.stage2_scores --split train --out-of-fold  # training windows from a Stage 2 that never saw them
-python -m src.distill --target labels --out models/cross-encoder/windows
-python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 8 --out models/cross-encoder/bge
-python -m src.distill_report && python -m src.distill_report --pilot
-python -m src.distill_report --split test --final --arms stage2+ce_windows stage2+ce_bge --out docs/results/distill-test.json
-python -m src.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16
-python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base --gradient-checkpointing --out-dir models/cross-encoder/bge-groups
-python -m src.distill_report --capacity && python -m src.distill_report --capacity --split test --final
-python -m src.cross_encoder --loss lambda --backbone BAAI/bge-reranker-large --gradient-checkpointing --batch-size 4 --grad-accum 2 --out-dir models/cross-encoder/bge-large-groups
-python -m src.distill_report --size && python -m src.distill_report --size --split test --final
+python -m esci_rerank.data.esci_s_etl && python -m esci_rerank.data.combine        # enrichment corpus, joined tables
+python -m esci_rerank.features.embed_images --scope rerank                # CLIP vectors for the judged products, network-bound
+python -m esci_rerank.features.bm25_index && python -m esci_rerank.features.dense_embed    # the BM25 and dense similarity features
+for s in train test; do python -m esci_rerank.features.pair_scores --split $s; python -m esci_rerank.features.feature_matrix --split $s; done
+python -m esci_rerank.ranking.rank_report                                # Stage 2 ablations on validation fold 0
+python -m esci_rerank.ranking.rank_report --split test --final --out docs/results/coarse-rank-test.json
+for s in train test; do python -m esci_rerank.ranking.stage2_scores --split $s; done
+python -m esci_rerank.rerank.cross_encoder --loss lambda && python -m esci_rerank.rerank.cross_encoder --loss bce
+python -m esci_rerank.rerank.llm_rerank --split train --folds 0         # Stage 3 hosted LLM (paid)
+python -m esci_rerank.rerank.fine_rank_report --llm-latency-probe 40
+python -m esci_rerank.rerank.fine_rank_report --split test --final --llm-latency-probe 40 --out docs/results/fine-rank-test.json
+python -m esci_rerank.rerank.llm_rerank --split test --folds all --usage-out docs/results/llm-rerank-test-full.json   # (paid, ~2.3 h)
+python -m esci_rerank.rerank.fine_rank_report --split test --final --sample 0 --skip-cascade --out docs/results/fine-rank-test-full.json
+for s in fold0 test-sample test; do python -m esci_rerank.blend.stage_signals --scope $s; done
+python -m esci_rerank.blend.blend_report --scope fold0
+python -m esci_rerank.blend.blend_report --scope test-sample --final --out docs/results/blend-test.json
+python -m esci_rerank.blend.blend_report --scope test --final --out docs/results/blend-test-full.json
+python -m esci_rerank.reports.error_analysis && python -m esci_rerank.reports.ablation_table
+python -m esci_rerank.ranking.stage2_scores --split train --out-of-fold  # training windows from a Stage 2 that never saw them
+python -m esci_rerank.rerank.distill --target labels --out models/cross-encoder/windows
+python -m esci_rerank.rerank.distill --target labels --init BAAI/bge-reranker-base --batch-size 8 --out models/cross-encoder/bge
+python -m esci_rerank.rerank.distill_report && python -m esci_rerank.rerank.distill_report --pilot
+python -m esci_rerank.rerank.distill_report --split test --final --arms stage2+ce_windows stage2+ce_bge --out docs/results/distill-test.json
+python -m esci_rerank.rerank.distill --target labels --init BAAI/bge-reranker-base --batch-size 16 --gradient-checkpointing --out models/cross-encoder/bge-b16
+python -m esci_rerank.rerank.cross_encoder --loss lambda --backbone BAAI/bge-reranker-base --gradient-checkpointing --out-dir models/cross-encoder/bge-groups
+python -m esci_rerank.rerank.distill_report --capacity && python -m esci_rerank.rerank.distill_report --capacity --split test --final
+python -m esci_rerank.rerank.cross_encoder --loss lambda --backbone BAAI/bge-reranker-large --gradient-checkpointing --batch-size 4 --grad-accum 2 --out-dir models/cross-encoder/bge-large-groups
+python -m esci_rerank.rerank.distill_report --size && python -m esci_rerank.rerank.distill_report --size --split test --final
 ```
 
 The self-served LLM rerankers, their serving ladder and load test ran on a
 rented RTX A6000; `CLAUDE.md` lists those commands and `scripts/cloud/` holds
-the scripts that ran there. `python -m src.quality_latency_chart` regenerates
+the scripts that ran there. `python -m esci_rerank.reports.quality_latency_chart` regenerates
 the chart from the committed JSON.
 
 Every configuration is chosen on a validation fold carved from train by query.
@@ -166,7 +166,7 @@ Each test measurement sits behind `--final` and was run once.
 
 | path | what |
 |---|---|
-| `src/` | one module per step, each runnable as `python -m src.<name>` |
+| `esci_rerank/` | the package: one module per step, each runnable as `python -m esci_rerank.<area>.<name>` |
 | `tests/` | one test module per source module; `-m data` runs against the real datasets |
 | `docs/results/` | every committed measurement, as JSON |
 | `docs/RESULTS.md` | the writeup |

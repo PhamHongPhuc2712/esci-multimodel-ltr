@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 import pytest
 
-from src.splits import (
+from esci_rerank.data.splits import (
     FOLDS_PATH,
     N_FOLDS,
     assign_folds,
@@ -24,7 +24,7 @@ def test_fold_assignment_is_stable_across_processes():
     # Python salts str.__hash__ per process, so a fold built on hash() would
     # silently reshuffle between runs and quietly leak validation queries into
     # training. This is the test that pins it.
-    code = "from src.splits import fold_for_query_id; print(fold_for_query_id(12345))"
+    code = "from esci_rerank.data.splits import fold_for_query_id; print(fold_for_query_id(12345))"
     outputs = []
     for hash_seed in ("0", "1", "random"):
         result = subprocess.run(
@@ -124,7 +124,7 @@ def test_load_detects_a_tampered_file(tmp_path):
 
 @pytest.mark.data
 def test_committed_folds_still_match_the_real_train_split():
-    from src.dataset import load_split
+    from esci_rerank.data.dataset import load_split
 
     committed = load_folds(FOLDS_PATH)
     recomputed = assign_folds(load_split("train").judgements["query_id"].unique())

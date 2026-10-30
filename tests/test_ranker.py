@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.feature_matrix import LABEL_CODES
-from src.labels import ESCI_GAINS
-from src.metrics import ndcg_per_query
-from src.ranker import (
+from esci_rerank.features.feature_matrix import LABEL_CODES
+from esci_rerank.data.labels import ESCI_GAINS
+from esci_rerank.evaluation.metrics import ndcg_per_query
+from esci_rerank.ranking.ranker import (
     EARLY_STOP_FOLD,
     LABEL_GAIN,
     LABEL_ORDER,
@@ -73,7 +73,7 @@ def test_overriding_the_gain_mapping_raises():
 
 
 def test_the_trained_ranker_reports_no_ndcg_of_its_own():
-    # The only NDCG in this project comes from src.metrics. A number lifted
+    # The only NDCG in this project comes from esci_rerank.evaluation.metrics. A number lifted
     # from a training log is a different metric wearing the same name.
     ranker = train_ranker(_frame(), _frame(seed=1), FEATURES, num_boost_round=5)
     assert not hasattr(ranker, "ndcg")
@@ -83,7 +83,7 @@ def test_the_trained_ranker_reports_no_ndcg_of_its_own():
 def test_truncation_covers_the_longest_real_query():
     # The largest train query has 188 judged candidates; LightGBM's default
     # truncation of 30 would ignore two thirds of it.
-    from src.ranker import LAMBDARANK_PARAMS
+    from esci_rerank.ranking.ranker import LAMBDARANK_PARAMS
 
     assert LAMBDARANK_PARAMS["lambdarank_truncation_level"] >= 188
 
@@ -170,7 +170,7 @@ def test_predict_run_is_scoreable_by_src_metrics():
 
 
 def test_predict_run_keys_are_strings():
-    # pytrec_eval and src.metrics both key on strings; query_id is int64.
+    # pytrec_eval and esci_rerank.evaluation.metrics both key on strings; query_id is int64.
     train, valid = _frame(), _frame(seed=1)
     run = predict_run(train_ranker(train, valid, FEATURES, num_boost_round=5), valid)
     assert all(isinstance(q, str) for q in run)
@@ -205,7 +205,7 @@ def test_folds_raises_when_a_requested_fold_is_absent():
 
 
 def test_the_label_order_is_derived_from_the_matrix_codes():
-    from src.feature_matrix import LABEL_CODES
-    from src.ranker import LABEL_ORDER
+    from esci_rerank.features.feature_matrix import LABEL_CODES
+    from esci_rerank.ranking.ranker import LABEL_ORDER
 
     assert LABEL_ORDER == tuple(sorted(LABEL_CODES, key=LABEL_CODES.__getitem__))

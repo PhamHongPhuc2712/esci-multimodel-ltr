@@ -42,7 +42,7 @@ log "phase3: starting"
 
 speed() {  # rung, extra args...
     local rung=$1; shift
-    python3 -u -m src.llm_speed_report --rung "$rung" --kind $KIND --model-dir $MODEL "$@" \
+    python3 -u -m esci_rerank.serving.llm_speed_report --rung "$rung" --kind $KIND --model-dir $MODEL "$@" \
         >> "$LOGS/speed-$rung.log" 2>&1
 }
 
@@ -74,7 +74,7 @@ done
 # 2. Quantised checkpoints, calibrated on folds 2/3/4.
 for scheme in w8a8 w4a16; do
     [ -f "$MODEL-$scheme/config.json" ] && { log "phase3: quantize $scheme already built, kept"; continue; }
-    .venv-quant/bin/python -u -m src.quantize_llm --model-dir $MODEL --kind $KIND --scheme $scheme \
+    .venv-quant/bin/python -u -m esci_rerank.serving.quantize_llm --model-dir $MODEL --kind $KIND --scheme $scheme \
         --out $MODEL-$scheme > "$LOGS/quantize-$scheme.log" 2>&1 \
         && log "phase3: quantize $scheme exit 0" || log "phase3: quantize $scheme failed; rung left out"
 done
@@ -103,10 +103,10 @@ done
 # 4. Load test on the deployed rung, fresh server.
 deployed=$(python3 -c "import json; print(json.load(open('docs/results/llm-speed.json'))['deployed_rung'])")
 dir=${DIR[$deployed]}; flags=${FLAGS[$deployed]}
-precision=$(python3 -c "from src.llm_speed_report import RUNGS; print(RUNGS['$deployed'][1])")
+precision=$(python3 -c "from esci_rerank.serving.llm_speed_report import RUNGS; print(RUNGS['$deployed'][1])")
 log "phase3: deployed rung $deployed"
 if server_up "$dir" "$flags"; then
-    python3 -u -m src.load_test --served-name $NAME --model-dir $MODEL --kind $KIND \
+    python3 -u -m esci_rerank.serving.load_test --served-name $NAME --model-dir $MODEL --kind $KIND \
         --precision "$precision" --server-flags "$SERVE_ENV vllm serve $dir --served-model-name $NAME $flags" \
         --gpu-usd-per-hour $PRICE --price-source "$PRICE_SOURCE" > "$LOGS/load-test.log" 2>&1
     log "phase3: load test exit $?"

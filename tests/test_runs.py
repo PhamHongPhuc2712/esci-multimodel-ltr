@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.runs import (
+from esci_rerank.evaluation.runs import (
     qrels_from_judgements,
     read_run,
     run_from_scores,
@@ -69,7 +69,7 @@ def test_run_file_has_the_six_trec_columns_in_rank_order(tmp_path):
 
 
 def test_run_file_ties_are_written_in_ascending_document_id(tmp_path):
-    # Must match the tie policy in src/metrics.py, or a run scores differently
+    # Must match the tie policy in esci_rerank/evaluation/metrics.py, or a run scores differently
     # after a round trip through disk.
     run = {"1": {"B2": 0.5, "B1": 0.5}}
     path = tmp_path / "run.trec"

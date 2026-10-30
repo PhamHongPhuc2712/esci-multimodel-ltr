@@ -3,7 +3,7 @@ import io
 import pytest
 from PIL import Image
 
-from src.image_fetch import (
+from esci_rerank.data.image_fetch import (
     DEFAULT_CONCURRENCY,
     MIN_SIDE,
     RETRY_STATUSES,

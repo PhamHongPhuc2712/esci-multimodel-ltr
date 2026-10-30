@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.quantize_llm import calibration_rows, recipe
+from esci_rerank.serving.quantize_llm import calibration_rows, recipe
 
 
 def _matrix():

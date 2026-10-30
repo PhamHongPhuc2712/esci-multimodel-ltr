@@ -2,7 +2,7 @@
 
 The full product table is 1.8 GB; training needs titles and descriptions of
 training-fold products only, so the bundle carries a slim table with the same
-columns `src.cross_encoder.text_maps` reads. Nothing from fold 0, fold 1 or
+columns `esci_rerank.rerank.cross_encoder.text_maps` reads. Nothing from fold 0, fold 1 or
 the test split goes up except the out-of-fold Stage 2 scores Plan 8 made.
 """
 import subprocess
@@ -36,7 +36,7 @@ judgements = judgements.loc[judgements["query_id"].isin(set(train["query_id"]))]
 judgements.to_parquet(STAGE / "data/combined/judgements.parquet", index=False)
 
 # The code exactly as committed, so the cloud runs what the repo records.
-subprocess.run(["git", "archive", "--format=tar", "-o", str(STAGE / "code.tar"), "HEAD", "src", "pyproject.toml"],
+subprocess.run(["git", "archive", "--format=tar", "-o", str(STAGE / "code.tar"), "HEAD", "esci_rerank", "pyproject.toml"],
                cwd=ROOT, check=True)
 
 with tarfile.open(OUT, "w:gz") as tar:

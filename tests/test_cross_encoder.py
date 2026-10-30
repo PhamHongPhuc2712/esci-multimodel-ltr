@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.cross_encoder import (
+from esci_rerank.rerank.cross_encoder import (
     DEFAULT_BACKBONE,
     DEFAULT_MAX_LENGTH,
     LOSSES,
@@ -14,7 +14,7 @@ from src.cross_encoder import (
     pairwise_dataset,
     training_record,
 )
-from src.ranker import EARLY_STOP_FOLD, REPORT_FOLD, TRAIN_FOLDS
+from esci_rerank.ranking.ranker import EARLY_STOP_FOLD, REPORT_FOLD, TRAIN_FOLDS
 
 
 # --- the document side ------------------------------------------------------
@@ -156,8 +156,8 @@ def test_the_defaults_match_what_was_measured():
 
 import numpy as np
 
-from src.cross_encoder import Latency, measure_latency, rerank
-from src.rerank_window import Window
+from esci_rerank.rerank.cross_encoder import Latency, measure_latency, rerank
+from esci_rerank.rerank.rerank_window import Window
 
 
 class FakeModel:
@@ -263,7 +263,7 @@ def test_latency_needs_at_least_one_query():
 # --- Plan 7: the scores themselves, for the blend ---------------------------
 
 def test_window_scores_keys_on_query_and_document():
-    from src.cross_encoder import window_scores
+    from esci_rerank.rerank.cross_encoder import window_scores
 
     q, d = _maps()
     model = FakeModel({"doc b": 0.9})
@@ -275,7 +275,7 @@ def test_window_scores_keys_on_query_and_document():
 def test_rerank_and_window_scores_agree():
     # rerank is a wrapper over window_scores, so an ordering can never
     # disagree with the scores it came from.
-    from src.cross_encoder import window_scores
+    from esci_rerank.rerank.cross_encoder import window_scores
 
     q, d = _maps()
     scores = window_scores(FakeModel({"doc a": 0.1, "doc b": 0.9, "doc c": 0.5}), _windows(), q, d)
@@ -286,7 +286,7 @@ def test_rerank_and_window_scores_agree():
 
 
 def test_window_scores_of_nothing_is_nothing():
-    from src.cross_encoder import window_scores
+    from esci_rerank.rerank.cross_encoder import window_scores
 
     assert window_scores(FakeModel(), [], *_maps()) == {}
 
@@ -354,8 +354,8 @@ def test_a_training_record_for_an_unknown_loss_is_refused():
 
 
 def test_both_fine_tunes_write_the_same_record_file():
-    # src.distill_report reads this one name from every model directory.
-    from src.distill import TRAINING_RECORD as window_record
+    # esci_rerank.rerank.distill_report reads this one name from every model directory.
+    from esci_rerank.rerank.distill import TRAINING_RECORD as window_record
 
     assert TRAINING_RECORD == window_record == "training.json"
 

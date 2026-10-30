@@ -1,6 +1,6 @@
 import pytest
 
-from src.floor import random_floor, random_run
+from esci_rerank.evaluation.floor import random_floor, random_run
 
 
 def test_uniform_gains_make_every_ordering_ideal():
@@ -62,8 +62,8 @@ def test_zero_trials_raises():
 @pytest.mark.data
 @pytest.mark.slow
 def test_real_test_split_floor_is_near_the_documented_measurement():
-    from src.dataset import load_split
-    from src.runs import qrels_from_judgements
+    from esci_rerank.data.dataset import load_split
+    from esci_rerank.evaluation.runs import qrels_from_judgements
 
     qrels = qrels_from_judgements(load_split("test").judgements)
     result = random_floor(qrels, n_trials=100, seed=0)

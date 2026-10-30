@@ -1,4 +1,4 @@
-"""Every `python -m src.<module>` line in the README and CLAUDE.md, against its module.
+"""Every `python -m esci_rerank.<module>` line in the README, against its module.
 
 A reproduction that follows the README types these lines. A flag the module
 no longer accepts, or a module that no longer imports, is the kind of thing
@@ -18,13 +18,13 @@ from pathlib import Path
 
 import pytest
 
-DOCS = (Path("README.md"), Path("CLAUDE.md"))
+DOCS = (Path("README.md"),)
 _FENCE = re.compile(r"```bash\n(.*?)```", re.S)
 _FLAG = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
 
 
 def commands_in(path: Path) -> list[str]:
-    """Each `python -m src.<module> ...` command in the file's bash fences.
+    """Each `python -m esci_rerank.<module> ...` command in the file's bash fences.
 
     Backslash continuations are folded, trailing `# comments` dropped, and a
     `for ... ; do A; B; done` line is split into its commands.
@@ -40,7 +40,7 @@ def commands_in(path: Path) -> list[str]:
             for part in re.split(r"\s*(?:&&|;)\s*", line):
                 part = re.sub(r"\s+", " ", part).strip()
                 part = re.sub(r"^(?:do|then) ", "", part)
-                if part.startswith("python -m src."):
+                if part.startswith("python -m esci_rerank."):
                     out.append(part)
     return out
 
@@ -64,18 +64,18 @@ def test_commands_are_found_through_loops_and_continuations(tmp_path):
     doc = tmp_path / "doc.md"
     doc.write_text(
         "```bash\n"
-        "for s in train test; do python -m src.a --split $s; python -m src.b --x 1; done\n"
-        "python -m src.c --long-flag 2 \\\n    --other 3   # note\n"
-        "python -m src.d --a && python -m src.e --b\n"
+        "for s in train test; do python -m esci_rerank.a --split $s; python -m esci_rerank.b --x 1; done\n"
+        "python -m esci_rerank.c --long-flag 2 \\\n    --other 3   # note\n"
+        "python -m esci_rerank.d --a && python -m esci_rerank.e --b\n"
         "```\n",
         encoding="utf-8",
     )
     found = commands_in(doc)
-    assert "python -m src.a --split $s" in found
-    assert "python -m src.b --x 1" in found
-    assert "python -m src.c --long-flag 2 --other 3" in found
-    assert {"python -m src.d --a", "python -m src.e --b"} <= set(found)
-    assert flags_of("python -m src.c --long-flag 2 --other 3") == {"--long-flag", "--other"}
+    assert "python -m esci_rerank.a --split $s" in found
+    assert "python -m esci_rerank.b --x 1" in found
+    assert "python -m esci_rerank.c --long-flag 2 --other 3" in found
+    assert {"python -m esci_rerank.d --a", "python -m esci_rerank.e --b"} <= set(found)
+    assert flags_of("python -m esci_rerank.c --long-flag 2 --other 3") == {"--long-flag", "--other"}
 
 
 @pytest.mark.slow
@@ -83,9 +83,9 @@ def test_commands_are_found_through_loops_and_continuations(tmp_path):
 def test_the_module_accepts_every_flag_the_docs_use(command):
     module = module_of(command)
     sub = ""
-    # src.cli, src.llm_point and src.llm_list have subcommands; help for the
-    # subcommand is where its flags live. A module without subcommands still
-    # prints its help when a positional word comes before --help.
+    # Some modules have subcommands (the evaluation CLI, the LLM trainers);
+    # help for the subcommand is where its flags live. A module without
+    # subcommands still prints its help when a positional word comes first.
     parts = shlex.split(command)
     if len(parts) > 3 and not parts[3].startswith("-"):
         sub = parts[3]

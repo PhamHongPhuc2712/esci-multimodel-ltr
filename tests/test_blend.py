@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.blend import (
+from esci_rerank.blend.blend import (
     DEFAULT_WEIGHTS,
     STRATEGIES,
     cross_fit_predict,
@@ -16,7 +16,7 @@ from src.blend import (
     train_combiner,
     train_selector,
 )
-from src.stage_signals import BLEND_FEATURES
+from esci_rerank.blend.stage_signals import BLEND_FEATURES
 
 
 def _frame(n_queries=60, seed=0):
@@ -118,7 +118,7 @@ def test_the_combiner_uses_the_declared_features_only():
 
 
 def test_the_combiner_refuses_a_label_gain_override():
-    # src.ranker derives label_gain from src.labels and refuses an override;
+    # esci_rerank.ranking.ranker derives label_gain from esci_rerank.data.labels and refuses an override;
     # the blend must not be the place that reintroduces LightGBM's default.
     frame = _frame(n_queries=20)
     with pytest.raises(ValueError, match="label_gain"):

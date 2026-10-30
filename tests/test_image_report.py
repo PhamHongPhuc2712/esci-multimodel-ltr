@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.image_report import (
+from esci_rerank.features.image_report import (
     GATE_POOL,
     MIN_TOP1,
     image_coverage,
@@ -82,6 +82,6 @@ def test_coverage_serialises(tmp_path):
 def test_the_default_scope_matches_embed_images():
     # embed_images defaults to the catalogue; a report defaulting to the
     # re-ranking products read a different population by default.
-    from src.image_report import build_parser
+    from esci_rerank.features.image_report import build_parser
 
     assert build_parser().get_default("scope") == "catalogue"

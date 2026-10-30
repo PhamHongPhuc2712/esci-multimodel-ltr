@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.blend_report import (
+from esci_rerank.blend.blend_report import (
     BLEND_ARMS,
     ORACLE,
     SINGLE_STAGES,
@@ -11,8 +11,8 @@ from src.blend_report import (
     selector_routes,
     single_stage_orderings,
 )
-from src.rank_report import evaluate_arm
-from src.rerank_window import Window
+from esci_rerank.ranking.rank_report import evaluate_arm
+from esci_rerank.rerank.rerank_window import Window
 
 
 def _signals():
@@ -166,7 +166,7 @@ def test_a_deviation_reports_what_it_cost():
 
 
 def test_the_declared_arms_cover_every_strategy_and_the_ceiling():
-    from src.blend import STRATEGIES
+    from esci_rerank.blend.blend import STRATEGIES
 
     assert len(BLEND_ARMS) == len(STRATEGIES)
     assert ORACLE not in BLEND_ARMS          # a ceiling is not an arm

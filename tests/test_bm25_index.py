@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.bm25_index import (
+from esci_rerank.features.bm25_index import (
     DEFAULT_FIELDS,
     IDS_NAME,
     build_index,
@@ -147,15 +147,15 @@ def test_the_real_index_round_trips_and_stays_within_its_memory_budget():
     """The plan gate: mmap under 2 GB RSS, a query under 100 ms.
 
     Skips rather than builds - the build peaks at 14 GB and takes four
-    minutes, so it belongs to `python -m src.bm25_index`, not to a test.
+    minutes, so it belongs to `python -m esci_rerank.features.bm25_index`, not to a test.
     """
     import resource
     import time
 
-    from src.bm25_index import DEFAULT_INDEX_DIR
+    from esci_rerank.features.bm25_index import DEFAULT_INDEX_DIR
 
     if not (DEFAULT_INDEX_DIR / IDS_NAME).exists():
-        pytest.skip(f"no index at {DEFAULT_INDEX_DIR}; run python -m src.bm25_index")
+        pytest.skip(f"no index at {DEFAULT_INDEX_DIR}; run python -m esci_rerank.features.bm25_index")
 
     channel = open_channel(DEFAULT_INDEX_DIR)
     assert channel.n_products == 1_215_854
